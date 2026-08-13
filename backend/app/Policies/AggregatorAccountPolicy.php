@@ -3,63 +3,34 @@
 namespace App\Policies;
 
 use App\Models\AggregatorAccount;
+use App\Models\ClinicalRole;
 use App\Models\User;
-use Illuminate\Auth\Access\Response;
 
 class AggregatorAccountPolicy
 {
-    /**
-     * Determine whether the user can view any models.
-     */
-    public function viewAny(User $user): bool
+    use HandlesTenantAuthorisation;
+
+    /** Status and provider only. The secrets themselves are never readable. */
+    public function view(User $user, AggregatorAccount $account): bool
     {
-        return false;
+        return $this->sameTenant($user, $account->tenant_id)
+            && $this->hasAnyRole($user, [ClinicalRole::ClinicAdmin]);
+    }
+
+    public function update(User $user, AggregatorAccount $account): bool
+    {
+        return $this->sameTenant($user, $account->tenant_id)
+            && $this->hasAnyRole($user, [ClinicalRole::ClinicAdmin]);
     }
 
     /**
-     * Determine whether the user can view the model.
+     * NOBODY reads the credentials back.
+     *
+     * Not the administrator who entered them, and not Carevelo. They are
+     * write-only, envelope-encrypted, and decrypted only in memory at the
+     * moment of an outbound call. Phishing the UI yields nothing to read.
      */
-    public function view(User $user, AggregatorAccount $aggregatorAccount): bool
-    {
-        return false;
-    }
-
-    /**
-     * Determine whether the user can create models.
-     */
-    public function create(User $user): bool
-    {
-        return false;
-    }
-
-    /**
-     * Determine whether the user can update the model.
-     */
-    public function update(User $user, AggregatorAccount $aggregatorAccount): bool
-    {
-        return false;
-    }
-
-    /**
-     * Determine whether the user can delete the model.
-     */
-    public function delete(User $user, AggregatorAccount $aggregatorAccount): bool
-    {
-        return false;
-    }
-
-    /**
-     * Determine whether the user can restore the model.
-     */
-    public function restore(User $user, AggregatorAccount $aggregatorAccount): bool
-    {
-        return false;
-    }
-
-    /**
-     * Determine whether the user can permanently delete the model.
-     */
-    public function forceDelete(User $user, AggregatorAccount $aggregatorAccount): bool
+    public function viewSecrets(User $user, AggregatorAccount $account): bool
     {
         return false;
     }

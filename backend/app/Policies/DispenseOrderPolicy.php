@@ -2,65 +2,40 @@
 
 namespace App\Policies;
 
+use App\Models\ClinicalRole;
 use App\Models\DispenseOrder;
 use App\Models\User;
-use Illuminate\Auth\Access\Response;
 
 class DispenseOrderPolicy
 {
-    /**
-     * Determine whether the user can view any models.
-     */
+    use HandlesTenantAuthorisation;
+
+    /** The pharmacy queue. */
     public function viewAny(User $user): bool
     {
-        return false;
+        return $this->hasAnyRole($user, [ClinicalRole::ClinicAdmin, ClinicalRole::Pharmacist]);
     }
 
-    /**
-     * Determine whether the user can view the model.
-     */
-    public function view(User $user, DispenseOrder $dispenseOrder): bool
+    public function view(User $user, DispenseOrder $order): bool
     {
-        return false;
+        return $this->sameTenant($user, $order->tenant_id)
+            && $this->hasAnyRole($user, [
+                ClinicalRole::ClinicAdmin,
+                ClinicalRole::Pharmacist,
+                ClinicalRole::Clinician,
+            ]);
     }
 
-    /**
-     * Determine whether the user can create models.
-     */
-    public function create(User $user): bool
+    public function price(User $user, DispenseOrder $order): bool
     {
-        return false;
+        return $this->sameTenant($user, $order->tenant_id)
+            && $this->hasAnyRole($user, [ClinicalRole::ClinicAdmin, ClinicalRole::Pharmacist]);
     }
 
-    /**
-     * Determine whether the user can update the model.
-     */
-    public function update(User $user, DispenseOrder $dispenseOrder): bool
+    /** Only the pharmacy dispenses. Carevelo never does. */
+    public function dispense(User $user, DispenseOrder $order): bool
     {
-        return false;
-    }
-
-    /**
-     * Determine whether the user can delete the model.
-     */
-    public function delete(User $user, DispenseOrder $dispenseOrder): bool
-    {
-        return false;
-    }
-
-    /**
-     * Determine whether the user can restore the model.
-     */
-    public function restore(User $user, DispenseOrder $dispenseOrder): bool
-    {
-        return false;
-    }
-
-    /**
-     * Determine whether the user can permanently delete the model.
-     */
-    public function forceDelete(User $user, DispenseOrder $dispenseOrder): bool
-    {
-        return false;
+        return $this->sameTenant($user, $order->tenant_id)
+            && $this->hasAnyRole($user, [ClinicalRole::Pharmacist]);
     }
 }

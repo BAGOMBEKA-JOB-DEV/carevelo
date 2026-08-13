@@ -44,32 +44,34 @@ Laravel actively invites blurring this, so the exclusions are explicit:
 ```
 backend/
   app/
-    Modules/
-      Tenancy/        tenant provisioning, resolution, context, branding
-      Identity/       users, roles, invitations, OTP, sessions
-      Compliance/     consent, audit, data-subject requests, retention
-      Catalogue/      services, prices, working hours, availability
-      Scheduling/     appointments, slots, reminders
-      Consultations/  consultation lifecycle, notes, video session brokering
-      Prescriptions/  prescriptions, items, PDF rendering
-      Dispensing/     dispense orders, substitutions, pharmacy queue
-      Delivery/       deliveries, riders, dispatch, status events
-      Payments/       payment intents, aggregator adapters, reconciliation
-      Notifications/  templates, SMS/WhatsApp channels, delivery receipts
-      Broadcasting/   Reverb events, channel definitions, payload shaping
-    Support/          shared primitives: Money, PhoneNumber, Ulid, Reference
+    Models/          + Concerns/ (BelongsToTenant), Scopes/ (TenantScope)
+                     models, enums and their state machines
+    Http/
+      Controllers/Api/V1/    the only product surface
+      Middleware/            ResolveTenant, BindTenantContext
+      Resources/V1/          incl. RiderDeliveryResource (no clinical fields)
+      Responses/             ProblemDetails (RFC 9457)
+    Policies/        authorisation, default-deny
+    Jobs/            TenantAwareJob and descendants
+    Casts/           MoneyCast, PhoneNumberCast
+    Rules/           UgandanPhone
+    Providers/       TenancyServiceProvider (RLS schema macros)
+    Tenancy/         TenantContext, Tenancy
+    Audit/           AuditLog
+    Support/         Money, PhoneNumber, ReferenceGenerator, TenantCache,
+                     StateMachine/ -- no framework code, unit-testable
+    Exceptions/      Tenancy/, StateMachine/
   routes/
-    api.php           the only product surface
-    channels.php      Reverb channel authorisation
-    console.php
-  config/
-    reverb.php
+    api.php          the only product surface
+    channels.php     Reverb channel authorisation
   database/migrations/
   tests/
   composer.json
 ```
 
 There is no `resources/views/` for product UI, and no `resources/js/` or `resources/css/` at all.
+
+**This is the standard Laravel layout**, so `php artisan make:` places files correctly without any move or namespace rewrite. `app/Tenancy`, `app/Audit` and `app/Support` are the only additions to the stock skeleton, each grouping a cross-cutting concern with no conventional Laravel home. See [ADR-0009](../70-decisions/0009-standard-laravel-layout.md).
 
 Each module:
 

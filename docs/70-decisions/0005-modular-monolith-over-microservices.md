@@ -1,6 +1,6 @@
 # ADR-0005 — Modular monolith, not microservices
 
-> **Status:** Accepted
+> **Status:** Accepted (directory layout superseded by [ADR-0009](0009-standard-laravel-layout.md); the reasoning stands)
 > **Date:** 2026-08-13
 > **Derives from:** Business Plan §J.3, §K, §M
 

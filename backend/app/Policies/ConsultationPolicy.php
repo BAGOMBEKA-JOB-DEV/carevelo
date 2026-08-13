@@ -2,65 +2,34 @@
 
 namespace App\Policies;
 
+use App\Models\ClinicalRole;
 use App\Models\Consultation;
 use App\Models\User;
-use Illuminate\Auth\Access\Response;
 
 class ConsultationPolicy
 {
-    /**
-     * Determine whether the user can view any models.
-     */
-    public function viewAny(User $user): bool
-    {
-        return false;
-    }
+    use HandlesTenantAuthorisation;
 
     /**
-     * Determine whether the user can view the model.
+     * A clinic_admin who is not a clinician may read consultations --
+     * administrators of small clinics genuinely need this -- but every such
+     * read is audited.
      */
     public function view(User $user, Consultation $consultation): bool
     {
-        return false;
+        return $this->sameTenant($user, $consultation->tenant_id)
+            && $this->hasAnyRole($user, [ClinicalRole::ClinicAdmin, ClinicalRole::Clinician]);
     }
 
-    /**
-     * Determine whether the user can create models.
-     */
+    /** Only a clinician conducts a consultation. */
     public function create(User $user): bool
     {
-        return false;
+        return $this->hasAnyRole($user, [ClinicalRole::Clinician]);
     }
 
-    /**
-     * Determine whether the user can update the model.
-     */
-    public function update(User $user, Consultation $consultation): bool
+    public function conduct(User $user, Consultation $consultation): bool
     {
-        return false;
-    }
-
-    /**
-     * Determine whether the user can delete the model.
-     */
-    public function delete(User $user, Consultation $consultation): bool
-    {
-        return false;
-    }
-
-    /**
-     * Determine whether the user can restore the model.
-     */
-    public function restore(User $user, Consultation $consultation): bool
-    {
-        return false;
-    }
-
-    /**
-     * Determine whether the user can permanently delete the model.
-     */
-    public function forceDelete(User $user, Consultation $consultation): bool
-    {
-        return false;
+        return $this->sameTenant($user, $consultation->tenant_id)
+            && $this->hasAnyRole($user, [ClinicalRole::Clinician]);
     }
 }

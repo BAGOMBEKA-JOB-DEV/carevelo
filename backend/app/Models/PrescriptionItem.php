@@ -12,6 +12,11 @@ use Illuminate\Database\Eloquent\Model;
  * @property string $id
  * @property string $medicine_name
  * @property bool $is_controlled
+ * @property ?string $form
+ * @property ?string $strength
+ * @property int $quantity
+ * @property ?string $unit
+ * @property string $directions
  */
 class PrescriptionItem extends Model
 {
