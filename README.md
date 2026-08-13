@@ -229,7 +229,7 @@ carevelo/
 
 | Layer | Choice | Why |
 |---|---|---|
-| API | **Laravel 11+**, PHP 8.3+ | Queues, scheduling, policies and testing as coherent first-party pieces; deepest local hiring pool ([ADR-0001](docs/70-decisions/0001-laravel-nextjs-stack.md)) |
+| API | **Laravel 13**, PHP 8.3+ | Queues, scheduling, policies and testing as coherent first-party pieces; deepest local hiring pool ([ADR-0001](docs/70-decisions/0001-laravel-nextjs-stack.md)) |
 | Database | **PostgreSQL 16+** | Row-level security makes tenant isolation a database guarantee ([ADR-0002](docs/70-decisions/0002-postgresql-rls-shared-schema-tenancy.md)) |
 | Frontend | **Next.js**, React | Server-rendered tenant branding with no flash of unbranded content |
 | Realtime | **Laravel Reverb** | Self-hosted, so frames stay in region; reuses the same policies as the REST API ([ADR-0008](docs/70-decisions/0008-laravel-reverb-for-realtime.md)) |

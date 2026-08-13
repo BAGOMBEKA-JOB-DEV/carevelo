@@ -50,7 +50,9 @@ The conventional enterprise answer.
 
 ## Decision
 
-**Laravel (PHP 8.3+) API backend, Next.js (React) frontends, PostgreSQL 16+, Redis, Laravel Horizon.**
+**Laravel 13 (PHP 8.3+) API backend, Next.js (React) frontends, PostgreSQL 16+, Redis, Laravel Horizon.**
+
+Installed with the official Laravel installer (`laravel new backend --database=pgsql --pest --no-node --boost`), keeping the standard Laravel skeleton. Laravel 13 was released March 2026 and supports PHP 8.3–8.5.
 
 Detailed in [Backend](../30-architecture/backend-laravel.md) and [Frontend](../30-architecture/frontend-nextjs.md).
 

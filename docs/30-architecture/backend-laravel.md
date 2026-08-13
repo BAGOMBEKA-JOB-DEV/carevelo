@@ -26,8 +26,8 @@ Laravel actively invites blurring this, so the exclusions are explicit:
 
 | Component | Choice |
 |---|---|
-| Runtime | PHP 8.3+ |
-| Framework | Laravel 11+ |
+| Runtime | PHP 8.3+ (Laravel 13 requires 8.3–8.5) |
+| Framework | **Laravel 13** |
 | Database | PostgreSQL 16+ |
 | Queue / cache | Redis 7+, Laravel Horizon |
 | **Realtime** | **Laravel Reverb** ([ADR-0008](../70-decisions/0008-laravel-reverb-for-realtime.md)) |

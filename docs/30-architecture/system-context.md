@@ -110,7 +110,7 @@ Note that `packages/realtime` authorises against the **API**, not against Reverb
 | **Platform Admin** | `frontend/` | Next.js | Tenant register, subscriptions, system health. No clinical data without break-glass |
 | **api-client** | `frontend/` | Generated TypeScript | The API contract as code. Generated from `openapi.yaml`, committed |
 | **realtime** | `frontend/` | Laravel Echo wrapper | Channel construction and subscription. No app imports Echo directly |
-| **API** | `backend/` | Laravel, PHP 8.3+ | All business logic. Modular monolith ([ADR-0005](../70-decisions/0005-modular-monolith-over-microservices.md)) |
+| **API** | `backend/` | Laravel 13, PHP 8.3+ | All business logic. Modular monolith ([ADR-0005](../70-decisions/0005-modular-monolith-over-microservices.md)) |
 | **Reverb** | `backend/` | Laravel Reverb | WebSocket server. Self-hosted **in region** ([ADR-0008](../70-decisions/0008-laravel-reverb-for-realtime.md)) |
 | **Queue Workers** | `backend/` | Laravel Horizon | Notifications, PDF rendering, reconciliation polls, webhook processing. Every job restores tenant context |
 | **Scheduler** | `backend/` | Laravel | Reminders, reconciliation sweeps, retention jobs |

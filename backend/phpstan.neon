@@ -1,0 +1,23 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    paths:
+        - app
+        - database
+        - routes
+        - tests
+
+    # Level 8 per docs/80-quality/coding-standards.md. Level 8 adds null-safety
+    # analysis, which matters here: a nullable tenant id treated as non-null is
+    # the shape of a cross-tenant bug.
+    level: 8
+
+    # No tmpDir override. PHPStan caches to the system temp directory, which is
+    # outside the repository -- a project-local cache directory that Laravel's
+    # .gitignore does not know about dumps hundreds of hash-named files into
+    # source control.
+
+    ignoreErrors:
+        # Add specific ignores here, each with a comment explaining why.
+        # Never a blanket suppression.
