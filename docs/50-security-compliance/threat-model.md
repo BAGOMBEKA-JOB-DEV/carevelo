@@ -111,6 +111,10 @@ The largest category, and the one with the most specific mitigations.
 | Aggregator secrets in a stack trace | Envelope-encrypted, decrypted only in memory at call time, scrubbed from traces. This is where secrets most often escape |
 | Prescription PDF via a guessable URL | Tenant-partitioned storage, unguessable names, short-lived signed URLs issued after authorisation |
 | **Cache key without a tenant prefix** | Tenant-namespaced keys. **An unprefixed key is a cross-tenant leak with a time delay** — intermittent and load-dependent, therefore hard to find |
+| **Broadcast channel without a tenant prefix** | Tenant-aware channel helper. Worse than the cache case — it **pushes** another tenant's data to a subscriber unprompted ([Realtime Broadcasting](../30-architecture/realtime-broadcasting.md)) |
+| Subscribing to another tenant's channel | Two checks at `/broadcasting/auth`: tenant prefix against the session tenant, then the same policy as the REST read. Mismatch is 403 plus an audit event |
+| Clinical data in a broadcast frame | Payloads carry identifiers and state only. Covered by test |
+| A revoked role retaining a live socket | Role change and deactivation terminate the connection, not only the next request |
 | Production data in staging | Prohibited. Debug from logs and synthetic reproduction |
 | Debug page in production | `APP_DEBUG=false` asserted at boot. A Laravel debug page renders request payloads — here, patient data |
 
@@ -148,7 +152,7 @@ flowchart TD
     F2["2. Job without tenant context"] --> S2{"Is RLS<br/>active?"}
     S2 -->|"yes"| OK["Zero rows.<br/>Fails loudly — correct."]
     S2 -->|"no — failure 1 occurred"| WORST["Job sees EVERY tenant"]
-    F3["3. Cache key without tenant prefix"] --> S3["Tenant A served to tenant B.<br/>Intermittent. Load-dependent.<br/>Passes every functional test."]
+    F3["3. Missing tenant prefix<br/>cache key or channel name"] --> S3["Tenant A reaches tenant B.<br/>Cache: intermittent, load-dependent.<br/>Channel: PUSHED, unprompted."]
 
     S1 --> WORST
     S1 --> LEAK["Cross-tenant read<br/>on any request"]
@@ -172,11 +176,15 @@ The request context is gone by the time a job runs. With RLS the job sees zero r
 
 Mitigated by `TenantAwareJob`, a queue middleware assertion, and an architecture test ([Multi-Tenancy](../30-architecture/multi-tenancy.md)).
 
-### 3. A cache key without a tenant prefix
+### 3. A missing tenant prefix — cache key or broadcast channel
 
-Tenant A's data served to tenant B, intermittently, under load. It passes every functional test, appears only in production, and is extremely hard to reproduce.
+Tenant A's data reaching tenant B. Two variants of one mistake.
 
-Mitigated by a namespaced cache abstraction and a review rule that any manual key construction is a defect.
+**Cache key:** intermittent and load-dependent. It passes every functional test, appears only in production, and is extremely hard to reproduce.
+
+**Broadcast channel:** worse, because the data is *pushed* to the wrong subscriber without anyone requesting it — and it surfaces the moment two clinics have a pharmacist online at once ([Realtime Broadcasting](../30-architecture/realtime-broadcasting.md)).
+
+Mitigated by namespaced abstractions for both, and a review rule that any manually constructed key or channel name is a defect on sight.
 
 ## Security in the development process
 

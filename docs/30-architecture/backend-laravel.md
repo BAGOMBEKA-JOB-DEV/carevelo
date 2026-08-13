@@ -2,9 +2,25 @@
 
 > **Status:** Draft
 > **Last reviewed:** 2026-08-13
-> **Derives from:** [ADR-0001](../70-decisions/0001-laravel-nextjs-stack.md), [ADR-0005](../70-decisions/0005-modular-monolith-over-microservices.md); Business Plan §M
+> **Derives from:** [ADR-0001](../70-decisions/0001-laravel-nextjs-stack.md), [ADR-0005](../70-decisions/0005-modular-monolith-over-microservices.md), [ADR-0007](../70-decisions/0007-separate-backend-frontend-trees.md); Business Plan §M
 
 A **modular monolith**: one deployable application with enforced internal boundaries. §M names founder capacity as a top-three risk, and a distributed system is a tax paid daily by a team that does not exist.
+
+## `backend/` is API-only
+
+Everything in this document lives under **`backend/`**, a sibling of `frontend/` ([ADR-0007](../70-decisions/0007-separate-backend-frontend-trees.md)). The Laravel application serves **JSON and WebSocket frames. It does not render product UI.**
+
+Laravel actively invites blurring this, so the exclusions are explicit:
+
+| Never in `backend/` | Why |
+|---|---|
+| Blade views for a product surface | UI lives in `frontend/`. Laravel may render an **email** or a **prescription PDF** — those are documents, not UI |
+| Vite or Mix asset pipeline | There are no frontend assets here to build |
+| Inertia | Would couple the frontend to controllers and routes |
+| Livewire | Rejected in [ADR-0001](../70-decisions/0001-laravel-nextjs-stack.md) — server round-trips suit neither the consultation surface nor Ugandan mobile connections |
+| Any import reaching into `frontend/` | The boundary is absolute |
+
+**If a task seems to need a Blade view for a screen, it needs an API endpoint instead.**
 
 ## Stack
 
@@ -14,6 +30,7 @@ A **modular monolith**: one deployable application with enforced internal bounda
 | Framework | Laravel 11+ |
 | Database | PostgreSQL 16+ |
 | Queue / cache | Redis 7+, Laravel Horizon |
+| **Realtime** | **Laravel Reverb** ([ADR-0008](../70-decisions/0008-laravel-reverb-for-realtime.md)) |
 | API auth | Laravel Sanctum |
 | Authorisation | Laravel policies + `spatie/laravel-permission` |
 | PDF rendering | Headless Chromium via a queued job |
@@ -22,24 +39,37 @@ A **modular monolith**: one deployable application with enforced internal bounda
 | Style | Laravel Pint (PSR-12) |
 | Architecture tests | Pest architecture presets |
 
-## Module layout
+## Tree layout
 
 ```
-app/
-  Modules/
-    Tenancy/        tenant provisioning, resolution, context, branding
-    Identity/       users, roles, invitations, OTP, sessions
-    Compliance/     consent, audit, data-subject requests, retention
-    Catalogue/      services, prices, working hours, availability
-    Scheduling/     appointments, slots, reminders
-    Consultations/  consultation lifecycle, notes, video session brokering
-    Prescriptions/  prescriptions, items, PDF rendering
-    Dispensing/     dispense orders, substitutions, pharmacy queue
-    Delivery/       deliveries, riders, dispatch, status events
-    Payments/       payment intents, aggregator adapters, reconciliation
-    Notifications/  templates, SMS/WhatsApp channels, delivery receipts
-  Support/          shared primitives: Money, PhoneNumber, Ulid, Reference
+backend/
+  app/
+    Modules/
+      Tenancy/        tenant provisioning, resolution, context, branding
+      Identity/       users, roles, invitations, OTP, sessions
+      Compliance/     consent, audit, data-subject requests, retention
+      Catalogue/      services, prices, working hours, availability
+      Scheduling/     appointments, slots, reminders
+      Consultations/  consultation lifecycle, notes, video session brokering
+      Prescriptions/  prescriptions, items, PDF rendering
+      Dispensing/     dispense orders, substitutions, pharmacy queue
+      Delivery/       deliveries, riders, dispatch, status events
+      Payments/       payment intents, aggregator adapters, reconciliation
+      Notifications/  templates, SMS/WhatsApp channels, delivery receipts
+      Broadcasting/   Reverb events, channel definitions, payload shaping
+    Support/          shared primitives: Money, PhoneNumber, Ulid, Reference
+  routes/
+    api.php           the only product surface
+    channels.php      Reverb channel authorisation
+    console.php
+  config/
+    reverb.php
+  database/migrations/
+  tests/
+  composer.json
 ```
+
+There is no `resources/views/` for product UI, and no `resources/js/` or `resources/css/` at all.
 
 Each module:
 
@@ -213,6 +243,16 @@ Every scheduled command declares its tenant scope explicitly. A command that ite
 
 **On the reconciliation sweep:** the command *runs* every minute, but it does not poll every pending intent every minute. It selects the intents whose next poll is **due** under the graduated schedule — frequent while a mobile-money confirmation is plausibly imminent, sparse thereafter. [Webhooks](../40-api/webhooks.md) holds that schedule and is the single source for it; do not restate the intervals here, or they will drift.
 
+## Broadcasting
+
+The `Broadcasting` module owns Reverb events, channel definitions and payload shaping. Full specification in [Realtime Broadcasting](realtime-broadcasting.md).
+
+Two rules that belong here, because they are backend structure rather than realtime policy:
+
+**Broadcasts originate from domain events, never from controllers.** A controller that broadcasts directly has coupled a transport concern to a request, and the same state change made by a queued job or a console command would then not broadcast. `PrescriptionIssued` is emitted by `Prescriptions`; `Broadcasting` subscribes, exactly as `Notifications` does.
+
+**Payload shaping lives in `Broadcasting`, not in the emitting module.** The rule that a payload carries identifiers and state but never clinical content is enforced in one place, where it can be tested once.
+
 ## External integrations
 
 Each external service sits behind a domain interface, with the adapter in `Infrastructure`:
@@ -230,10 +270,9 @@ Adapters: timeouts on every call, circuit breaker on repeated failure, structure
 
 Per the hook discipline in [Phase 2 & 3](../10-product/phase-2-3-outline.md): the interface exists because two providers are genuinely in scope (Flutterwave and Pesapal), not on speculation.
 
-## What lives outside Laravel
+## What lives outside `backend/`
 
-Almost nothing, deliberately.
-
+- **All product UI.** In `frontend/` ([Frontend](frontend-nextjs.md), [ADR-0007](../70-decisions/0007-separate-backend-frontend-trees.md)).
 - **Video media** goes browser-to-provider and never traverses the API ([Realtime & Video](realtime-and-video.md)).
 - **Card data** never touches us; PCI scope stays with the aggregator.
 - **Funds.** Permanently.

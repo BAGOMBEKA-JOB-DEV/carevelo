@@ -12,9 +12,44 @@ Every rule here is stated in full somewhere in [docs/](docs/) and linked. **This
 
 Carevelo is a **software supplier and data processor only**. Each clinic is the data controller.
 
-**Current state: documentation only. There is no application code yet.** The stack is decided — Laravel (PHP 8.3+) API, Next.js frontends, PostgreSQL 16+ with row-level security ([ADR-0001](docs/70-decisions/0001-laravel-nextjs-stack.md)).
+**Current state: documentation only. There is no application code yet.** The stack is decided — Laravel (PHP 8.3+) API, Next.js frontends, PostgreSQL 16+ with row-level security, Laravel Reverb for realtime ([ADR-0001](docs/70-decisions/0001-laravel-nextjs-stack.md), [ADR-0008](docs/70-decisions/0008-laravel-reverb-for-realtime.md)).
 
 Start at [docs/README.md](docs/README.md). Its six-document reading order takes about an hour and is the fastest path to being useful here.
+
+---
+
+## Repository layout — the boundary you are most likely to break
+
+```
+carevelo/
+  docs/        # describes the system — belongs to neither half
+  backend/     # Laravel. NEVER contains frontend code
+  frontend/    # Next.js workspace. NEVER contains PHP
+```
+
+> **Never write frontend code inside `backend/`, or backend code inside `frontend/`.**
+>
+> No Blade views for product surfaces. No Vite or Mix pipeline in Laravel. No Inertia, no Livewire. No PHP anywhere in the Next.js tree. No relative import that escapes either directory. No shared `lib/`, `common/` or `types/` at repository root.
+>
+> The two halves communicate **only** over the versioned HTTP API and authenticated WebSocket frames.
+>
+> **If a task seems to need a shared file, it does not** — it needs an API field, or a regenerated API client.
+
+Laravel *may* render an email or a prescription PDF inside `backend/`. Those are documents, not UI.
+
+**`frontend/` layout:**
+
+```
+frontend/
+  apps/{patient-portal,clinic-console,platform-admin}
+  packages/{ui,api-client,realtime}
+```
+
+`packages/` is shared **within `frontend/` only**.
+
+**The API contract.** `docs/40-api/openapi.yaml` is the published contract. `frontend/packages/api-client` is **generated from it and committed** — so `frontend/` builds without knowing `backend/` exists. **Change the API → regenerate and commit the client in the same change.** A CI gate fails otherwise.
+
+→ [ADR-0007](docs/70-decisions/0007-separate-backend-frontend-trees.md) · [Backend](docs/30-architecture/backend-laravel.md) · [Frontend](docs/30-architecture/frontend-nextjs.md)
 
 ---
 
@@ -77,6 +112,7 @@ Read [Multi-Tenancy](docs/30-architecture/multi-tenancy.md) in full before touch
 | **Composite foreign keys on `(tenant_id, id)`** | Makes a cross-tenant reference structurally impossible, not merely forbidden |
 | **Every `ShouldQueue` extends `TenantAwareJob`** or carries `#[PlatformScoped]` | The request context is gone when a job runs. An architecture test enforces this |
 | **Every cache key is tenant-namespaced** | A manually built key without a tenant prefix is a cross-tenant leak with a time delay |
+| **Every broadcast channel name is tenant-prefixed** | Same defect as the cache key, but **pushed live** to the wrong subscriber. `private-tenant.{tenantId}.…`, always |
 | **Tenant identity never comes from client input** | Host or session only. Never a path, query, header or body field |
 | **The app role is not the table owner and holds `NOBYPASSRLS`** | See failure mode 1 below |
 
@@ -104,6 +140,7 @@ Each of these already has a test specified in [Test Strategy](docs/80-quality/te
 | **An error response** | No clinical content, no stack trace, no internal detail |
 | **An audit event** | It records *that* something happened to *which* record, never what the record said |
 | **A rider payload** | Recipient, phone, address, package reference. **A distinct resource class with no clinical fields** — not the dispatcher resource with fields hidden in the UI |
+| **A Reverb broadcast payload** | Identifiers and state only: `{order_id, status}`. A frame is a disclosure surface exactly as an SMS is, and a role channel fans out to several subscribers at once |
 
 Also never: aggregator credentials in any response or log (write-only, envelope-encrypted, unreadable by *every* role including platform roles); production data in a non-production environment; `APP_DEBUG=true` in production.
 
@@ -150,11 +187,14 @@ These are corrected by **addition, never overwrite**. A medical record that can 
 | If you are touching | Read first |
 |---|---|
 | Anything at all | [docs/README.md](docs/README.md) reading order |
+| Repository structure | [ADR-0007](docs/70-decisions/0007-separate-backend-frontend-trees.md) |
 | A new table or model | [Multi-Tenancy](docs/30-architecture/multi-tenancy.md), [Domain Model](docs/20-domain/domain-model.md) |
 | Payments | [Payments Regulatory Boundary](docs/50-security-compliance/payments-regulatory-boundary.md), [H5](docs/10-product/prd-h5-payments-non-custodial.md), [Webhooks](docs/40-api/webhooks.md) |
 | Auth or permissions | [Auth](docs/40-api/authentication-and-sessions.md), [RBAC Matrix](docs/50-security-compliance/rbac-matrix.md) |
 | A state transition | [State Machines](docs/20-domain/state-machines.md) |
+| **The API contract** | [API Conventions](docs/40-api/api-conventions.md) — **then regenerate and commit `frontend/packages/api-client`** |
 | An API endpoint | [API Conventions](docs/40-api/api-conventions.md), [Endpoint Catalogue](docs/40-api/endpoint-catalogue.md) |
+| **Realtime / Reverb / a channel** | [Realtime Broadcasting](docs/30-architecture/realtime-broadcasting.md) |
 | Notifications | [Notifications](docs/10-product/notifications-sms-whatsapp.md) |
 | Anything patient-facing | [White-Labeling](docs/10-product/white-labeling-and-branding.md), [Frontend](docs/30-architecture/frontend-nextjs.md) |
 | A queued job | [Multi-Tenancy](docs/30-architecture/multi-tenancy.md) queue hazard section |

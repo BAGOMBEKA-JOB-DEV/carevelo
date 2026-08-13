@@ -10,6 +10,22 @@ Carevelo is a **software supplier and data processor only**. It does not employ 
 
 Pre-implementation. This repository currently contains the commercial and technical documentation that the system will be built from. No application code yet.
 
+## Repository layout
+
+```
+carevelo/
+  AGENTS.md      guidance for AI agents — read before writing code
+  docs/          the system of record. Belongs to neither half
+  backend/       Laravel API. Never contains frontend code
+  frontend/      Next.js workspace. Never contains PHP
+    apps/{patient-portal,clinic-console,platform-admin}
+    packages/{ui,api-client,realtime}
+```
+
+**`backend/` and `frontend/` communicate only over the versioned HTTP API and authenticated WebSocket frames.** No shared source files, no cross-directory imports, no build coupling. The API contract is published as [docs/40-api/openapi.yaml](docs/40-api/openapi.yaml), from which the frontend's TypeScript client is generated and committed — so the contract is a document both sides read, not a dependency one has on the other.
+
+See [ADR-0007](docs/70-decisions/0007-separate-backend-frontend-trees.md) for why.
+
 ## Documentation
 
 Start at **[docs/README.md](docs/README.md)** — it carries the index, the reading order for newcomers, and the documentation conventions.
@@ -24,7 +40,7 @@ Fast paths:
 
 ## Stack
 
-Laravel (PHP) API backend, Next.js (React) frontends, PostgreSQL with row-level security. See [ADR-0001](docs/70-decisions/0001-laravel-nextjs-stack.md).
+Laravel (PHP) API backend, Next.js (React) frontends, PostgreSQL with row-level security, Laravel Reverb for realtime. See [ADR-0001](docs/70-decisions/0001-laravel-nextjs-stack.md) and [ADR-0008](docs/70-decisions/0008-laravel-reverb-for-realtime.md).
 
 ## Licence
 

@@ -53,6 +53,28 @@ We set tenant context with `SET LOCAL app.tenant_id`, which is transaction-scope
 
 This is documented here because it is invisible in the application and catastrophic in effect. The deployment configuration test asserts transaction mode.
 
+## Two deployables
+
+`backend/` and `frontend/` build, test and deploy **independently** ([ADR-0007](../70-decisions/0007-separate-backend-frontend-trees.md)). CI is path-filtered: a change touching only `frontend/` does not run the PHP suite, and vice versa.
+
+`docs/` belongs to neither, and a change touching `docs/40-api/openapi.yaml` triggers **both** — the backend because the contract is its obligation, the frontend because its client must be regenerated.
+
+**Ordering:** on an additive contract change, **the backend deploys first.** A frontend calling a field the backend does not yet serve fails; a backend serving a field nobody reads yet is harmless. On a removal, the order reverses and the removal waits a release — the same expand-and-contract discipline as migrations.
+
+Rollback is independent: either half can go back without the other, which is only true because contract changes are additive within a version.
+
+## Processes
+
+| Process | Tree | Notes |
+|---|---|---|
+| Next.js instances | `frontend/` | Three apps, independently deployed |
+| Laravel API | `backend/` | Stateless, horizontally scaled |
+| **Reverb** | `backend/` | **Long-lived supervised process.** Restarted on release; clients reconnect with backoff and re-authorise every channel |
+| Horizon workers | `backend/` | Restarted on release, in-flight jobs complete |
+| Scheduler | `backend/` | Single leader instance |
+
+Reverb holds open connections, so a restart drops every subscriber at once. Clients handle this — Echo reconnects and re-authorises rather than assuming a prior subscription survives ([Realtime Broadcasting](realtime-broadcasting.md)) — but it is another reason to deploy outside clinic hours.
+
 ## Deployment pipeline
 
 ```mermaid
@@ -73,14 +95,17 @@ flowchart LR
 
 **CI gates, all blocking:**
 
-1. Pint (style), PHPStan level 8, ESLint and TypeScript.
+1. Pint and PHPStan level 8 (`backend/`); ESLint and TypeScript (`frontend/`).
 2. Unit and integration tests.
 3. **Cross-tenant isolation tests** — see [Test Strategy](../80-quality/test-strategy.md).
 4. **Architecture tests** — module boundaries; every queueable job restores tenant context.
 5. **Schema test** — every table either carries `tenant_id` with RLS enabled and forced, or is on the platform-scoped list.
-6. **Forbidden-identifier check** — no `wallet`, `balance`, `float`, `escrow`, `payout` or `settlement` in the schema or in payment code ([Payments Regulatory Boundary](../50-security-compliance/payments-regulatory-boundary.md)).
-7. Dependency vulnerability scan.
-8. Secret scan on the diff.
+6. **Forbidden-identifier check** — the identifiers named in [Payments Regulatory Boundary](../50-security-compliance/payments-regulatory-boundary.md).
+7. **Tree-boundary check** — no PHP under `frontend/`, no product-UI templates or asset pipeline under `backend/`, no import crossing between them ([ADR-0007](../70-decisions/0007-separate-backend-frontend-trees.md)).
+8. **API client in sync** — regenerating the client from `openapi.yaml` produces no diff against the committed one.
+9. **Channel-authorisation tests** — every Reverb channel is tenant-prefixed and policy-guarded ([Realtime Broadcasting](realtime-broadcasting.md)).
+10. Dependency vulnerability scan.
+11. Secret scan on the diff.
 
 An isolation-test failure blocks release with no severity discussion available.
 

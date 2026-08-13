@@ -6,6 +6,22 @@
 
 One REST API serving all three frontends. JSON in, JSON out.
 
+## The API is the only contract
+
+`backend/` and `frontend/` share nothing but this API and authenticated WebSocket frames ([ADR-0007](../70-decisions/0007-separate-backend-frontend-trees.md)). Three consequences that shape the design:
+
+**No endpoint exists solely to serve a frontend rendering concern.** An endpoint shaped around one screen's layout couples the backend to a UI that is supposed to be replaceable. Endpoints expose domain resources; assembling a screen from them is the frontend's job.
+
+**[openapi.yaml](openapi.yaml) is the published contract**, not documentation of one. `frontend/packages/api-client` is generated from it and committed, and a CI gate fails if the two drift ([Frontend](../30-architecture/frontend-nextjs.md)). **Changing the API means regenerating and committing the client in the same change.**
+
+**The backend is authoritative on every rule.** The frontend may validate to give a fast, friendly error; it may never be the only place a rule is enforced.
+
+### Cross-origin
+
+The frontends are served from different hosts to the API, so requests are **credentialed cross-origin**: `Access-Control-Allow-Credentials: true`, an explicit per-tenant origin allow-list (never `*`, which is incompatible with credentials anyway), and cookies scoped to the parent domain so a tenant subdomain can authenticate against the API host.
+
+Preflight responses are cached, and the allow-list is derived from the tenant register — an unknown origin is rejected without revealing whether the tenant exists ([Multi-Tenancy](../30-architecture/multi-tenancy.md)).
+
 ## Versioning
 
 Path-based: `/v1/appointments`. Blunt, obvious, and trivially cacheable and routable — which matters more than elegance when the audience is three first-party clients.

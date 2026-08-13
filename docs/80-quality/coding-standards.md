@@ -6,14 +6,32 @@
 
 Style is automated so it is not discussed. This document covers the parts a formatter cannot enforce.
 
+## The tree boundary
+
+Before anything else: **`backend/` and `frontend/` never reach into each other** ([ADR-0007](../70-decisions/0007-separate-backend-frontend-trees.md)).
+
+| Never | |
+|---|---|
+| PHP anywhere under `frontend/` | |
+| Blade views for product surfaces, Vite/Mix, Inertia or Livewire under `backend/` | Emails and prescription PDFs are documents, not UI — those are fine |
+| An import or relative path escaping either tree | |
+| A shared `lib/`, `common/` or `types/` at repository root | |
+| Hand-written API types in `frontend/` | Generated from `openapi.yaml` and committed |
+
+**If a change seems to need a shared file, it needs an API field instead.** Enforced by a CI tree-boundary check.
+
 ## Automated
 
-| Tool | Scope |
+Each tree has its own tooling and its own pipeline.
+
+| Tool | Tree |
 |---|---|
-| Laravel Pint (PSR-12) | PHP formatting |
-| PHPStan / Larastan, level 8 | PHP static analysis |
-| ESLint + Prettier | JS/TS formatting and linting |
-| TypeScript, strict | Type checking |
+| Laravel Pint (PSR-12) | `backend/` |
+| PHPStan / Larastan, level 8 | `backend/` |
+| Pest | `backend/` |
+| ESLint + Prettier | `frontend/` |
+| TypeScript, strict | `frontend/` |
+| Vitest, Playwright | `frontend/` |
 
 All blocking in CI. **Formatting is never a review comment** — if it passed the formatter, it is correct.
 
@@ -83,6 +101,19 @@ Jobs are idempotent and carry a deterministic key where they have an external ef
 ## Cache
 
 Always through the tenant-namespaced abstraction. **A manually constructed key is a defect** — an unprefixed key is a cross-tenant leak with a time delay, appearing intermittently and only under load ([Threat Model](../50-security-compliance/threat-model.md)).
+
+## Broadcast channels
+
+The same rule, one degree sharper. Channel names are built through the tenant-aware helper, never concatenated by hand:
+
+```php
+Broadcast::channel('tenant.{tenantId}.pharmacy-queue', ...);   // yes
+Broadcast::channel('pharmacy-queue', ...);                     // NEVER
+```
+
+An unprefixed channel does not wait for a request to leak — it **pushes** another tenant's data to a subscriber. Payloads carry identifiers and state only; never clinical content ([Realtime Broadcasting](../30-architecture/realtime-broadcasting.md)).
+
+Broadcasts are emitted from domain events, never from controllers.
 
 ## Logging
 

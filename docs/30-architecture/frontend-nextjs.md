@@ -2,11 +2,59 @@
 
 > **Status:** Draft
 > **Last reviewed:** 2026-08-13
-> **Derives from:** [ADR-0001](../70-decisions/0001-laravel-nextjs-stack.md); Business Plan §H, §D
+> **Derives from:** [ADR-0001](../70-decisions/0001-laravel-nextjs-stack.md), [ADR-0007](../70-decisions/0007-separate-backend-frontend-trees.md); Business Plan §H, §D
 
-Three surfaces, one codebase or three — see below. All talk to the Laravel API; none talks to the database.
+Three surfaces in one workspace under **`frontend/`**, a sibling of `backend/`. All talk to the Laravel API over HTTP and to Reverb over an authenticated WebSocket. **None talks to the database, and none contains PHP.**
 
 The governing constraint is the patient's device and connection: a mid-range Android phone on variable mobile data ([Personas](../00-overview/personas-and-actors.md)). Every decision here is downstream of that.
+
+## `frontend/` is API-only
+
+The boundary is absolute in both directions ([ADR-0007](../70-decisions/0007-separate-backend-frontend-trees.md)):
+
+| Never in `frontend/` | Instead |
+|---|---|
+| PHP, of any kind | It belongs in `backend/` |
+| A direct database connection | Everything through the API |
+| An import escaping into `backend/` | The generated client, or a new API field |
+| Hand-written API request types | Generated from `docs/40-api/openapi.yaml` |
+| Business rules that the backend does not also enforce | Client validation exists only to give a fast, friendly error. **The backend is authoritative** |
+
+## Tree layout
+
+```
+frontend/
+  apps/
+    patient-portal/      clinic-branded, SSR, strict weight budget
+    clinic-console/      staff — schedule, consultations, pharmacy, dispatch, admin
+    platform-admin/      Carevelo staff
+  packages/
+    ui/                  shared components and design tokens
+    api-client/          GENERATED from docs/40-api/openapi.yaml — committed
+    realtime/            Laravel Echo wrapper for Reverb
+  package.json           workspace root
+```
+
+Three apps rather than one, because the patient portal's requirements are genuinely different: public, tenant-branded, and **the one that must load on the worst connection**. Bundling it with a heavy staff console penalises exactly the user who can least afford it. Separate deployments also mean an admin bug cannot take down patient booking.
+
+`packages/` is shared **within `frontend/` only**. There is no shared directory at repository root, and never will be.
+
+## The generated API client
+
+```mermaid
+flowchart LR
+    BE["backend/<br/>Laravel API"] -.->|"implements"| SPEC["docs/40-api/openapi.yaml<br/><i>the published contract</i>"]
+    SPEC -->|"code generation<br/>at build time"| GEN["frontend/packages/api-client<br/><i>generated, COMMITTED</i>"]
+    GEN --> APPS["frontend/apps/*"]
+    APPS -->|"HTTP / JSON"| BE
+    CI{{"CI gate: is the committed client<br/>in sync with the spec?"}} -.-> GEN
+
+    style SPEC fill:#1f4f6f,stroke:#0d2c3d,color:#fff
+```
+
+The client is **committed, not generated at install time**, so `frontend/` builds with no knowledge that `backend/` exists. The contract is a document both sides read, not a dependency one has on the other.
+
+**Changing the API means regenerating and committing the client in the same change** — a CI gate fails otherwise ([Environments & Deployment](environments-and-deployment.md)).
 
 ## Surfaces
 
@@ -33,9 +81,24 @@ flowchart TB
     style DB fill:#1f4f6f,stroke:#0d2c3d,color:#fff
 ```
 
-Recommendation: **separate Next.js applications**, sharing a component library and a generated API client.
+## Realtime
 
-The patient portal has genuinely different requirements from the staff console — public, SEO-relevant, tenant-branded, and the one that must work on the worst connection. Bundling it with a heavy staff console penalises exactly the user who can least afford it. Separate deployments also mean an admin bug cannot take down patient booking.
+Laravel Echo, wrapped in `packages/realtime` so **no application imports Echo directly**. The wrapper owns channel-name construction, which is what makes an unprefixed — and therefore cross-tenant — channel name impossible to build by hand ([Realtime Broadcasting](realtime-broadcasting.md)).
+
+Authentication is the **session cookie** against `/broadcasting/auth`. No separate token, nothing in client storage.
+
+| Surface | Subscribes to |
+|---|---|
+| Patient portal | own patient channel |
+| Clinic console — pharmacy | pharmacy-queue, own user channel |
+| Clinic console — dispatch | dispatch-board, own user channel |
+| Clinic console — clinician | own user channel |
+| Rider view | own rider channel only |
+| Platform admin | nothing tenant-scoped |
+
+**A frame is a signal, not data.** On receiving one the client re-fetches through the API, where authorisation actually runs. Nothing renders from payload content, and payment state is never treated as confirmed on the strength of a broadcast.
+
+When Reverb is unavailable the wrapper falls back to polling. A live view degrades to a periodic refresh; nothing blocks.
 
 ## Patient portal
 

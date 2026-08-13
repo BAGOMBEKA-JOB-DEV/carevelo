@@ -57,7 +57,8 @@ flowchart TB
 | PostgreSQL, primary and replicas | **In region.** Non-negotiable |
 | Object storage — prescription PDFs, attachments | **In region** |
 | Backups | **In region**, encrypted |
-| Redis — queue payloads, cache | **In region.** Payloads contain patient identifiers |
+| Redis — queue payloads, cache, Reverb pub/sub | **In region.** Payloads contain patient identifiers |
+| **Reverb WebSocket frames** | **In region.** Self-hosted precisely so realtime traffic never crosses the border ([ADR-0008](../70-decisions/0008-laravel-reverb-for-realtime.md)) |
 | Application logs | **In region.** Logs are PII-minimised, but assume leakage |
 | Audit log | **In region** |
 

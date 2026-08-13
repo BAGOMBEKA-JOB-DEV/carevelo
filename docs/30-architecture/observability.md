@@ -104,6 +104,9 @@ An audit event is a *domain* fact and is written in the transaction. A log line 
 | SMS delivery failure rate per tenant | Notifications silently not arriving |
 | Dispense orders held in `awaiting_substitution` | Clinicians not responding; patients waiting |
 | Failed sign-ins per tenant | Credential stuffing |
+| **Reverb channel authorisation failures** | A security signal, not just an error. A cross-tenant subscription attempt means a bug or an attack |
+| Reverb concurrent connections and reconnection rate | Capacity, and whether clients are flapping |
+| Broadcast lag — event emitted to frame delivered | A queue watched by a waiting pharmacist |
 | **Break-glass grants** | Should be near zero. A rising count means broken support tooling |
 
 All tenant-labelled, so a single clinic's degradation is visible rather than averaged away — with 33 clinics, one clinic being completely broken barely moves a global error rate.

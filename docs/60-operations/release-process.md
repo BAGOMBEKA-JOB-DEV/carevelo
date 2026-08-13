@@ -31,9 +31,14 @@ Required before merge:
 | **Cross-tenant isolation tests** | The failure we least tolerate |
 | **Architecture tests** | Module boundary erosion; jobs missing tenant context |
 | **Schema test** | A tenant-scoped table without RLS |
-| **Forbidden-identifier check** | `wallet`, `balance`, `float`, `escrow`, `payout`, `settlement` |
+| **Forbidden-identifier check** | The identifiers in [Payments Regulatory Boundary](../50-security-compliance/payments-regulatory-boundary.md) |
+| **Tree-boundary check** | PHP in `frontend/`, UI or asset pipeline in `backend/`, cross-tree imports |
+| **API client in sync** | A contract change shipped without regenerating the client |
+| **Channel-authorisation tests** | An unprefixed or unguarded Reverb channel |
 | Dependency vulnerability scan | Known CVEs |
 | Secret scan on the diff | Committed credentials |
+
+CI is **path-filtered**: a `frontend/`-only change skips the PHP suite and vice versa. A change to `docs/40-api/openapi.yaml` runs both.
 
 **An isolation test failure blocks release.** There is no severity conversation to have — see [Multi-Tenancy](../30-architecture/multi-tenancy.md).
 
@@ -57,11 +62,17 @@ Never deploy when you cannot watch it. A rollout nobody is watching is a rollout
 
 ## Deploying
 
-1. Merge to `main`; CI runs.
+`backend/` and `frontend/` release independently ([ADR-0007](../70-decisions/0007-separate-backend-frontend-trees.md)).
+
+1. Merge to `main`; CI runs the affected pipelines.
 2. Deploy to staging; verify the critical paths — booking, payment, consultation, prescription.
 3. Deploy to production, rolling with health checks. A failing check stops the rollout.
 4. Watch error rate and latency for 30 minutes.
 5. Record version, commit, migrations applied and deployer.
+
+**When a release spans both trees, the backend goes first.** An additive contract change is harmless served to a frontend that does not yet read it; the reverse — a frontend calling a field that does not exist — is an outage. Removals reverse the order and wait a release, the same expand-and-contract discipline as migrations.
+
+**Reverb restarts on a backend release**, dropping every open connection. Clients reconnect with backoff and re-authorise their channels, but it is felt — a pharmacist watching a queue sees it blank and refill. One more reason to deploy outside clinic hours.
 
 ## Rollback
 
