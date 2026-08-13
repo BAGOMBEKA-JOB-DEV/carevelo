@@ -113,6 +113,7 @@ When you have finished, you should be able to answer three questions without loo
 | [0006](70-decisions/0006-audit-log-immutability.md) | Append-only audit log. |
 | [0007](70-decisions/0007-separate-backend-frontend-trees.md) | Separate `backend/` and `frontend/` trees, API-only boundary. |
 | [0008](70-decisions/0008-laravel-reverb-for-realtime.md) | Laravel Reverb for realtime. |
+| [0009](70-decisions/0009-standard-laravel-layout.md) | Standard Laravel layout, not `app/Modules/`. |
 
 ### 80 — Quality
 

@@ -2,64 +2,59 @@
 
 namespace App\Policies;
 
+use App\Models\ClinicalRole;
 use App\Models\PaymentIntent;
 use App\Models\User;
-use Illuminate\Auth\Access\Response;
 
 class PaymentIntentPolicy
 {
-    /**
-     * Determine whether the user can view any models.
-     */
+    use HandlesTenantAuthorisation;
+
     public function viewAny(User $user): bool
     {
-        return false;
+        return $this->hasAnyRole($user, [
+            ClinicalRole::ClinicAdmin,
+            ClinicalRole::FrontDesk,
+            ClinicalRole::Pharmacist,
+        ]);
     }
 
-    /**
-     * Determine whether the user can view the model.
-     */
-    public function view(User $user, PaymentIntent $paymentIntent): bool
+    public function view(User $user, PaymentIntent $intent): bool
     {
-        return false;
+        return $this->sameTenant($user, $intent->tenant_id) && $this->viewAny($user);
     }
 
-    /**
-     * Determine whether the user can create models.
-     */
     public function create(User $user): bool
     {
-        return false;
+        return $this->hasAnyRole($user, [
+            ClinicalRole::ClinicAdmin,
+            ClinicalRole::FrontDesk,
+            ClinicalRole::Pharmacist,
+        ]);
     }
 
-    /**
-     * Determine whether the user can update the model.
-     */
-    public function update(User $user, PaymentIntent $paymentIntent): bool
+    /** Cash attestation is the clinic's own internal control, and is audited. */
+    public function attestCash(User $user, PaymentIntent $intent): bool
     {
-        return false;
+        return $this->sameTenant($user, $intent->tenant_id)
+            && $this->hasAnyRole($user, [
+                ClinicalRole::ClinicAdmin,
+                ClinicalRole::FrontDesk,
+                ClinicalRole::Pharmacist,
+            ]);
     }
 
-    /**
-     * Determine whether the user can delete the model.
-     */
-    public function delete(User $user, PaymentIntent $paymentIntent): bool
+    /** Only the administrator sees reconciliation. */
+    public function reconcile(User $user): bool
     {
-        return false;
+        return $this->hasAnyRole($user, [ClinicalRole::ClinicAdmin]);
     }
 
     /**
-     * Determine whether the user can restore the model.
+     * There is no refund permission, because there is no refund capability.
+     * Carevelo holds nothing to refund from.
      */
-    public function restore(User $user, PaymentIntent $paymentIntent): bool
-    {
-        return false;
-    }
-
-    /**
-     * Determine whether the user can permanently delete the model.
-     */
-    public function forceDelete(User $user, PaymentIntent $paymentIntent): bool
+    public function refund(User $user, PaymentIntent $intent): bool
     {
         return false;
     }

@@ -25,6 +25,10 @@ use Illuminate\Support\Carbon;
  * @property string $phone
  * @property PatientStatus $status
  * @property ?Carbon $phone_verified_at
+ * @property ?string $email
+ * @property ?string $sex
+ * @property ?string $district
+ * @property ?Carbon $date_of_birth
  */
 class Patient extends Model
 {

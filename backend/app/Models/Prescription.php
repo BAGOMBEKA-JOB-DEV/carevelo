@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Date;
 use LogicException;
 
@@ -29,6 +30,10 @@ use LogicException;
  * @property string $tenant_id
  * @property PrescriptionStatus $status
  * @property string $clinician_registration_snapshot
+ * @property ?Carbon $issued_at
+ * @property string $clinician_name_snapshot
+ * @property string $registration_body_snapshot
+ * @property ?string $supersedes_prescription_id
  */
 class Prescription extends Model
 {

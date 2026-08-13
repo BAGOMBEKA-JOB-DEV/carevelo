@@ -33,6 +33,11 @@ use Illuminate\Support\Facades\Date;
  * @property Money $amount
  * @property string $idempotency_key
  * @property ?Carbon $next_poll_at
+ * @property PaymentMethod $method
+ * @property ?string $aggregator_reference
+ * @property ?string $failure_message
+ * @property ?Carbon $resolved_at
+ * @property ?Carbon $initiated_at
  */
 class PaymentIntent extends Model
 {

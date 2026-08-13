@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Date;
 
 /**
@@ -27,6 +28,16 @@ use Illuminate\Support\Facades\Date;
  * @property string $id
  * @property string $reference
  * @property DeliveryStatus $status
+ * @property ?string $rider_id
+ * @property string $recipient_name
+ * @property string $recipient_phone
+ * @property string $address_text
+ * @property ?string $district
+ * @property ?string $landmark
+ * @property ?string $failure_reason
+ * @property string $dispense_order_id
+ * @property ?Carbon $assigned_at
+ * @property ?Carbon $delivered_at
  */
 class Delivery extends Model
 {

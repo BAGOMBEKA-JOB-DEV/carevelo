@@ -1,0 +1,109 @@
+name: backend
+
+on:
+  push:
+    paths: ['backend/**', 'docs/40-api/openapi.yaml', '.github/workflows/backend.yml']
+  pull_request:
+    paths: ['backend/**', 'docs/40-api/openapi.yaml', '.github/workflows/backend.yml']
+
+# Path-filtered: a frontend-only change never runs the PHP suite.
+# A change to the published API contract runs both.
+# @see docs/30-architecture/environments-and-deployment.md
+
+defaults:
+  run:
+    working-directory: backend
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        # Real PostgreSQL, never SQLite. Tenant isolation is enforced by
+        # row-level security, and SQLite has none -- the mandatory isolation
+        # tests would pass against it while proving nothing.
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres_secret
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s
+          --health-timeout 5s --health-retries 10
+
+      redis:
+        image: redis:7
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s
+          --health-timeout 5s --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_pgsql, pgsql, redis, intl, bcmath, zip
+          coverage: none
+
+      - name: Create the two database roles
+        env:
+          PGPASSWORD: postgres_secret
+        run: |
+          # The application role must NOT own the tables and must hold
+          # NOBYPASSRLS. If it ever owned them, PostgreSQL would exempt it from
+          # row-level security and every isolation policy would become silently
+          # inert. @see docs/30-architecture/multi-tenancy.md
+          psql -h localhost -U postgres -c "CREATE ROLE carevelo_migrator LOGIN PASSWORD 'migrator_secret' NOBYPASSRLS;"
+          psql -h localhost -U postgres -c "CREATE ROLE carevelo_app      LOGIN PASSWORD 'app_secret'      NOBYPASSRLS;"
+          psql -h localhost -U postgres -c "CREATE DATABASE carevelo_testing OWNER carevelo_migrator;"
+          psql -h localhost -U postgres -d carevelo_testing -c "REVOKE ALL ON SCHEMA public FROM PUBLIC;"
+          psql -h localhost -U postgres -d carevelo_testing -c "GRANT ALL ON SCHEMA public TO carevelo_migrator;"
+          psql -h localhost -U postgres -d carevelo_testing -c "GRANT USAGE ON SCHEMA public TO carevelo_app;"
+          psql -h localhost -U postgres -d carevelo_testing -c "ALTER DEFAULT PRIVILEGES FOR ROLE carevelo_migrator IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO carevelo_app;"
+          psql -h localhost -U postgres -d carevelo_testing -c "ALTER DEFAULT PRIVILEGES FOR ROLE carevelo_migrator IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO carevelo_app;"
+
+      - uses: actions/cache@v4
+        with:
+          path: backend/vendor
+          key: ${{ runner.os }}-composer-${{ hashFiles('backend/composer.lock') }}
+
+      - run: composer install --no-interaction --prefer-dist --no-progress
+
+      - run: cp .env.example .env && php artisan key:generate
+
+      - name: Migrate as the owner role
+        env:
+          DB_DATABASE: carevelo_testing
+          DB_MIGRATOR_USERNAME: carevelo_migrator
+          DB_MIGRATOR_PASSWORD: migrator_secret
+        run: php artisan migrate --database=pgsql_migrator --force
+
+      # --- Blocking gates. Each catches a class of defect we cannot ship. ---
+
+      - name: Style (Pint)
+        run: ./vendor/bin/pint --test --format agent
+
+      - name: Static analysis (PHPStan level 8)
+        run: ./vendor/bin/phpstan analyse --memory-limit=1G --no-progress
+
+      - name: Tests
+        # Includes the non-negotiable categories: cross-tenant isolation across
+        # all four scope-bypass paths, schema conformance, connection role,
+        # WITH CHECK, audit immutability, forbidden identifiers and rider data
+        # minimisation. An isolation-test failure blocks release with no
+        # severity discussion available.
+        run: php artisan test --compact
+
+      - name: Tree boundary
+        # backend/ never contains frontend code and frontend/ never contains
+        # PHP. @see docs/70-decisions/0007-separate-backend-frontend-trees.md
+        working-directory: .
+        run: |
+          set -e
+          test ! -d frontend || ! find frontend -name '*.php' | grep -q . \
+            || { echo "PHP found under frontend/"; exit 1; }
+          ! find backend/resources -name '*.blade.php' 2>/dev/null | grep -q . \
+            || { echo "Blade product views found under backend/"; exit 1; }
+          echo "tree boundary intact"

@@ -2,65 +2,29 @@
 
 namespace App\Policies;
 
+use App\Models\ClinicalRole;
 use App\Models\Substitution;
 use App\Models\User;
-use Illuminate\Auth\Access\Response;
 
 class SubstitutionPolicy
 {
-    /**
-     * Determine whether the user can view any models.
-     */
-    public function viewAny(User $user): bool
-    {
-        return false;
-    }
+    use HandlesTenantAuthorisation;
 
-    /**
-     * Determine whether the user can view the model.
-     */
-    public function view(User $user, Substitution $substitution): bool
-    {
-        return false;
-    }
-
-    /**
-     * Determine whether the user can create models.
-     */
+    /** The pharmacist proposes. */
     public function create(User $user): bool
     {
-        return false;
+        return $this->hasAnyRole($user, [ClinicalRole::Pharmacist]);
     }
 
     /**
-     * Determine whether the user can update the model.
+     * ONLY a clinician decides.
+     *
+     * Not the pharmacist who proposed it, and not the administrator. A
+     * substitution is a clinical decision, and there is no auto-approval.
      */
-    public function update(User $user, Substitution $substitution): bool
+    public function decide(User $user, Substitution $substitution): bool
     {
-        return false;
-    }
-
-    /**
-     * Determine whether the user can delete the model.
-     */
-    public function delete(User $user, Substitution $substitution): bool
-    {
-        return false;
-    }
-
-    /**
-     * Determine whether the user can restore the model.
-     */
-    public function restore(User $user, Substitution $substitution): bool
-    {
-        return false;
-    }
-
-    /**
-     * Determine whether the user can permanently delete the model.
-     */
-    public function forceDelete(User $user, Substitution $substitution): bool
-    {
-        return false;
+        return $this->sameTenant($user, $substitution->tenant_id)
+            && $this->hasAnyRole($user, [ClinicalRole::Clinician]);
     }
 }

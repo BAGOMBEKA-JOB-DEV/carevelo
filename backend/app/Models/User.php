@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Support\PhoneNumber;
 use Database\Factories\UserFactory;
+use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -41,6 +42,7 @@ class User extends Authenticatable
     use HasFactory;
 
     use HasRoles;
+    use HasUlids;
     use Notifiable;
 
     /**
@@ -53,6 +55,19 @@ class User extends Authenticatable
         'phone',
         'password',
         'is_active',
+    ];
+
+    /**
+     * Defaults applied in PHP as well as in the schema.
+     *
+     * A database default only applies on INSERT: the in-memory instance stays
+     * null, and a null is_active reads as "inactive" to the authorisation
+     * helpers -- which silently denied every request.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'is_active' => true,
     ];
 
     /**
