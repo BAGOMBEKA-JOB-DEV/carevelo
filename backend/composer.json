@@ -79,7 +79,7 @@
             "Illuminate\\Foundation\\ComposerScripts::prePackageUninstall"
         ],
         "migrate": "@php artisan migrate --database=pgsql_migrator --force",
-        "migrate:test": "@php artisan migrate --database=pgsql_migrator --env=testing --force",
+        "migrate:test": "@php -r \"putenv('DB_DATABASE=carevelo_testing');passthru('php artisan migrate --database=pgsql_migrator --force');\"",
         "lint": "pint --test",
         "fix": "pint",
         "stan": "phpstan analyse --memory-limit=1G --no-progress",
