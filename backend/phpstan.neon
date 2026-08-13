@@ -19,5 +19,18 @@ parameters:
     # source control.
 
     ignoreErrors:
-        # Add specific ignores here, each with a comment explaining why.
+        # Pest binds $this in a test closure to the configured TestCase at
+        # runtime (see tests/Pest.php), but that binding is invisible to static
+        # analysis, so every $this->getJson() in a feature test reads as a call
+        # on Pest's TestCall.
+        #
+        # This is a tooling limitation, not a defect in the code, and the
+        # alternative -- dropping tests/ from analysis -- would lose real
+        # type-checking across the whole suite. Scoped as tightly as possible:
+        # only undefined methods and properties on TestCall, only under tests/.
+        -
+            identifier: method.notFound
+            message: '#Call to an undefined method Pest\\PendingCalls\\TestCall::#'
+            path: tests
+        # Add further ignores here, each with a comment explaining why.
         # Never a blanket suppression.

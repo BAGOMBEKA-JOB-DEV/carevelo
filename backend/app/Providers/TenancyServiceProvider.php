@@ -73,6 +73,39 @@ class TenancyServiceProvider extends ServiceProvider
         });
 
         /**
+         * Isolation for a table that also holds platform-level rows.
+         *
+         * Used by audit_events, where tenant provisioning and break-glass
+         * grants legitimately have no tenant.
+         *
+         * The rule is explicit rather than permissive:
+         *   - tenant context set   -> see only that tenant's rows
+         *   - tenant context unset -> see only rows with no tenant
+         *
+         * Note what this does NOT do: it never lets an unset context see
+         * tenant rows. Platform and tenant data stay disjoint in both
+         * directions, so this is not a hole in the isolation model.
+         */
+        Schema::macro('enableTenantIsolationWithPlatformRows', function (string $table): void {
+            $setting = Tenancy::TENANT_SETTING;
+
+            $predicate = <<<SQL
+                CASE
+                    WHEN coalesce(current_setting('{$setting}', true), '') = ''
+                        THEN tenant_id IS NULL
+                    ELSE tenant_id = current_setting('{$setting}', true)
+                END
+            SQL;
+
+            DB::statement("ALTER TABLE {$table} ENABLE ROW LEVEL SECURITY");
+            DB::statement("ALTER TABLE {$table} FORCE ROW LEVEL SECURITY");
+            DB::statement(
+                "CREATE POLICY tenant_isolation ON {$table} ".
+                "USING ({$predicate}) WITH CHECK ({$predicate})"
+            );
+        });
+
+        /**
          * Marks a table as deliberately not tenant-scoped.
          *
          * Declarative only — it writes a comment the schema-conformance test
