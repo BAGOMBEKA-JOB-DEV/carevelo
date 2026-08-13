@@ -137,6 +137,24 @@ A `clinic_admin` who is not also a clinician can read consultations — administ
 
 There is no refund permission because there is no refund capability. Carevelo holds nothing to refund from.
 
+### Realtime channel subscription
+
+Subscription is authorised by the **same policies** as the equivalent REST read, plus a tenant-prefix check ([Realtime Broadcasting](../30-architecture/realtime-broadcasting.md)). A channel name is not a permission.
+
+| Channel | admin | clinician | pharmacist | dispatcher | front_desk | rider | patient |
+|---|---|---|---|---|---|---|---|
+| `tenant.{id}.pharmacy-queue` | ✓ | — | ✓ | — | — | — | — |
+| `tenant.{id}.dispatch-board` | ✓ | — | — | ✓ | — | — | — |
+| `tenant.{id}.user.{userId}` | own | own | own | own | own | own | — |
+| `tenant.{id}.rider.{userId}` | — | — | — | — | — | **own only** | — |
+| `tenant.{id}.patient.{patientId}` | — | — | — | — | — | — | **own only** |
+| `tenant.{id}.consultation.{id}` | — | own | — | — | — | — | own |
+| Any channel of another tenant ⚑ | — | — | — | — | — | — | — |
+
+A cross-tenant subscription attempt is a hard 403 **and an audit event** — like a session/host mismatch, it means a bug or an attack.
+
+**Payloads carry identifiers and state only, never clinical content**, so even a correctly-authorised subscriber receives a signal rather than data. The client then re-fetches through the API, where these same permissions apply again.
+
 ### Administration
 
 | Resource · action | admin | others | platform_support | platform_admin |

@@ -6,6 +6,8 @@
 
 How a consultation actually travels between a clinician and a patient on a Ugandan mobile connection. This is a genuinely open decision, recorded here with the evidence needed to close it.
 
+**Scope note:** this document is about consultation **media** only. Application-state realtime — the pharmacy queue, dispatch board, delivery status, in-app notifications — is Laravel Reverb, specified in [Realtime Broadcasting](realtime-broadcasting.md).
+
 ## Requirements
 
 1. **Video, voice and chat, with voice and chat as first-class modes** — not degraded fallbacks. A patient on 3G in the rain should be able to *choose* voice deliberately ([H3](../10-product/prd-h3-teleconsultation.md)).
@@ -111,11 +113,9 @@ Chat is always available alongside video and voice, as a fallback and for sharin
 
 ## Non-media realtime
 
-Separate concern, and much simpler: the pharmacy queue, the dispatch board and delivery status need live updates.
+A separate concern with its own document: **[Realtime Broadcasting](realtime-broadcasting.md)** covers Laravel Reverb, which carries the pharmacy queue, the dispatch board, delivery status and in-app notifications.
 
-**Laravel Reverb** (first-party WebSockets) with per-tenant, per-role private channels. Channel authorisation runs through the same policies as the REST API — a channel name is not a permission, and subscribing must be authorised exactly as reading would be.
-
-Polling is an acceptable fallback for low-frequency views. Do not build WebSocket infrastructure for a board that changes twice an hour.
+The two do not overlap. **Reverb never carries consultation media**, and the video provider never carries application state.
 
 ## Acceptance criteria
 

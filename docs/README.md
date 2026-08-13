@@ -13,6 +13,8 @@ Read these six, in order, before touching anything else. They take about an hour
 5. [Multi-Tenancy](30-architecture/multi-tenancy.md) — how one clinic is prevented from reading another's patients. This is a legal requirement, not a feature.
 6. [Payments Regulatory Boundary](50-security-compliance/payments-regulatory-boundary.md) — why money never flows through a Carevelo account.
 
+Then, before writing any code, [ADR-0007](70-decisions/0007-separate-backend-frontend-trees.md) — the `backend/` and `frontend/` boundary, which is the structural rule most easily broken by accident.
+
 When you have finished, you should be able to answer three questions without looking anything up: **who holds the money, who issues the prescription, and what stops clinic A reading clinic B's patients.** If you cannot, the fault is in the documents — please raise it.
 
 ## Index
@@ -58,7 +60,8 @@ When you have finished, you should be able to answer three questions without loo
 | [Multi-Tenancy](30-architecture/multi-tenancy.md) | Tenant isolation via PostgreSQL RLS. |
 | [Backend (Laravel)](30-architecture/backend-laravel.md) | Modular monolith layout, queues, events. |
 | [Frontend (Next.js)](30-architecture/frontend-nextjs.md) | Three surfaces, theming, session handling. |
-| [Realtime & Video](30-architecture/realtime-and-video.md) | Consultation transport and low-bandwidth fallback. |
+| [Realtime & Video](30-architecture/realtime-and-video.md) | Consultation **media** transport and low-bandwidth fallback. |
+| [Realtime Broadcasting](30-architecture/realtime-broadcasting.md) | Laravel Reverb — channels, authorisation, payload rules. |
 | [Integrations](30-architecture/integrations.md) | Aggregators, SMS, WhatsApp. |
 | [Data Residency & Hosting](30-architecture/data-residency-and-hosting.md) | Where data lives and why. |
 | [Environments & Deployment](30-architecture/environments-and-deployment.md) | Environments, pipeline, migrations. |
@@ -108,6 +111,8 @@ When you have finished, you should be able to answer three questions without loo
 | [0004](70-decisions/0004-video-provider-selection.md) | Consultation video transport. |
 | [0005](70-decisions/0005-modular-monolith-over-microservices.md) | Modular monolith. |
 | [0006](70-decisions/0006-audit-log-immutability.md) | Append-only audit log. |
+| [0007](70-decisions/0007-separate-backend-frontend-trees.md) | Separate `backend/` and `frontend/` trees, API-only boundary. |
+| [0008](70-decisions/0008-laravel-reverb-for-realtime.md) | Laravel Reverb for realtime. |
 
 ### 80 — Quality
 

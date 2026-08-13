@@ -119,7 +119,18 @@ The layers in detail:
 
 Layer 3 is the control; layers 1 and 2 produce good error messages and enforce intra-tenant rules that the database cannot express.
 
-**Realtime channel subscriptions run through the same policies** ([Realtime & Video](../30-architecture/realtime-and-video.md)). A channel name is not a permission.
+### Realtime channel authorisation
+
+Reverb subscriptions authorise against **`POST /broadcasting/auth` on the API**, using the same session cookie — no separate token, nothing in client storage.
+
+That endpoint performs **two** checks before signing an authorisation:
+
+1. The channel's tenant prefix matches the session's tenant. A mismatch is a hard 403 **and an `AuditEvent`**, for the same reason a session/host mismatch is: it means a bug or an attack.
+2. The **same policy** that governs the equivalent REST read. A channel name is not a permission.
+
+Because authorisation is checked once at subscribe time rather than per frame, **role change and deactivation must terminate the socket**, not merely invalidate the next HTTP request. Session invalidation includes disconnecting live channels.
+
+Full specification in [Realtime Broadcasting](../30-architecture/realtime-broadcasting.md).
 
 ## Patient access to their own records
 

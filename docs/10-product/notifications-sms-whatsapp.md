@@ -51,6 +51,10 @@ All templates are clinic-branded and identify the clinic as sender ([White-Label
 
 **In-app** carries everything clinical. It is the only channel that does.
 
+**In-app realtime** (Laravel Reverb) delivers the *signal* that something changed — a prescription arriving in the pharmacy queue, a substitution needing approval, a payment resolving. It is subject to the **same content rule**: a frame carries identifiers and state, never clinical content. The client then re-fetches through the authorised API, and that response is where clinical data lives ([Realtime Broadcasting](../30-architecture/realtime-broadcasting.md)).
+
+A WebSocket frame is a disclosure surface exactly as an SMS is — and in one respect a sharper one, because a role-scoped channel fans out to every subscriber at once.
+
 ## Delivery guarantees
 
 Notifications are queued jobs, not synchronous calls — an SMS gateway timeout must never fail a booking.

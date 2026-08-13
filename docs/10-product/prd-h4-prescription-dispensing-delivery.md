@@ -63,6 +63,10 @@ sequenceDiagram
 
 On `PrescriptionIssued` a `DispenseOrder` is created in `received` and appears in the pharmacy queue. It routes only to **the clinic's own pharmacy** — same tenant, always ([Domain Model](../20-domain/domain-model.md)). The pharmacist is notified.
 
+**The pharmacy queue and the dispatch board are live views.** A pharmacist watching the screen sees an order arrive without reloading, over a tenant-scoped Reverb channel ([Realtime Broadcasting](../30-architecture/realtime-broadcasting.md)). The frame carries only an order identifier and its state; the client re-fetches the detail through the authorised API.
+
+If realtime is unavailable the view falls back to polling. It refreshes less promptly — **it never blocks dispensing**.
+
 ### 2. Review and pricing
 
 The pharmacist opens the order (`under_review`), sees the prescription with the prescribing clinician's name and registration number, checks stock, and prices each item at the clinic's own prices.

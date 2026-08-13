@@ -89,14 +89,39 @@ No `wallet`, `balance`, `float`, `escrow`, `payout` or `settlement` in migration
 
 ### 8. Data-minimisation boundaries
 
-Two tests protecting the two sharpest disclosure boundaries:
+Three tests protecting the three sharpest disclosure boundaries:
 
 - **No rider-facing response contains a clinical field.** Assert against the serialised output, not the UI ([Data Protection](../50-security-compliance/data-protection-dppa.md)).
 - **No notification template contains clinical content** — asserted against a prohibited-content list ([Notifications](../10-product/notifications-sms-whatsapp.md)).
+- **No broadcast payload contains clinical content** — same prohibited-content list, asserted against the shaped payload of every broadcast event ([Realtime Broadcasting](../30-architecture/realtime-broadcasting.md)).
+
+### 9. Channel authorisation
+
+Every Reverb channel is **tenant-prefixed** and **policy-guarded**. Tested by subscribing as: the right user (allowed), a user of another tenant (denied plus audit event), and a user of the right tenant with the wrong role (denied). A rider must reach only their own rider channel.
+
+### 10. Tree boundary
+
+No PHP under `frontend/`, no product-UI template or asset pipeline under `backend/`, no import crossing between them ([ADR-0007](../70-decisions/0007-separate-backend-frontend-trees.md)).
+
+### 11. API client in sync
+
+Regenerating `frontend/packages/api-client` from `docs/40-api/openapi.yaml` produces no diff against the committed client. This is what keeps the contract honest — without it, the spec becomes documentation that drifts rather than the contract it claims to be.
 
 ### 9. No PII in logs
 
 Representative flows are exercised and the captured log output is asserted against a prohibited-pattern list: patient names, phone numbers, clinical terms, secret prefixes. Includes **exception traces**, which is where secrets most often escape ([Observability](../30-architecture/observability.md)).
+
+## Where tests live
+
+Each tree owns its own suite ([ADR-0007](../70-decisions/0007-separate-backend-frontend-trees.md)):
+
+| Suite | Location | Runner |
+|---|---|---|
+| Domain, integration, API, architecture | `backend/tests/` | Pest |
+| Component, app-level | `frontend/apps/*/`, `frontend/packages/*/` | Vitest |
+| End-to-end critical paths | `frontend/` | Playwright, against a running backend |
+
+The end-to-end suite is the only place both halves run together, which is exactly why it is kept to the critical paths — book → pay → consult → prescribe, and prescription → dispense → deliver — rather than allowed to sprawl.
 
 ## Layers
 

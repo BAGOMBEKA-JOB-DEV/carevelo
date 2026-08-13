@@ -50,58 +50,73 @@ Two features of this diagram are the whole architecture:
 
 ## Level 2 — Containers
 
+Two deployables, `frontend/` and `backend/`, with the API and authenticated WebSocket frames as the **only** channels between them ([ADR-0007](../70-decisions/0007-separate-backend-frontend-trees.md)).
+
 ```mermaid
 graph TB
-    subgraph Clients
-        PP["Patient Portal<br/><i>Next.js</i><br/>clinic-branded"]
-        CC["Clinic Console<br/><i>Next.js</i><br/>staff"]
-        PA["Platform Admin<br/><i>Next.js</i><br/>Carevelo staff"]
+    subgraph FE["frontend/ — Next.js workspace"]
+        PP["Patient Portal<br/>clinic-branded, SSR"]
+        CC["Clinic Console<br/>staff"]
+        PA["Platform Admin"]
+        RT["packages/realtime<br/><i>Echo wrapper</i>"]
+        AC["packages/api-client<br/><i>generated, committed</i>"]
     end
 
-    subgraph Platform["Carevelo Platform"]
-        API["API<br/><i>Laravel</i><br/>modular monolith"]
-        Worker["Queue Workers<br/><i>Laravel Horizon</i>"]
-        Sched["Scheduler<br/><i>Laravel</i>"]
+    subgraph BE["backend/ — Laravel"]
+        API["API<br/>modular monolith"]
+        RV["Reverb<br/><i>WebSocket server</i>"]
+        Worker["Queue Workers<br/><i>Horizon</i>"]
+        Sched["Scheduler"]
         DB[("PostgreSQL<br/><i>RLS-enforced<br/>tenant isolation</i>")]
-        Redis[("Redis<br/>queue, cache,<br/>tenant-namespaced")]
-        Obj[("Object Storage<br/>tenant-partitioned<br/>PDFs, logos")]
+        Redis[("Redis<br/>queue, cache, pub-sub<br/>tenant-namespaced")]
+        Obj[("Object Storage<br/>tenant-partitioned")]
     end
 
     Ext["External services<br/>Aggregators · SMS · WhatsApp · Video"]
 
-    PP --> API
-    CC --> API
-    PA --> API
+    PP --> AC
+    CC --> AC
+    PA --> AC
+    AC -->|"HTTP / JSON"| API
+    PP --> RT
+    CC --> RT
+    RT -->|"authenticated<br/>WebSocket"| RV
+    RT -->|"/broadcasting/auth"| API
 
     API --> DB
     API --> Redis
     API --> Obj
-    API -.->|dispatch| Redis
-
+    RV --> Redis
     Redis --> Worker
     Worker --> DB
-    Worker --> Obj
     Worker --> Ext
+    Worker -.->|"broadcast"| RV
     Sched --> Redis
 
     API --> Ext
-    Ext -->|webhooks| API
+    Ext -->|"webhooks"| API
 
     style DB fill:#1f4f6f,stroke:#0d2c3d,color:#fff
     style API fill:#1f6f5c,stroke:#0d3d33,color:#fff
+    style RV fill:#1f6f5c,stroke:#0d3d33,color:#fff
 ```
 
-| Container | Technology | Responsibility |
-|---|---|---|
-| **Patient Portal** | Next.js | Clinic-branded booking, consultation, prescriptions, payment, delivery tracking. Tenant resolved by subdomain |
-| **Clinic Console** | Next.js | Staff surfaces: schedule, consultations, pharmacy queue, dispatch, administration, reconciliation |
-| **Platform Admin** | Next.js | Tenant register, subscriptions, system health. No clinical data without break-glass |
-| **API** | Laravel, PHP 8.3+ | All business logic. Modular monolith ([ADR-0005](../70-decisions/0005-modular-monolith-over-microservices.md)) |
-| **Queue Workers** | Laravel Horizon | Notifications, PDF rendering, reconciliation polls, webhook processing. Every job restores tenant context |
-| **Scheduler** | Laravel | Reminders, reconciliation sweeps, retention jobs |
-| **PostgreSQL** | 16+ | Single database, shared schema, RLS-enforced isolation ([Multi-Tenancy](multi-tenancy.md)) |
-| **Redis** | 7+ | Queue backend, cache, rate limiting. Keys namespaced per tenant |
-| **Object Storage** | S3-compatible | Prescription PDFs, logos, attachments. Tenant-partitioned, signed URLs only |
+Note that `packages/realtime` authorises against the **API**, not against Reverb — channel authorisation runs the same policies as the REST endpoints, so there is no second permission system to drift ([Realtime Broadcasting](realtime-broadcasting.md)).
+
+| Container | Tree | Technology | Responsibility |
+|---|---|---|---|
+| **Patient Portal** | `frontend/` | Next.js | Clinic-branded booking, consultation, prescriptions, payment, delivery tracking. Tenant resolved by subdomain |
+| **Clinic Console** | `frontend/` | Next.js | Staff surfaces: schedule, consultations, pharmacy queue, dispatch, administration, reconciliation |
+| **Platform Admin** | `frontend/` | Next.js | Tenant register, subscriptions, system health. No clinical data without break-glass |
+| **api-client** | `frontend/` | Generated TypeScript | The API contract as code. Generated from `openapi.yaml`, committed |
+| **realtime** | `frontend/` | Laravel Echo wrapper | Channel construction and subscription. No app imports Echo directly |
+| **API** | `backend/` | Laravel, PHP 8.3+ | All business logic. Modular monolith ([ADR-0005](../70-decisions/0005-modular-monolith-over-microservices.md)) |
+| **Reverb** | `backend/` | Laravel Reverb | WebSocket server. Self-hosted **in region** ([ADR-0008](../70-decisions/0008-laravel-reverb-for-realtime.md)) |
+| **Queue Workers** | `backend/` | Laravel Horizon | Notifications, PDF rendering, reconciliation polls, webhook processing. Every job restores tenant context |
+| **Scheduler** | `backend/` | Laravel | Reminders, reconciliation sweeps, retention jobs |
+| **PostgreSQL** | `backend/` | 16+ | Single database, shared schema, RLS-enforced isolation ([Multi-Tenancy](multi-tenancy.md)) |
+| **Redis** | `backend/` | 7+ | Queue backend, cache, rate limiting, Reverb pub/sub. Keys namespaced per tenant |
+| **Object Storage** | `backend/` | S3-compatible | Prescription PDFs, logos, attachments. Tenant-partitioned, signed URLs only |
 
 Deliberately simple: one API, one database, one queue. A solo or two-person team cannot operate a distributed system, and §M identifies founder capacity as a top-three risk — the architecture is a response to that constraint as much as to the technical requirements.
 
