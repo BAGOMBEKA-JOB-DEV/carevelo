@@ -107,7 +107,7 @@ No PHP under `frontend/`, no product-UI template or asset pipeline under `backen
 
 Regenerating `frontend/packages/api-client` from `docs/40-api/openapi.yaml` produces no diff against the committed client. This is what keeps the contract honest — without it, the spec becomes documentation that drifts rather than the contract it claims to be.
 
-### 9. No PII in logs
+### 12. No PII in logs
 
 Representative flows are exercised and the captured log output is asserted against a prohibited-pattern list: patient names, phone numbers, clinical terms, secret prefixes. Includes **exception traces**, which is where secrets most often escape ([Observability](../30-architecture/observability.md)).
 
