@@ -1,0 +1,174 @@
+# Endpoint Catalogue
+
+> **Status:** Draft
+> **Last reviewed:** 2026-08-13
+> **Derives from:** [Domain Model](../20-domain/domain-model.md), [API Conventions](api-conventions.md)
+
+MVP endpoints, grouped by bounded context. Conventions in [API Conventions](api-conventions.md); permissions in [RBAC Matrix](../50-security-compliance/rbac-matrix.md).
+
+No endpoint accepts a tenant identifier — tenancy comes from the host or the session ([Multi-Tenancy](../30-architecture/multi-tenancy.md)).
+
+**Audience** column: P = patient, S = clinic staff (role-restricted), O = platform operator.
+
+## Identity & sessions — [Auth](authentication-and-sessions.md)
+
+| Method | Path | Audience | Notes |
+|---|---|---|---|
+| POST | `/v1/auth/otp/request` | P, S | Rate-limited per number and per IP. Response identical whether or not the number is registered |
+| POST | `/v1/auth/otp/verify` | P, S | Issues a tenant-bound session |
+| POST | `/v1/auth/sign-in` | P, S | Password path |
+| POST | `/v1/auth/sign-out` | P, S, O | |
+| GET | `/v1/me` | P, S, O | Current actor, role, abilities |
+| POST | `/v1/me/password` | P, S | Invalidates other sessions |
+| POST | `/v1/invitations/{token}/accept` | — | Single-use, tenant-bound, expiring |
+
+## Tenant & branding — [H1](../10-product/prd-h1-clinic-onboarding.md)
+
+| Method | Path | Audience | Notes |
+|---|---|---|---|
+| GET | `/v1/tenant` | P, S | Public read returns branding and contact only |
+| PATCH | `/v1/tenant` | S admin | Branding, contact, compliance references |
+| POST | `/v1/tenant/logo` | S admin | Re-encoded server-side, metadata stripped |
+| GET | `/v1/tenant/onboarding-checklist` | S admin | |
+| GET | `/v1/tenant/users` | S admin | |
+| POST | `/v1/tenant/users/invite` | S admin | SMS invitation |
+| PATCH | `/v1/tenant/users/{id}` | S admin | Roles, activation. Cannot deactivate the last admin |
+| GET | `/v1/tenant/aggregator-account` | S admin | **Status and provider only. Never the secrets** |
+| PUT | `/v1/tenant/aggregator-account` | S admin | Write-only credentials |
+| POST | `/v1/tenant/aggregator-account/verify` | S admin | Sandbox test transaction |
+
+## Catalogue
+
+| Method | Path | Audience | Notes |
+|---|---|---|---|
+| GET | `/v1/services` | P, S | Patients see active services only |
+| POST · PATCH · DELETE | `/v1/services[/{id}]` | S admin | Delete is a soft deactivation |
+| GET | `/v1/clinicians` | P, S | Patient view: name, specialty, photo. **Never the registration number** |
+| GET | `/v1/availability` | P, S | `?service_id=&clinician_id=&from=&to=` |
+| GET · PUT | `/v1/working-hours` | S admin | |
+
+## Patients & consent — [H2](../10-product/prd-h2-patient-registration-consent.md)
+
+| Method | Path | Audience | Notes |
+|---|---|---|---|
+| POST | `/v1/patients` | P, S front desk | Creates in `pending_consent` |
+| GET | `/v1/patients/{id}` | P self, S clinical | |
+| PATCH | `/v1/patients/{id}` | P self, S front desk | |
+| GET | `/v1/patients/{id}/consents` | P self, S admin | Full history |
+| POST | `/v1/patients/{id}/consents` | P, guardian | Immutable record; never an update |
+| POST | `/v1/patients/{id}/consents/withdraw` | P self | Creates a new record |
+| GET | `/v1/consent-policies/current` | P | Text and version, English and Luganda |
+| POST | `/v1/patients/{id}/merge` | S front desk | **Within a tenant only.** Audited |
+
+## Appointments & consultations — [H3](../10-product/prd-h3-teleconsultation.md)
+
+| Method | Path | Audience | Notes |
+|---|---|---|---|
+| GET | `/v1/appointments` | P own, S | Filter by status, date, clinician |
+| POST | `/v1/appointments` | P, S front desk | Rejects overlapping confirmed slots |
+| GET | `/v1/appointments/{id}` | P own, S | |
+| POST | `/v1/appointments/{id}/cancel` | P own, S | |
+| POST | `/v1/appointments/{id}/confirm-deferred` | S admin | **Audited** payment deferral (§H3.3) |
+| POST | `/v1/appointments/{id}/join-token` | P own, S clinician | Short-lived, single-use, participant-bound |
+| POST | `/v1/consultations` | S clinician | Starts; records `started_at` |
+| GET | `/v1/consultations/{id}` | P own, S clinical | |
+| POST | `/v1/consultations/{id}/mode` | P, S clinician | Records a step-down truthfully |
+| POST | `/v1/consultations/{id}/end` | S clinician | Requires an outcome |
+| GET · POST | `/v1/consultations/{id}/notes` | S clinical | Drafts persist; corrections are addenda |
+| PATCH | `/v1/consultations/{id}/notes/{noteId}` | S clinical | **Creates an addendum. Never overwrites** |
+
+## Prescriptions — [H3](../10-product/prd-h3-teleconsultation.md)
+
+| Method | Path | Audience | Notes |
+|---|---|---|---|
+| POST | `/v1/prescriptions` | S clinician | Requires `can_prescribe` + registration number. Rejected if the consultation outcome is `converted_to_in_person` |
+| GET | `/v1/prescriptions` | P own, S clinical | |
+| GET | `/v1/prescriptions/{id}` | P own, S clinical, S pharmacist | |
+| GET | `/v1/prescriptions/{id}/document` | P own, S | **Short-lived signed URL.** Never a public path |
+| POST | `/v1/prescriptions/{id}/cancel` | S clinician | Reason required |
+
+No `PUT` or `PATCH`. Prescriptions are immutable ([Domain Model](../20-domain/domain-model.md)); correction is cancel-and-replace.
+
+## Dispensing — [H4](../10-product/prd-h4-prescription-dispensing-delivery.md)
+
+| Method | Path | Audience | Notes |
+|---|---|---|---|
+| GET | `/v1/dispense-orders` | S pharmacist, S admin | The pharmacy queue |
+| GET | `/v1/dispense-orders/{id}` | P own, S pharmacist | |
+| POST | `/v1/dispense-orders/{id}/open` | S pharmacist | → `under_review` |
+| POST | `/v1/dispense-orders/{id}/price` | S pharmacist | Clinic's own prices |
+| POST | `/v1/dispense-orders/{id}/substitutions` | S pharmacist | Proposal; blocks that item only |
+| POST | `/v1/substitutions/{id}/approve` | S clinician | **Only a clinician.** No auto-approval |
+| POST | `/v1/substitutions/{id}/reject` | S clinician | |
+| POST | `/v1/dispense-orders/{id}/fulfilment` | P own | `pickup` or `delivery`; captures `delivery_disclosure` consent |
+| POST | `/v1/dispense-orders/{id}/dispense` | S pharmacist | Rejected while a substitution is pending. Records the named pharmacist |
+| POST | `/v1/dispense-orders/{id}/collect` | S pharmacist | Pickup completion |
+| POST | `/v1/dispense-orders/{id}/reject` | S pharmacist | Reason required |
+
+## Delivery — [H4](../10-product/prd-h4-prescription-dispensing-delivery.md)
+
+| Method | Path | Audience | Notes |
+|---|---|---|---|
+| GET | `/v1/deliveries` | S dispatcher | The dispatch board |
+| POST | `/v1/deliveries` | S dispatcher | **Rejected if the order contains a controlled item** |
+| POST | `/v1/deliveries/{id}/assign` | S dispatcher | |
+| GET | `/v1/rider/deliveries` | S rider | **Only their own assignments** |
+| GET | `/v1/rider/deliveries/{id}` | S rider | **Rider serialisation: recipient, address, contact, package reference. No clinical fields** |
+| POST | `/v1/rider/deliveries/{id}/picked-up` | S rider | |
+| POST | `/v1/rider/deliveries/{id}/en-route` | S rider | |
+| POST | `/v1/rider/deliveries/{id}/delivered` | S rider | |
+| POST | `/v1/rider/deliveries/{id}/failed` | S rider | Reason from a fixed list |
+| GET | `/v1/deliveries/{id}/tracking` | P own | Status milestones. **Never contents** |
+
+The rider endpoints are a separate namespace with distinct resource classes — not the dispatcher resource with fields hidden client-side ([API Conventions](api-conventions.md)).
+
+## Payments — [H5](../10-product/prd-h5-payments-non-custodial.md)
+
+| Method | Path | Audience | Notes |
+|---|---|---|---|
+| POST | `/v1/payment-intents` | P, S front desk | **`Idempotency-Key` required.** Uses the tenant's own credentials |
+| GET | `/v1/payment-intents/{id}` | P own, S admin | Polled by the client while `pending` |
+| POST | `/v1/payment-intents/{id}/attest-cash` | S front desk, S pharmacist | Audited attestation |
+| GET | `/v1/payment-intents/{id}/receipt` | P own, S | Clinic named as payee |
+| GET | `/v1/reconciliation` | S admin | Daily view; flags mismatches |
+| GET | `/v1/reconciliation/export` | S admin | CSV for the clinic's own books |
+
+**Absent by design, permanently:** no balance, no wallet, no payout, no settlement, no platform-initiated refund. Those entities do not exist ([Payments Regulatory Boundary](../50-security-compliance/payments-regulatory-boundary.md)).
+
+## Webhooks — inbound
+
+| Method | Path | Notes |
+|---|---|---|
+| POST | `/webhooks/flutterwave/{tenant}` | Signature-verified against the tenant's secret |
+| POST | `/webhooks/pesapal/{tenant}` | Same |
+
+Unauthenticated, signature-verified, and idempotent. Detail in [Webhooks](webhooks.md).
+
+## Notifications & audit
+
+| Method | Path | Audience | Notes |
+|---|---|---|---|
+| GET | `/v1/notifications` | P own, S | Delivery status |
+| GET · PUT | `/v1/notification-templates` | S admin | Within the content rules ([Notifications](../10-product/notifications-sms-whatsapp.md)) |
+| GET | `/v1/sms-balance` | S admin | |
+| GET | `/v1/audit-events` | S admin | **Read-only.** Tenant-scoped |
+
+## Platform administration
+
+| Method | Path | Audience | Notes |
+|---|---|---|---|
+| GET · POST | `/v1/platform/tenants` | O | Register, provision |
+| PATCH | `/v1/platform/tenants/{id}` | O | Suspend, resume, offboard |
+| POST | `/v1/platform/tenants/{id}/export` | O | Controller-obligation export ([Retention](../50-security-compliance/data-retention-and-deletion.md)) |
+| POST | `/v1/platform/break-glass` | O | Reason and scope required; **notifies the tenant**; audited |
+| GET | `/v1/platform/health` | O | |
+
+Platform endpoints reach **no clinical data** without an active break-glass grant.
+
+## Health
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/health/live` | Public |
+| GET | `/health/ready` | Internal |
+| GET | `/health/isolation` | Internal. **Fails if the application role can bypass RLS** ([Observability](../30-architecture/observability.md)) |
