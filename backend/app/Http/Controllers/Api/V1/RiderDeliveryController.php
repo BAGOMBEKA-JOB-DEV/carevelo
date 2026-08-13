@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Audit\AuditLog;
+use App\Events\DeliveryDelivered;
+use App\Events\DeliveryFailed;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\V1\RiderDeliveryResource;
 use App\Models\Delivery;
@@ -80,6 +82,19 @@ class RiderDeliveryController extends Controller
             subjectType: 'Delivery',
             subjectId: $delivery->id,
         );
+
+        // The dispatch board and the patient's tracking view both update from
+        // here. Both events need the order for the patient identifier, which
+        // decides WHERE the frame goes -- never what it says.
+        $order = $delivery->dispenseOrder;
+
+        if ($order !== null) {
+            match ($status) {
+                DeliveryStatus::Delivered => event(DeliveryDelivered::from($delivery, $order)),
+                DeliveryStatus::Failed => event(DeliveryFailed::from($delivery, $order)),
+                default => null,
+            };
+        }
 
         return new RiderDeliveryResource($delivery);
     }

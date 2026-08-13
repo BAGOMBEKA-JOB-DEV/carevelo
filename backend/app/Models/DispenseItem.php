@@ -8,8 +8,16 @@ use Illuminate\Database\Eloquent\Model;
 
 /**
  * @property string $id
+ * @property string $tenant_id
  * @property string $medicine_name_dispensed
  * @property bool $is_fulfilled
+ * @property string $dispense_order_id
+ * @property string $prescription_item_id
+ * @property int $quantity_dispensed
+ * @property int $unit_price_minor
+ * @property string $currency
+ * @property ?string $substitution_id
+ * @property ?string $unfulfilled_reason
  */
 class DispenseItem extends Model
 {
