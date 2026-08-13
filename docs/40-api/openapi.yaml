@@ -1,0 +1,428 @@
+openapi: 3.1.0
+
+# Skeleton specification. Grows alongside implementation; the generated
+# TypeScript client for the Next.js surfaces is built from this file, so
+# it is the contract rather than documentation of one.
+#
+# Conventions:  docs/40-api/api-conventions.md
+# Full surface: docs/40-api/endpoint-catalogue.md
+#
+# NOTE: no operation accepts a tenant identifier. Tenancy is resolved from
+# the request host or the authenticated session. See docs/30-architecture/multi-tenancy.md
+
+info:
+  title: Carevelo API
+  version: 1.0.0
+  description: >
+    White-label digital health platform for Uganda's licensed private clinics.
+
+    Carevelo is a software supplier and data processor. It does not employ
+    clinicians, hold or dispense drugs, or take custody of patient funds.
+    No endpoint in this API moves money: payment operations record attempts
+    made through the clinic's own aggregator account, settling directly to
+    the clinic. There is no balance, wallet, payout or settlement resource,
+    and their absence is a compliance control.
+  license:
+    name: See LICENSE
+
+servers:
+  - url: https://{tenant}.carevelo.app/v1
+    description: Tenant-scoped API. The subdomain resolves the tenant.
+    variables:
+      tenant:
+        default: demo
+
+security:
+  - sessionCookie: []
+
+tags:
+  - name: Auth
+  - name: Tenant
+  - name: Catalogue
+  - name: Patients
+  - name: Appointments
+  - name: Consultations
+  - name: Prescriptions
+  - name: Dispensing
+  - name: Delivery
+  - name: Payments
+
+paths:
+  /appointments:
+    get:
+      tags: [Appointments]
+      summary: List appointments visible to the caller
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/PerPage'
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/AppointmentStatus'
+      responses:
+        '200':
+          description: A page of appointments
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Appointment'
+                  meta:
+                    $ref: '#/components/schemas/PageMeta'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags: [Appointments]
+      summary: Book an appointment
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [patient_id, clinician_id, service_id, scheduled_start_at, mode_booked]
+              additionalProperties: false     # unknown fields are rejected, never ignored
+              properties:
+                patient_id:
+                  $ref: '#/components/schemas/Ulid'
+                clinician_id:
+                  $ref: '#/components/schemas/Ulid'
+                service_id:
+                  $ref: '#/components/schemas/Ulid'
+                scheduled_start_at:
+                  type: string
+                  format: date-time
+                mode_booked:
+                  $ref: '#/components/schemas/ConsultationMode'
+                payment_expectation:
+                  type: string
+                  enum: [prepaid, pay_at_clinic]
+      responses:
+        '201':
+          description: Booked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Appointment'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+
+  /payment-intents:
+    post:
+      tags: [Payments]
+      summary: Record and initiate a payment attempt
+      description: >
+        Initiates a collection through the CLINIC'S OWN aggregator account,
+        using the clinic's own credentials. Funds settle directly to the
+        clinic. Carevelo never holds them; this resource records that an
+        attempt was made and what the aggregator reported.
+
+        Idempotency-Key is REQUIRED. Replaying a key with an identical body
+        returns the stored response without re-executing. Replaying with a
+        different body returns 409.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [payable_type, payable_id, method]
+              additionalProperties: false
+              properties:
+                payable_type:
+                  type: string
+                  enum: [appointment, dispense_order]
+                payable_id:
+                  $ref: '#/components/schemas/Ulid'
+                method:
+                  type: string
+                  enum: [mtn_momo, airtel_money, card, cash_at_clinic]
+      responses:
+        '201':
+          description: >
+            Attempt recorded. Status is typically `pending` — mobile money is
+            asynchronous and requires the payer to confirm on their handset.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/PaymentIntent'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /rider/deliveries/{id}:
+    get:
+      tags: [Delivery]
+      summary: Retrieve an assigned delivery (rider view)
+      description: >
+        Deliberately minimal. Returns recipient, address, contact and package
+        reference only. It carries NO diagnosis, clinical note or prescription
+        detail — a distinct resource class, not the dispatcher resource with
+        fields hidden client-side. A rider can retrieve only their own
+        assignments.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Ulid'
+      responses:
+        '200':
+          description: The delivery, minimally serialised
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/RiderDelivery'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: carevelo_session
+      description: >
+        Sanctum cookie session, tenant-bound at sign-in. The session's tenant
+        is validated against the request host on every request.
+
+  parameters:
+    Cursor:
+      name: cursor
+      in: query
+      description: Opaque cursor. Cursor pagination, not offset — a queue being
+        paged while rows arrive must not duplicate or skip.
+      schema:
+        type: string
+    PerPage:
+      name: per_page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 25
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: Client-generated UUIDv4, reused across retries of the same
+        logical operation. Scoped per tenant, retained 24 hours.
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid authentication
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    NotFound:
+      description: >
+        Not found, or not visible to this caller. A resource belonging to
+        another tenant returns 404 rather than 403 — a 403 would confirm the
+        resource exists.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Conflict:
+      description: Illegal state transition, or idempotency key reused with a
+        different body
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    ValidationFailed:
+      description: Validation failed
+      content:
+        application/problem+json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/Problem'
+              - type: object
+                properties:
+                  errors:
+                    type: object
+                    additionalProperties:
+                      type: array
+                      items:
+                        type: string
+
+  schemas:
+
+    Ulid:
+      type: string
+      pattern: '^[0-9A-HJKMNP-TV-Z]{26}$'
+      description: ULID. Not sequential — sequential ids would leak tenant
+        volume and invite enumeration.
+
+    Money:
+      type: object
+      description: Integer minor units with an explicit currency. Never a float.
+      required: [amount_minor, currency]
+      properties:
+        amount_minor:
+          type: integer
+          format: int64
+        currency:
+          type: string
+          enum: [UGX]
+
+    PageMeta:
+      type: object
+      properties:
+        per_page:
+          type: integer
+        has_more:
+          type: boolean
+        next_cursor:
+          type: string
+          nullable: true
+
+    Problem:
+      type: object
+      description: RFC 9457 problem details. Never contains clinical content,
+        stack traces or internal detail.
+      required: [type, title, status, code]
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+          description: Human-readable, safe to show a user
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+        code:
+          type: string
+          description: Stable machine-readable identifier
+
+    ConsultationMode:
+      type: string
+      enum: [in_person, video, voice, chat]
+      description: voice and chat are first-class modes, not degraded fallbacks.
+
+    AppointmentStatus:
+      type: string
+      enum:
+        - awaiting_payment
+        - payment_failed
+        - confirmed
+        - in_progress
+        - completed
+        - cancelled
+        - no_show
+        - expired
+        - abandoned
+
+    PaymentIntentStatus:
+      type: string
+      enum: [initiated, pending, succeeded, failed, timed_out, reversed]
+      description: >
+        `pending` is the normal state for mobile money, not an edge case.
+        `timed_out` is NOT final — a reconciliation poll may still move it to
+        `succeeded` on a late confirmation.
+
+    Appointment:
+      type: object
+      properties:
+        id:
+          $ref: '#/components/schemas/Ulid'
+        reference:
+          type: string
+          example: APT-2608-0147
+          description: Tenant-scoped human reference. Short enough to say aloud.
+        status:
+          $ref: '#/components/schemas/AppointmentStatus'
+        mode_booked:
+          $ref: '#/components/schemas/ConsultationMode'
+        scheduled_start_at:
+          type: string
+          format: date-time
+        scheduled_end_at:
+          type: string
+          format: date-time
+
+    PaymentIntent:
+      type: object
+      description: >
+        A RECORD of a payment attempt — not a payment. Carevelo does not
+        effect payments and holds no funds.
+      properties:
+        id:
+          $ref: '#/components/schemas/Ulid'
+        reference:
+          type: string
+          example: PAY-2608-0455
+          description: Sent to the aggregator as merchant_reference so the
+            clinic can match it on its own dashboard unaided.
+        status:
+          $ref: '#/components/schemas/PaymentIntentStatus'
+        amount:
+          $ref: '#/components/schemas/Money'
+        method:
+          type: string
+          enum: [mtn_momo, airtel_money, card, cash_at_clinic]
+        aggregator_reference:
+          type: string
+          nullable: true
+        failure_message:
+          type: string
+          nullable: true
+          description: Surfaced verbatim from the aggregator — only they know
+            why a collection failed.
+
+    RiderDelivery:
+      type: object
+      description: >
+        Minimum necessary data. No clinical fields exist on this schema, by
+        design — see docs/50-security-compliance/data-protection-dppa.md
+      additionalProperties: false
+      properties:
+        id:
+          $ref: '#/components/schemas/Ulid'
+        reference:
+          type: string
+          example: DLV-2608-0031
+        recipient_name:
+          type: string
+        recipient_phone:
+          type: string
+        address_text:
+          type: string
+        district:
+          type: string
+        landmark:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [assigned, picked_up, en_route, delivered, failed]
