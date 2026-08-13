@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Date;
 
 /**
@@ -24,9 +25,20 @@ use Illuminate\Support\Facades\Date;
  * @see docs/10-product/prd-h4-prescription-dispensing-delivery.md
  *
  * @property string $id
+ * @property string $tenant_id
  * @property string $reference
  * @property DispenseOrderStatus $status
  * @property Money $total
+ * @property string $prescription_id
+ * @property string $patient_id
+ * @property ?string $pharmacist_id
+ * @property ?string $fulfilment
+ * @property int $subtotal_minor
+ * @property int $delivery_fee_minor
+ * @property int $total_minor
+ * @property string $currency
+ * @property ?string $rejection_reason
+ * @property ?Carbon $dispensed_at
  */
 class DispenseOrder extends Model
 {

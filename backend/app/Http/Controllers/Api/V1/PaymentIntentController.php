@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Audit\AuditLog;
+use App\Exceptions\StateMachine\IllegalTransition;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\V1\PaymentIntentResource;
 use App\Models\PaymentIntent;
@@ -12,6 +13,7 @@ use App\Support\ReferenceGenerator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Date;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Records payment attempts. Does not move money.
@@ -107,6 +109,67 @@ class PaymentIntentController extends Controller
     public function show(PaymentIntent $paymentIntent): PaymentIntentResource
     {
         $this->authorize('view', $paymentIntent);
+
+        return new PaymentIntentResource($paymentIntent);
+    }
+
+    /**
+     * A named staff member attests that cash was received at the clinic.
+     *
+     * No aggregator is involved and no money passes through Carevelo — the
+     * patient handed notes to a person standing behind a counter. All this
+     * records is that a member of the clinic's staff says so, which is why the
+     * attestation is attributed and audited: it is the clinic's own internal
+     * control, and the audit trail is the only thing that makes it one.
+     *
+     * ONLY cash_at_clinic. An aggregator-backed collection can never be marked
+     * succeeded by hand — that would let a staff member assert a payment the
+     * aggregator never confirmed, turning the clinic's own books into fiction
+     * and defeating reconciliation, whose whole purpose is to resolve
+     * independently of what anyone claims.
+     *
+     * @see docs/10-product/prd-h4-prescription-dispensing-delivery.md section 3
+     * @see docs/50-security-compliance/payments-regulatory-boundary.md
+     */
+    public function attestCash(PaymentIntent $paymentIntent): PaymentIntentResource
+    {
+        $this->authorize('attestCash', $paymentIntent);
+
+        if ($paymentIntent->method->requiresAggregator()) {
+            throw new IllegalTransition(
+                'Only a cash payment taken at the clinic may be attested by staff. '
+                .'A mobile-money or card collection is resolved by the aggregator that '
+                .'took it, or by reconciliation — never by hand.'
+            );
+        }
+
+        DB::transaction(function () use ($paymentIntent): void {
+            // initiated → pending → succeeded. The intermediate hop is a
+            // formality for cash, where nothing is actually awaited, but the
+            // state machine is shared with mobile money and is not worth a
+            // special case that would have to be kept correct twice.
+            //
+            // Attesting an already-resolved intent is an IllegalTransition,
+            // rendered as 409: cash is not received twice.
+            if ($paymentIntent->status === PaymentIntentStatus::Initiated) {
+                $paymentIntent->transitionTo(PaymentIntentStatus::Pending);
+            }
+
+            $paymentIntent->markSucceeded();
+
+            // WHO attested is the entire value of this record. The actor is
+            // taken from the authenticated session by AuditLog, never from the
+            // body — a self-reported attester is not a control.
+            $this->audit->record(
+                'payment_intent.cash_attested',
+                subjectType: 'PaymentIntent',
+                subjectId: $paymentIntent->id,
+                metadata: [
+                    'reference' => $paymentIntent->reference,
+                    'amount_minor' => $paymentIntent->amount_minor,
+                ],
+            );
+        });
 
         return new PaymentIntentResource($paymentIntent);
     }

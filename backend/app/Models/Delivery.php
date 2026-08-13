@@ -8,6 +8,7 @@ use Database\Factories\DeliveryFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Date;
@@ -38,6 +39,7 @@ use Illuminate\Support\Facades\Date;
  * @property string $dispense_order_id
  * @property ?Carbon $assigned_at
  * @property ?Carbon $delivered_at
+ * @property-read ?DispenseOrder $dispenseOrder
  */
 class Delivery extends Model
 {
@@ -70,6 +72,19 @@ class Delivery extends Model
             'assigned_at' => 'datetime',
             'delivered_at' => 'datetime',
         ];
+    }
+
+    /**
+     * The dispensed order being delivered.
+     *
+     * Used to reach the patient identifier when broadcasting -- that decides
+     * WHERE a frame goes, and is deliberately not part of what it says.
+     *
+     * @return BelongsTo<DispenseOrder, $this>
+     */
+    public function dispenseOrder(): BelongsTo
+    {
+        return $this->belongsTo(DispenseOrder::class);
     }
 
     /** @return HasMany<DeliveryEvent, $this> */

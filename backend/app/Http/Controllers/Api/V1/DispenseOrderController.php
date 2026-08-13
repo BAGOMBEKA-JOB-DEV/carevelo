@@ -1,0 +1,346 @@
+<?php
+
+namespace App\Http\Controllers\Api\V1;
+
+use App\Audit\AuditLog;
+use App\Events\OrderDispensed;
+use App\Exceptions\StateMachine\IllegalTransition;
+use App\Http\Controllers\Controller;
+use App\Http\Requests\V1\Dispensing\IndexDispenseOrderRequest;
+use App\Http\Requests\V1\Dispensing\PriceDispenseOrderRequest;
+use App\Http\Requests\V1\Dispensing\RejectDispenseOrderRequest;
+use App\Http\Resources\V1\DispenseOrderResource;
+use App\Models\DispenseItem;
+use App\Models\DispenseOrder;
+use App\Models\DispenseOrderStatus;
+use App\Models\Substitution;
+use App\Models\SubstitutionStatus;
+use App\Models\User;
+use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+
+/**
+ * The pharmacy bench.
+ *
+ * Every action here belongs to the clinic's own NDA-licensed pharmacy under the
+ * NDPA Act Cap 206. Carevelo routes a work item and records a status: it holds
+ * no stock, sets no price, takes no margin, and hands nothing to anyone.
+ *
+ * Nothing in this controller touches the Prescription. That is why DispenseOrder
+ * is a separate aggregate — what was PRESCRIBED and what was DISPENSED are
+ * different facts, and a partial fill or a substitution is only legible later if
+ * both survive independently.
+ *
+ * The policy exposes one pharmacy-bench ability, `price`. Opening, pricing and
+ * rejecting are the same authorisation question — may this user work this
+ * order at the bench? — so they share it. `dispense` is separate because it is
+ * a narrower one: only a pharmacist hands medicine over, never an administrator.
+ *
+ * @see docs/10-product/prd-h4-prescription-dispensing-delivery.md
+ */
+class DispenseOrderController extends Controller
+{
+    public function __construct(private readonly AuditLog $audit) {}
+
+    /**
+     * The pharmacy queue.
+     *
+     * Medicine names are deliberately absent: the prescription relation is not
+     * loaded, so the queue is references and states. A pharmacist scanning for
+     * work does not need the contents, and this list is the most-displayed
+     * screen in the pharmacy.
+     */
+    public function index(IndexDispenseOrderRequest $request): AnonymousResourceCollection
+    {
+        $this->authorize('viewAny', DispenseOrder::class);
+
+        $query = DispenseOrder::query()->with('substitutions');
+
+        $status = $request->status();
+
+        if ($status !== null) {
+            $query->where('status', $status->value);
+        }
+
+        $patientId = $request->patientId();
+
+        if ($patientId !== null) {
+            $query->where('patient_id', $patientId);
+        }
+
+        // Oldest first. A queue is a work list, and the order that has waited
+        // longest is the patient sitting in the pharmacy wondering.
+        $orders = $query->orderBy('created_at')->orderBy('id')->paginate($request->perPage());
+
+        return DispenseOrderResource::collection($orders);
+    }
+
+    /**
+     * The order in full, including what was prescribed.
+     *
+     * This is the one place a medicine name is meant to be read, and it is
+     * behind the policy. The read is audited: "who looked at my records?" can
+     * only be answered by having recorded every look.
+     */
+    public function show(DispenseOrder $dispense_order): DispenseOrderResource
+    {
+        $this->authorize('view', $dispense_order);
+
+        $this->audit->record('dispense_order.read', 'DispenseOrder', $dispense_order->id);
+
+        return DispenseOrderResource::make(
+            $dispense_order->load(['items', 'substitutions', 'prescription.items'])
+        );
+    }
+
+    /** Take the order to the bench: received → under_review. */
+    public function open(DispenseOrder $dispenseOrder): DispenseOrderResource
+    {
+        $this->authorize('open', $dispenseOrder);
+
+        // Opening an order twice is an IllegalTransition, rendered as 409.
+        $dispenseOrder->transitionTo(DispenseOrderStatus::UnderReview);
+
+        $this->audit->record('dispense_order.opened', 'DispenseOrder', $dispenseOrder->id);
+
+        return DispenseOrderResource::make($dispenseOrder->load('items'));
+    }
+
+    /**
+     * Price the order at the clinic's own prices, recording what will be filled.
+     *
+     * Four refusals live here, and each one is the reason this endpoint is not
+     * a simple write:
+     *
+     *   1. an item that is not on the prescription cannot be priced;
+     *   2. every prescribed item must be accounted for — filled, or explicitly
+     *      unfulfilled with a reason. Silence is not an option, because a
+     *      silently dropped line is a medicine the patient never learns they
+     *      did not get;
+     *   3. an item with a PENDING substitution blocks — only that item, never
+     *      the rest of the order;
+     *   4. a substitute may only be filled against an APPROVED substitution.
+     *      This is the control that makes clinician approval real rather than
+     *      advisory.
+     */
+    public function price(PriceDispenseOrderRequest $request, DispenseOrder $dispenseOrder): DispenseOrderResource
+    {
+        $this->authorize('price', $dispenseOrder);
+
+        $items = $request->items();
+
+        $prescription = $dispenseOrder->prescription()->firstOrFail();
+
+        /** @var Collection<int, string> $prescribedItemIds */
+        $prescribedItemIds = $prescription->items()->pluck('id');
+
+        /** @var Collection<string, Substitution> $substitutions */
+        $substitutions = $dispenseOrder->substitutions()->get()->keyBy('id');
+
+        $this->assertItemsMatchPrescription($items, $prescribedItemIds);
+
+        foreach ($items as $item) {
+            $this->assertItemIsNotBlocked($item, $substitutions);
+            $this->assertSubstituteWasApproved($item, $substitutions);
+        }
+
+        DB::transaction(function () use ($dispenseOrder, $items, $request): void {
+            // Repricing replaces rather than accumulates: price() is reachable
+            // again after a substitution is decided, and a second pass must not
+            // leave the first pass's lines behind to be charged twice.
+            $dispenseOrder->items()->delete();
+
+            $subtotalMinor = 0;
+
+            foreach ($items as $item) {
+                DispenseItem::create([
+                    'dispense_order_id' => $dispenseOrder->id,
+                    ...$item,
+                ]);
+
+                // An unfulfilled line is recorded but never charged for.
+                if ($item['is_fulfilled']) {
+                    $subtotalMinor += $item['unit_price_minor'] * $item['quantity_dispensed'];
+                }
+            }
+
+            $deliveryFeeMinor = $request->deliveryFeeMinor();
+
+            $dispenseOrder->subtotal_minor = $subtotalMinor;
+            $dispenseOrder->delivery_fee_minor = $deliveryFeeMinor;
+            $dispenseOrder->total_minor = $subtotalMinor + $deliveryFeeMinor;
+
+            // A partial fill is a different state from a complete one, and the
+            // state machine only permits it from awaiting_substitution — an
+            // order that never had a substitution cannot arrive at a partial
+            // fill, and attempting it is a 409 rather than a silent downgrade.
+            $anyUnfulfilled = array_filter($items, static fn (array $i): bool => ! $i['is_fulfilled']) !== [];
+
+            $dispenseOrder->transitionTo(
+                $anyUnfulfilled ? DispenseOrderStatus::PartiallyPriced : DispenseOrderStatus::Priced
+            );
+
+            // Amounts and counts are outcomes, and belong here. Medicine names
+            // are content, and never do.
+            $this->audit->record('dispense_order.priced', 'DispenseOrder', $dispenseOrder->id, [
+                'item_count' => count($items),
+                'unfulfilled_count' => count(array_filter($items, static fn (array $i): bool => ! $i['is_fulfilled'])),
+                'total_minor' => $dispenseOrder->total_minor,
+                'currency' => $dispenseOrder->currency,
+            ]);
+        });
+
+        return DispenseOrderResource::make($dispenseOrder->load(['items', 'substitutions']));
+    }
+
+    /**
+     * Hand the medicine over, against a NAMED pharmacist of this clinic.
+     *
+     * The pharmacist is the authenticated user, never a body field: accepting
+     * an identity from the request would let one member of staff dispense in
+     * another's name, and attribution is the whole point of the record.
+     *
+     * DispenseOrder::dispense() refuses while any substitution is still
+     * pending, so an unapproved substitute cannot leave the pharmacy.
+     */
+    public function dispense(Request $request, DispenseOrder $dispenseOrder): DispenseOrderResource
+    {
+        $this->authorize('dispense', $dispenseOrder);
+
+        $pharmacist = $request->user();
+
+        if (! $pharmacist instanceof User) {
+            throw new IllegalTransition('Dispensing must be recorded against a named pharmacist of this clinic.');
+        }
+
+        DB::transaction(function () use ($dispenseOrder, $pharmacist): void {
+            $dispenseOrder->dispense($pharmacist->id);
+
+            $this->audit->record('dispense_order.dispensed', 'DispenseOrder', $dispenseOrder->id, [
+                'pharmacist_id' => $pharmacist->id,
+            ]);
+        });
+
+        // Dispatched AFTER the transaction commits, never inside it: a frame
+        // announcing a dispense that then rolls back is a pharmacy screen
+        // showing something that did not happen.
+        //
+        // Identifiers and state only. The frame tells the pharmacy screen and
+        // the patient's device to go and re-fetch; it never says what was in
+        // the bag.
+        event(OrderDispensed::from($dispenseOrder));
+
+        return DispenseOrderResource::make($dispenseOrder->load('items'));
+    }
+
+    /**
+     * The pharmacy declines to fill the order.
+     *
+     * The reason is recorded so the prescribing clinician is not left guessing,
+     * and stays out of the audit event: a pharmacist explaining a refusal will
+     * name the medicine, and an audit event records that something happened,
+     * never what it said.
+     */
+    public function reject(RejectDispenseOrderRequest $request, DispenseOrder $dispenseOrder): DispenseOrderResource
+    {
+        $this->authorize('reject', $dispenseOrder);
+
+        DB::transaction(function () use ($dispenseOrder, $request): void {
+            $dispenseOrder->rejection_reason = $request->reason();
+            $dispenseOrder->transitionTo(DispenseOrderStatus::Rejected);
+
+            $this->audit->record('dispense_order.rejected', 'DispenseOrder', $dispenseOrder->id);
+        });
+
+        return DispenseOrderResource::make($dispenseOrder->load('items'));
+    }
+
+    /**
+     * Every prescribed item accounted for, exactly once, and nothing invented.
+     *
+     * @param  list<array{prescription_item_id: string, ...}>  $items
+     * @param  Collection<int, string>  $prescribedItemIds
+     */
+    private function assertItemsMatchPrescription(array $items, Collection $prescribedItemIds): void
+    {
+        $submitted = array_column($items, 'prescription_item_id');
+
+        if (count($submitted) !== count(array_unique($submitted))) {
+            throw new IllegalTransition('Each prescribed item may be priced only once.');
+        }
+
+        if (array_diff($submitted, $prescribedItemIds->all()) !== []) {
+            throw new IllegalTransition('This order was priced against an item that is not on the prescription.');
+        }
+
+        if (array_diff($prescribedItemIds->all(), $submitted) !== []) {
+            throw new IllegalTransition(
+                'Every prescribed item must be priced or marked unfulfilled with a reason. '
+                .'An item left out is one the patient is never told they did not receive.'
+            );
+        }
+    }
+
+    /**
+     * A pending substitution blocks ITS OWN item and nothing else.
+     *
+     * The rest of the order prices normally. If one out-of-stock item stalled
+     * everything, pharmacists would work around the system rather than with it.
+     *
+     * @param  array{prescription_item_id: string, is_fulfilled: bool, ...}  $item
+     * @param  Collection<string, Substitution>  $substitutions
+     */
+    private function assertItemIsNotBlocked(array $item, Collection $substitutions): void
+    {
+        $pending = $substitutions->contains(
+            fn (Substitution $substitution): bool => $substitution->prescription_item_id === $item['prescription_item_id']
+                && $substitution->status === SubstitutionStatus::Pending
+        );
+
+        if ($pending && $item['is_fulfilled']) {
+            throw new IllegalTransition(
+                'This item is awaiting a clinician\'s decision on a proposed substitution '
+                .'and cannot be filled yet. The other items on the order may be priced.'
+            );
+        }
+    }
+
+    /**
+     * A substitute is filled only against an APPROVED substitution for that
+     * same item.
+     *
+     * This is where clinician approval stops being advisory. Without it a
+     * pharmacist could record any substitute they liked and the approval step
+     * would be decoration.
+     *
+     * @param  array{prescription_item_id: string, substitution_id: ?string, ...}  $item
+     * @param  Collection<string, Substitution>  $substitutions
+     */
+    private function assertSubstituteWasApproved(array $item, Collection $substitutions): void
+    {
+        $substitutionId = $item['substitution_id'];
+
+        if ($substitutionId === null) {
+            return;
+        }
+
+        $substitution = $substitutions->get($substitutionId);
+
+        if (! $substitution instanceof Substitution) {
+            throw new IllegalTransition('That substitution does not belong to this order.');
+        }
+
+        if ($substitution->prescription_item_id !== $item['prescription_item_id']) {
+            throw new IllegalTransition('That substitution was approved for a different item.');
+        }
+
+        if ($substitution->status !== SubstitutionStatus::Approved) {
+            throw new IllegalTransition(
+                'A substitute may be dispensed only after a clinician has approved it. '
+                .'There is no auto-approval.'
+            );
+        }
+    }
+}

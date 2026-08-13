@@ -7,6 +7,7 @@ use Database\Factories\SubstitutionFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Date;
 
 /**
@@ -21,7 +22,16 @@ use Illuminate\Support\Facades\Date;
  * work around the system rather than with it.
  *
  * @property string $id
+ * @property string $tenant_id
  * @property SubstitutionStatus $status
+ * @property string $dispense_order_id
+ * @property string $prescription_item_id
+ * @property string $proposed_medicine_name
+ * @property string $reason
+ * @property string $proposed_by
+ * @property ?Carbon $proposed_at
+ * @property ?string $decided_by
+ * @property ?Carbon $decided_at
  */
 class Substitution extends Model
 {
