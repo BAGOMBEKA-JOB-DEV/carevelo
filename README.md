@@ -1,6 +1,6 @@
 # Carevelo
 
-**White-label digital health software for Uganda's licensed private clinics.**
+**White-label digital health software for Uganda's licensed private CLINICS.**
 
 Carevelo gives an independent clinic its own branded digital front door — patient booking, teleconsultation, e-prescribing, dispensing handoff to the clinic's own pharmacy, delivery dispatch, and mobile-money collection — running under the clinic's own brand and, critically, under the clinic's own regulatory licences.
 
