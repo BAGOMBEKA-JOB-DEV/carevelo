@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
 /*
@@ -83,6 +84,41 @@ function isPlatformScoped(string $table): bool
         || array_key_exists($table, declaredPlatformScopedTables());
 }
 
+/**
+ * Every concrete Eloquent model in the application.
+ *
+ * Discovered from the filesystem rather than listed, so a model added without a
+ * thought for its timestamps is still checked.
+ *
+ * @return list<class-string<Model>>
+ */
+function modelClasses(): array
+{
+    $classes = [];
+
+    foreach (glob(app_path('Models/*.php')) ?: [] as $path) {
+        $class = 'App\\Models\\'.basename($path, '.php');
+
+        if (! class_exists($class)) {
+            continue;
+        }
+
+        // is_subclass_of before the reflection check: it narrows $class to
+        // class-string<Model>, which is what this function promises to return.
+        if (! is_subclass_of($class, Model::class)) {
+            continue;
+        }
+
+        if ((new ReflectionClass($class))->isAbstract()) {
+            continue;
+        }
+
+        $classes[] = $class;
+    }
+
+    return $classes;
+}
+
 it('states a reason for every table it exempts from tenant scoping', function () {
     // markPlatformScoped() requires a reason, so an empty one means the comment
     // was written by something else and the exemption is not actually declared.
@@ -159,6 +195,52 @@ it('has an isolation policy on every tenant-scoped table', function () {
     expect($missing)->toBeEmpty(
         'RLS enabled but no policy -- the table is locked, not isolated: '.implode(', ', $missing)
     );
+});
+
+it('writes an offset with every timestamptz, so no instant depends on the server timezone', function () {
+    // Laravel's default date format is 'Y-m-d H:i:s' -- no offset. Writing that
+    // into a timestamptz column makes PostgreSQL resolve the wall time in the
+    // SESSION's timezone, so the instant actually stored depends on how the
+    // database server happens to be configured.
+    //
+    // This shipped broken and no test caught it, because the developer machine's
+    // session timezone was Africa/Asmara (+03:00) -- the same offset as the
+    // clinics'. Every appointment was stored correctly by coincidence. On a UTC
+    // server the same code stored 09:00 EAT as 09:00 UTC: an appointment three
+    // hours from the one the patient booked.
+    //
+    // Models fix it by declaring $dateFormat = 'Y-m-d H:i:sP'. Three did. The
+    // rest did not, which is why this is a test and not a code review comment.
+    $offsetPreserving = 'Y-m-d H:i:sP';
+
+    $tablesWithTimestamptz = array_column(DB::select("
+        select distinct table_name
+        from information_schema.columns
+        where table_schema = 'public' and data_type = 'timestamp with time zone'
+    "), 'table_name');
+
+    $failures = [];
+
+    foreach (modelClasses() as $class) {
+        $model = new $class;
+
+        if (! in_array($model->getTable(), $tablesWithTimestamptz, true)) {
+            continue;
+        }
+
+        if ($model->getDateFormat() !== $offsetPreserving) {
+            $failures[] = sprintf(
+                '%s (%s): date format is %s -- must be %s or the stored instant '
+                .'depends on the database server timezone',
+                class_basename($class),
+                $model->getTable(),
+                var_export($model->getDateFormat(), true),
+                $offsetPreserving,
+            );
+        }
+    }
+
+    expect($failures)->toBeEmpty("\n".implode("\n", $failures));
 });
 
 it('keeps the audit log append-only for the application role', function () {

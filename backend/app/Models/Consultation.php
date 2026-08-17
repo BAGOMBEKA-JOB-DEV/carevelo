@@ -32,6 +32,21 @@ class Consultation extends Model
         'started_at', 'ended_at', 'mode_used', 'outcome',
     ];
 
+    /**
+     * started_at, ended_at are timestamptz.
+     *
+     * Laravel's default format is naive ('Y-m-d H:i:s'), so PostgreSQL resolves
+     * the missing offset in the SESSION's timezone rather than the application's.
+     * The instant stored then depends on how the database server happens to be
+     * configured. What shifts here is the clinical record of when care was actually given, which is evidence in a UMDPC complaint.
+     *
+     * Columns declared without a timezone ignore the offset, so created_at and
+     * updated_at are unaffected.
+     *
+     * @var string
+     */
+    protected $dateFormat = 'Y-m-d H:i:sP';
+
     /** @return array<string, string> */
     protected function casts(): array
     {

@@ -35,6 +35,21 @@ class Appointment extends Model
         'payment_expectation', 'status', 'cancellation_reason',
     ];
 
+    /**
+     * scheduled_start_at, scheduled_end_at are timestamptz.
+     *
+     * Laravel's default format is naive ('Y-m-d H:i:s'), so PostgreSQL resolves
+     * the missing offset in the SESSION's timezone rather than the application's.
+     * The instant stored then depends on how the database server happens to be
+     * configured. What shifts here is the appointment a patient believes they booked. A shift offers the same slot twice, or sends a patient to a call hours from the one they paid for.
+     *
+     * Columns declared without a timezone ignore the offset, so created_at and
+     * updated_at are unaffected.
+     *
+     * @var string
+     */
+    protected $dateFormat = 'Y-m-d H:i:sP';
+
     /** @return array<string, string> */
     protected function casts(): array
     {
