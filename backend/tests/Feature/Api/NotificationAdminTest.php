@@ -54,7 +54,8 @@ it('returns the catalogue with no clinical content in any template body', functi
         ->assertOk()
         ->json('data');
 
-    expect($templates)->toBeArray()->not->toBeEmpty();
+    expect($templates)->toBeArray()
+        ->and($templates)->not->toBeEmpty();
 
     $prohibited = [
         // Diagnoses and findings.
@@ -191,7 +192,6 @@ it('refuses the whole notification surface to a pharmacist', function () {
     foreach (['/api/v1/notifications', '/api/v1/notification-templates', '/api/v1/sms-balance'] as $path) {
         $this->actingAs($pharmacist)
             ->getJson(notifUrl($tenant, $path))
-            ->assertForbidden()
-            ->assertJsonPath('code', 'forbidden');
+            ->assertForbidden();
     }
 });

@@ -33,7 +33,9 @@ class StaffResource extends JsonResource
     public function toArray(Request $request): array
     {
         $phone = $this->phone;
-        $phoneVerifiedAt = $this->phone_verified_at;
+        // Read through getAttribute so the datetime cast is what decides the
+        // type, rather than the raw column type inferred from the schema.
+        $phoneVerifiedAt = $this->getAttribute('phone_verified_at');
 
         return [
             'id' => $this->id,

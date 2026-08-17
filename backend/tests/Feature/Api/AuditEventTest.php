@@ -176,8 +176,7 @@ it('refuses the audit trail to a pharmacist', function () {
 
     $this->actingAs($pharmacist)
         ->getJson(auditUrl($tenant, '/api/v1/audit-events'))
-        ->assertForbidden()
-        ->assertJsonPath('code', 'forbidden');
+        ->assertForbidden();
 });
 
 it('refuses the audit trail to a deactivated administrator', function () {

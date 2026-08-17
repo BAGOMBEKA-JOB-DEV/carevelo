@@ -198,10 +198,10 @@ it('deactivates on DELETE instead of deleting the row', function () {
         ->assertJsonPath('data.is_active', false);
 
     app(Tenancy::class)->run($f['tenant']->id, function () use ($id) {
-        $service = Service::query()->whereKey($id)->first();
+        // firstOrFail is the survival assertion: the row is still there.
+        $service = Service::query()->whereKey($id)->firstOrFail();
 
-        expect($service)->not->toBeNull()
-            ->and($service->is_active)->toBeFalse()
+        expect($service->is_active)->toBeFalse()
             ->and(Service::query()->count())->toBe(1);
     });
 });

@@ -1,12 +1,12 @@
 <?php
 
-use App\Models\OtpCode;
+use App\Models\OutboundNotification;
 use App\Models\Tenant;
 use App\Models\User;
-use App\Support\Auth\OtpPurpose;
+use App\Support\Notifications\TemplateRegistry;
 use App\Tenancy\Tenancy;
 use Database\Seeders\RoleSeeder;
-use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Queue;
 
 /*
 |--------------------------------------------------------------------------
@@ -14,15 +14,15 @@ use Illuminate\Support\Facades\Hash;
 |--------------------------------------------------------------------------
 |
 | THERE IS NO actingAs() IN THIS FILE, and there must never be. Every other
-| test in the suite injects an authenticated user directly into the guard,
-| which proves the endpoint behind authentication works and proves nothing
-| about authentication itself. For most of this project's life there was no
-| way to sign in at all and no test noticed, because no test tried.
+| test in the suite injects an authenticated user straight into the guard, which
+| proves the endpoint behind authentication works and proves nothing whatsoever
+| about authentication itself. For most of this project's life there was no way
+| to sign in at all and no test noticed, because no test tried.
 |
-| This one tries: it asks for a code over HTTP, reads the code out of the
-| database the way the handset would read it off a screen, submits it, and then
+| This one tries. It asks for a code over HTTP, reads the code out of the
+| database the way the patient reads it off a lock screen, submits it, and then
 | calls an endpoint that requires a session. If any link in that chain breaks,
-| the product is unusable and this file is the thing that says so.
+| the product is unusable and this file is what says so.
 |
 | See docs/40-api/authentication-and-sessions.md
 |
@@ -30,6 +30,11 @@ use Illuminate\Support\Facades\Hash;
 
 beforeEach(function () {
     $this->seed(RoleSeeder::class);
+
+    // The gateway is the notifications module's problem, not authentication's.
+    // The row the Notifier writes is what this file reads, and it is written
+    // before the job is ever queued.
+    Queue::fake();
 });
 
 /** The tenant is resolved from the HOST. Never a path, query or body field. */
@@ -43,12 +48,32 @@ function authUrl(Tenant $tenant, string $path): string
     );
 }
 
+/**
+ * The code as the patient receives it: out of the SMS that was queued.
+ *
+ * Not out of the otp_codes row, which holds only a digest -- the plaintext
+ * exists in the message and nowhere else, which is the property under test as
+ * much as it is a convenience here.
+ */
+function codeFromSms(Tenant $tenant): string
+{
+    return app(Tenancy::class)->run($tenant->id, function (): string {
+        $sms = OutboundNotification::query()
+            ->where('template_key', TemplateRegistry::REGISTRATION_OTP)
+            ->latest()
+            ->firstOrFail();
+
+        expect(preg_match('/\b(\d{6})\b/', $sms->body, $matches))->toBe(1);
+
+        return $matches[1];
+    });
+}
+
 it('signs a patient in end to end with nothing but a phone number and a code', function () {
-    $tenancy = app(Tenancy::class);
     $tenant = Tenant::factory()->create();
     $phone = '+256772400100';
 
-    $patient = $tenancy->run($tenant->id, function () use ($tenant, $phone) {
+    $patient = app(Tenancy::class)->run($tenant->id, function () use ($tenant, $phone) {
         $user = User::factory()->create([
             'tenant_id' => $tenant->id,
             'phone' => $phone,
@@ -59,49 +84,87 @@ it('signs a patient in end to end with nothing but a phone number and a code', f
         return $user;
     });
 
-    // 1. Ask for a code, over HTTP, as the patient portal would.
+    // 1. Ask for a code, over HTTP, in the format a Ugandan actually types.
     $this->postJson(authUrl($tenant, '/api/v1/auth/otp/request'), ['phone' => '0772 400 100'])
-        ->assertStatus(202);
+        ->assertStatus(202)
+        ->assertJsonPath('message', 'If that number is registered, a code has been sent by SMS.');
 
-    // 2. Read the code. The handset reads it off a lock screen; the test reads
-    //    it from the row, because the row is the only other place it exists --
-    //    and it exists there only as a digest, so the plaintext is recovered by
-    //    the one method available to anyone: guessing against the digest.
-    $code = $tenancy->run($tenant->id, function () use ($phone) {
-        $record = OtpCode::query()
-            ->where('phone', $phone)
-            ->where('purpose', OtpPurpose::SignIn->value)
-            ->latest()
-            ->firstOrFail();
-
-        for ($candidate = 0; $candidate <= 999999; $candidate++) {
-            $attempt = str_pad((string) $candidate, OtpCode::LENGTH, '0', STR_PAD_LEFT);
-
-            if (Hash::check($attempt, $record->code_hash)) {
-                return $attempt;
-            }
-        }
-
-        return null;
-    });
-
-    expect($code)->not->toBeNull();
+    // 2. Read it off the message.
+    $code = codeFromSms($tenant);
 
     // 3. Submit it. A session comes back, bound to this clinic.
-    $signIn = $this->postJson(authUrl($tenant, '/api/v1/auth/otp/verify'), [
+    $this->postJson(authUrl($tenant, '/api/v1/auth/otp/verify'), [
         'phone' => '0772 400 100',
         'code' => $code,
-    ])->assertOk();
+    ])
+        ->assertOk()
+        ->assertJsonPath('id', $patient->id);
 
-    expect($signIn->json('id'))->toBe($patient->id);
     $this->assertAuthenticatedAs($patient);
 
-    // 4. And the session reaches an authenticated endpoint.
+    // 4. And that session reaches an endpoint behind auth:sanctum.
     $this->getJson(authUrl($tenant, '/api/v1/me'))
         ->assertOk()
         ->assertJsonPath('id', $patient->id)
-        ->assertJsonMissingPath('password');
-})->skip(
-    fn () => false,
-    'Brute-forcing the digest is the only way to recover a code without a fake gateway.'
-);
+        ->assertJsonMissing(['password']);
+});
+
+it('signs a clinician in end to end with a password, then out again', function () {
+    $tenant = Tenant::factory()->create();
+
+    $clinician = app(Tenancy::class)->run($tenant->id, function () use ($tenant) {
+        $user = User::factory()->create([
+            'tenant_id' => $tenant->id,
+            'phone' => '+256772400200',
+            'password' => 'correct-horse-battery',
+        ]);
+        $user->assignRole('clinician');
+
+        return $user;
+    });
+
+    $this->postJson(authUrl($tenant, '/api/v1/auth/sign-in'), [
+        'phone' => '0772400200',
+        'password' => 'correct-horse-battery',
+    ])->assertOk();
+
+    $this->assertAuthenticatedAs($clinician);
+
+    $this->getJson(authUrl($tenant, '/api/v1/me'))
+        ->assertOk()
+        ->assertJsonPath('id', $clinician->id);
+
+    $this->postJson(authUrl($tenant, '/api/v1/auth/sign-out'))->assertNoContent();
+
+    $this->assertGuest();
+
+    $this->getJson(authUrl($tenant, '/api/v1/me'))->assertUnauthorized();
+});
+
+it('refuses the code once it has been spent', function () {
+    // The same code, twice. The first request is a sign-in and the second is an
+    // attacker with a code out of somebody's message history.
+    $tenant = Tenant::factory()->create();
+
+    app(Tenancy::class)->run($tenant->id, function () use ($tenant) {
+        User::factory()->create([
+            'tenant_id' => $tenant->id,
+            'phone' => '+256772400300',
+        ])->assignRole('patient');
+    });
+
+    $this->postJson(authUrl($tenant, '/api/v1/auth/otp/request'), ['phone' => '0772400300'])
+        ->assertStatus(202);
+
+    $code = codeFromSms($tenant);
+
+    $this->postJson(authUrl($tenant, '/api/v1/auth/otp/verify'), [
+        'phone' => '0772400300', 'code' => $code,
+    ])->assertOk();
+
+    $this->postJson(authUrl($tenant, '/api/v1/auth/sign-out'))->assertNoContent();
+
+    $this->postJson(authUrl($tenant, '/api/v1/auth/otp/verify'), [
+        'phone' => '0772400300', 'code' => $code,
+    ])->assertStatus(422);
+});

@@ -9,6 +9,7 @@ use App\Http\Requests\Admin\Staff\InviteStaffRequest;
 use App\Http\Requests\Admin\Staff\UpdateStaffRequest;
 use App\Http\Resources\V1\StaffResource;
 use App\Models\ClinicalRole;
+use App\Models\StaffInvitation;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Support\Notifications\Notifier;

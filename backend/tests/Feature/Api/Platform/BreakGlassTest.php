@@ -39,7 +39,7 @@ function breakGlassUrl(string $path = '/api/v1/platform/break-glass'): string
     return sprintf('http://%s%s', parse_url((string) config('app.url'), PHP_URL_HOST), $path);
 }
 
-function operator(ClinicalRole $role = ClinicalRole::PlatformSupport): User
+function platformOperator(ClinicalRole $role = ClinicalRole::PlatformSupport): User
 {
     $user = User::factory()->create(['tenant_id' => null]);
     $user->assignRole($role->value);
@@ -58,19 +58,23 @@ function grantRequest(Tenant $tenant, string $scope = 'consultation'): array
     ];
 }
 
-/** Audit events belonging to a clinic are only visible inside its context. */
+/**
+ * Audit events belonging to a clinic are only visible inside its context.
+ *
+ * @return array<int, string>
+ */
 function tenantAuditActions(Tenant $tenant): array
 {
     return app(Tenancy::class)->run(
         $tenant->id,
-        fn () => AuditEvent::query()->pluck('action')->all(),
+        fn (): array => AuditEvent::query()->pluck('action')->map(strval(...))->values()->all(),
     );
 }
 
 it('records a reason, a scope, a time box and the tenant notification', function () {
     $tenant = Tenant::factory()->create();
 
-    $response = $this->actingAs(operator())
+    $response = $this->actingAs(platformOperator())
         ->postJson(breakGlassUrl(), grantRequest($tenant))
         ->assertCreated();
 
@@ -93,7 +97,7 @@ it('writes the notification into the clinic\'s own audit trail', function () {
     // trail the clinic's administrator already reads.
     $tenant = Tenant::factory()->create();
 
-    $this->actingAs(operator())
+    $this->actingAs(platformOperator())
         ->postJson(breakGlassUrl(), grantRequest($tenant))
         ->assertCreated();
 
@@ -106,7 +110,7 @@ it('rejects a grant with no reason', function () {
     $payload = grantRequest($tenant);
     unset($payload['reason']);
 
-    $this->actingAs(operator())
+    $this->actingAs(platformOperator())
         ->postJson(breakGlassUrl(), $payload)
         ->assertStatus(422)
         ->assertJsonPath('code', 'validation_failed')
@@ -118,7 +122,7 @@ it('rejects a grant with no reason', function () {
 it('rejects a reason too thin for a reviewer to act on', function () {
     $tenant = Tenant::factory()->create();
 
-    $this->actingAs(operator())
+    $this->actingAs(platformOperator())
         ->postJson(breakGlassUrl(), [...grantRequest($tenant), 'reason' => 'debug'])
         ->assertStatus(422)
         ->assertJsonValidationErrors('reason');
@@ -130,7 +134,7 @@ it('rejects a grant with no scope', function () {
     $payload = grantRequest($tenant);
     unset($payload['scope']);
 
-    $this->actingAs(operator())
+    $this->actingAs(platformOperator())
         ->postJson(breakGlassUrl(), $payload)
         ->assertStatus(422)
         ->assertJsonValidationErrors('scope');
@@ -139,7 +143,7 @@ it('rejects a grant with no scope', function () {
 it('rejects a scope outside the closed list', function () {
     $tenant = Tenant::factory()->create();
 
-    $this->actingAs(operator())
+    $this->actingAs(platformOperator())
         ->postJson(breakGlassUrl(), [...grantRequest($tenant), 'scope' => 'everything'])
         ->assertStatus(422)
         ->assertJsonValidationErrors('scope');
@@ -151,7 +155,7 @@ it('rejects a grant with no time box', function () {
     $payload = grantRequest($tenant);
     unset($payload['expires_at']);
 
-    $this->actingAs(operator())
+    $this->actingAs(platformOperator())
         ->postJson(breakGlassUrl(), $payload)
         ->assertStatus(422)
         ->assertJsonValidationErrors('expires_at');
@@ -162,7 +166,7 @@ it('rejects a time box longer than the maximum', function () {
     // issues a second grant, which is notified and audited again.
     $tenant = Tenant::factory()->create();
 
-    $this->actingAs(operator())
+    $this->actingAs(platformOperator())
         ->postJson(breakGlassUrl(), [
             ...grantRequest($tenant),
             'expires_at' => Date::now()->addHours(BreakGlassGrant::MAX_DURATION_HOURS + 1)->toIso8601String(),
@@ -174,7 +178,7 @@ it('rejects a time box longer than the maximum', function () {
 it('rejects a time box that has already elapsed', function () {
     $tenant = Tenant::factory()->create();
 
-    $this->actingAs(operator())
+    $this->actingAs(platformOperator())
         ->postJson(breakGlassUrl(), [
             ...grantRequest($tenant),
             'expires_at' => Date::now()->subHour()->toIso8601String(),
@@ -202,7 +206,7 @@ it('refuses a grant request from a clinic role', function () {
 
 it('permits access under a live grant and audits every one', function () {
     $tenant = Tenant::factory()->create();
-    $operator = operator();
+    $operator = platformOperator();
 
     $patient = app(Tenancy::class)->run($tenant->id, fn () => Patient::factory()->create());
 
@@ -238,7 +242,7 @@ it('records no clinical content in the access audit event', function () {
     // the record said. It is retained permanently for break-glass events, so a
     // leak here is a leak that outlives everything else.
     $tenant = Tenant::factory()->create();
-    $operator = operator();
+    $operator = platformOperator();
 
     $patient = app(Tenancy::class)->run($tenant->id, fn () => Patient::factory()->create([
         'given_name' => 'Namuli',
@@ -257,27 +261,28 @@ it('records no clinical content in the access audit event', function () {
         $patient->id,
     );
 
-    $events = app(Tenancy::class)->run($tenant->id, fn () => AuditEvent::query()
+    /** @var array<string, mixed> $metadata */
+    $metadata = app(Tenancy::class)->run($tenant->id, fn () => AuditEvent::query()
         ->where('action', 'break_glass.accessed')
-        ->get()
-        ->map(fn (AuditEvent $event) => $event->metadata)
-        ->all());
+        ->firstOrFail()
+        ->metadata) ?? [];
 
-    $encoded = strtolower((string) json_encode($events));
+    $encoded = strtolower((string) json_encode($metadata));
 
     foreach (['namuli', 'nakiwala', 'diagnosis', 'medicine', 'reason'] as $term) {
         expect($encoded)->not->toContain($term, "The break-glass audit event leaked '{$term}'");
     }
 
-    expect($events[0])->toHaveKey('record_id')
-        ->and($events[0]['record_id'])->toBe($patient->id);
+    // Identifiers and outcomes, which is the whole of what an audit event holds.
+    expect($metadata)->toHaveKeys(['operator_id', 'scope', 'record_id'])
+        ->and($metadata['record_id'])->toBe($patient->id);
 });
 
 it('refuses access under an expired grant', function () {
     // The time box is the control. A grant that expires mid-investigation stops
     // working mid-investigation, because it is re-checked on every access.
     $tenant = Tenant::factory()->create();
-    $operator = operator();
+    $operator = platformOperator();
 
     BreakGlassGrant::factory()
         ->expired()
@@ -294,7 +299,7 @@ it('refuses access under an expired grant', function () {
 
 it('refuses access under a revoked grant', function () {
     $tenant = Tenant::factory()->create();
-    $operator = operator();
+    $operator = platformOperator();
 
     BreakGlassGrant::factory()
         ->revoked()
@@ -311,7 +316,7 @@ it('refuses access under a revoked grant', function () {
 
 it('refuses access under a grant the clinic was never told about', function () {
     $tenant = Tenant::factory()->create();
-    $operator = operator();
+    $operator = platformOperator();
 
     BreakGlassGrant::factory()
         ->unnotified()
@@ -330,7 +335,7 @@ it('refuses access outside the granted scope', function () {
     // A grant for a prescription is not a grant for the whole record. A stated
     // scope that nothing compares against is decoration.
     $tenant = Tenant::factory()->create();
-    $operator = operator();
+    $operator = platformOperator();
 
     BreakGlassGrant::factory()
         ->forScope('prescription')
@@ -347,7 +352,7 @@ it('refuses access outside the granted scope', function () {
 it('refuses access to a clinic the grant does not name', function () {
     $tenant = Tenant::factory()->create();
     $other = Tenant::factory()->create();
-    $operator = operator();
+    $operator = platformOperator();
 
     BreakGlassGrant::factory()
         ->forScope('patient_record')
@@ -363,8 +368,8 @@ it('refuses access to a clinic the grant does not name', function () {
 
 it('refuses access under another operator\'s grant', function () {
     $tenant = Tenant::factory()->create();
-    $granted = operator();
-    $borrower = operator();
+    $granted = platformOperator();
+    $borrower = platformOperator();
 
     BreakGlassGrant::factory()
         ->forScope('patient_record')
@@ -398,7 +403,7 @@ it('lists the grant register for a platform reviewer', function () {
     $tenant = Tenant::factory()->create();
     $grant = BreakGlassGrant::factory()->create(['tenant_id' => $tenant->id]);
 
-    $response = $this->actingAs(operator(ClinicalRole::PlatformAdmin))
+    $response = $this->actingAs(platformOperator(ClinicalRole::PlatformAdmin))
         ->getJson(breakGlassUrl())
         ->assertOk();
 
