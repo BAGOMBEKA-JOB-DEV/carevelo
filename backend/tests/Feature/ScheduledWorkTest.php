@@ -1,5 +1,7 @@
 <?php
 
+use App\Console\Contracts\RunsOnDemand;
+use Illuminate\Console\Command;
 use Illuminate\Console\Scheduling\Event;
 use Illuminate\Console\Scheduling\Schedule;
 
@@ -32,13 +34,13 @@ use Illuminate\Console\Scheduling\Schedule;
 */
 
 /**
- * The signature of every command in app/Console/Commands.
+ * Every command in app/Console/Commands, as name => instance.
  *
- * @return list<string>
+ * @return array<string, Command>
  */
-function definedCommandSignatures(): array
+function definedCommands(): array
 {
-    $signatures = [];
+    $commands = [];
 
     foreach (glob(app_path('Console/Commands/*.php')) ?: [] as $path) {
         $class = 'App\\Console\\Commands\\'.basename($path, '.php');
@@ -49,20 +51,39 @@ function definedCommandSignatures(): array
 
         $reflection = new ReflectionClass($class);
 
-        if ($reflection->isAbstract()) {
+        if ($reflection->isAbstract() || ! $reflection->isSubclassOf(Command::class)) {
             continue;
         }
+
+        /** @var Command $instance */
+        $instance = $reflection->newInstanceWithoutConstructor();
 
         $property = $reflection->getProperty('signature');
         $property->setAccessible(true);
 
-        $signature = $property->getValue($reflection->newInstanceWithoutConstructor());
-
         // The name is the first token; the rest is argument syntax.
-        $signatures[] = explode(' ', trim((string) $signature))[0];
+        $name = explode(' ', trim((string) $property->getValue($instance)))[0];
+
+        $commands[$name] = $instance;
     }
 
-    return $signatures;
+    return $commands;
+}
+
+/**
+ * The commands that must appear on the schedule.
+ *
+ * Excludes those declaring RunsOnDemand, which is a REASONED exemption rather than
+ * a list — see that interface, and the test below that checks the reason is real.
+ *
+ * @return list<string>
+ */
+function commandsRequiringSchedule(): array
+{
+    return array_keys(array_filter(
+        definedCommands(),
+        fn (Command $command) => ! $command instanceof RunsOnDemand,
+    ));
 }
 
 /**
@@ -78,14 +99,34 @@ it('schedules every console command it defines', function () {
     $scheduled = implode("\n", array_map(fn (Event $e) => $e->command ?? '', scheduledEvents()));
 
     $unscheduled = array_values(array_filter(
-        definedCommandSignatures(),
+        commandsRequiringSchedule(),
         fn (string $name) => ! str_contains($scheduled, $name),
     ));
 
     expect($unscheduled)->toBeEmpty(
         "Defined but never scheduled: \n  ".implode("\n  ", $unscheduled)
         ."\nA command that is never invoked is indistinguishable from one that does nothing."
-        ."\nRegister it in routes/console.php, or delete it."
+        ."\nRegister it in routes/console.php, delete it, or declare RunsOnDemand with a reason."
+    );
+});
+
+it('makes every unscheduled command say why', function () {
+    // The exemption has to answer the guard, not silence it. An empty reason means
+    // someone reached for the interface to make a failure go away.
+    $reasons = [];
+
+    foreach (definedCommands() as $name => $command) {
+        if (! $command instanceof RunsOnDemand) {
+            continue;
+        }
+
+        if (trim($command->whyNotScheduled()) === '') {
+            $reasons[] = $name;
+        }
+    }
+
+    expect($reasons)->toBeEmpty(
+        'Declared RunsOnDemand with no reason: '.implode(', ', $reasons)
     );
 });
 

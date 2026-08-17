@@ -130,6 +130,17 @@ jobs:
 
       # --- Blocking gates. Each catches a class of defect we cannot ship. ---
 
+      - name: API contract is in sync
+        # docs/40-api/openapi.yaml is generated from the routes, form requests and
+        # resources, and the frontend's client is generated from it in turn. Without
+        # this gate a generated-and-committed artefact is just a stale one: the
+        # previous hand-written file had drifted to 3 paths against 93 live routes,
+        # which is why the frontend had no usable client at all.
+        #
+        # Runs after migrate because the generator reads column types for model
+        # attributes and quietly produces a thinner schema without them.
+        run: php artisan api:contract --check
+
       - name: Style (Pint)
         run: ./vendor/bin/pint --test --format agent
 
