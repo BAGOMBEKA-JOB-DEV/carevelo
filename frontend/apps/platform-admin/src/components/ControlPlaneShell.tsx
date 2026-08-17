@@ -32,7 +32,19 @@ export function ControlPlaneShell({ title, active, logoUrl, children }: { title:
         <header className="topbar">
           <span className="topbar__title">{title}</span>
           <span className="topbar__spacer" />
-          {logoUrl ? <img className="topbar__logo" src={logoUrl} alt="" /> : null}
+          {logoUrl ? (
+          /*
+           * A plain <img>, deliberately. next/image would route a TENANT-UPLOADED
+           * asset through Next's optimiser: more client JS on a surface with a 150KB
+           * budget, and a second cache layer over an image the backend already
+           * validated for format and dimensions, stripped of metadata, re-encoded and
+           * served from tenant-partitioned storage. Nothing is left for the optimiser
+           * to do except add weight. Height is capped in CSS so a tall logo cannot
+           * push the header open.
+           */
+          // eslint-disable-next-line @next/next/no-img-element
+            <img className="topbar__logo" src={logoUrl} alt="" />
+          ) : null}
         </header>
         <main className="content" id="main">{children}</main>
         <nav className="tabbar" aria-label="Sections">

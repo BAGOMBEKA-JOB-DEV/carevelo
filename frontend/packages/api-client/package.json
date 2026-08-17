@@ -12,7 +12,7 @@
     "check": "node scripts/check-in-sync.mjs",
     "typecheck": "tsc --noEmit",
     "build": "tsc --noEmit",
-    "lint": "eslint src",
+    "lint": "eslint src --max-warnings 0",
     "boundaries": "depcruise src --config ../../.dependency-cruiser.cjs --ts-config tsconfig.json"
   },
   "devDependencies": {

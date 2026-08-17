@@ -33,6 +33,16 @@ export function SiteShell({ tenant, children }: { tenant: Tenant; children: Reac
         {branding?.logo_url ? (
           // Alt text names the clinic rather than saying "logo": a screen reader
           // announcing "logo" tells the patient nothing about whose clinic this is.
+          /*
+           * A plain <img>, deliberately. next/image would route a TENANT-UPLOADED
+           * asset through Next's optimiser: more client JS on a surface with a 150KB
+           * budget, and a second cache layer over an image the backend already
+           * validated for format and dimensions, stripped of metadata, re-encoded and
+           * served from tenant-partitioned storage. Nothing is left for the optimiser
+           * to do except add weight. Height is capped in CSS so a tall logo cannot
+           * push the header open.
+           */
+          // eslint-disable-next-line @next/next/no-img-element
           <img className="site__logo" src={branding.logo_url} alt={name} />
         ) : null}
         <span className="site__name">{name}</span>

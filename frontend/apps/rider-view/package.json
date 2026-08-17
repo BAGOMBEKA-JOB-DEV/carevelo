@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start --port 3002",
     "typecheck": "tsc --noEmit",
-    "lint": "next lint",
+    "lint": "eslint src --max-warnings 0",
     "boundaries": "depcruise src --config ../../.dependency-cruiser.cjs --ts-config tsconfig.json"
   },
   "dependencies": {
