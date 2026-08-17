@@ -1,0 +1,26 @@
+{
+  "name": "@carevelo/platform-admin",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --port 3003",
+    "build": "next build",
+    "start": "next start --port 3003",
+    "typecheck": "tsc --noEmit",
+    "lint": "next lint",
+    "boundaries": "depcruise src --config ../../.dependency-cruiser.cjs --ts-config tsconfig.json"
+  },
+  "dependencies": {
+    "@carevelo/api-client": "workspace:*",
+    "@carevelo/ui": "workspace:*",
+    "next": "16.3.1",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@types/node": "26.2.0",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.4",
+    "typescript": "5.9.3"
+  }
+}

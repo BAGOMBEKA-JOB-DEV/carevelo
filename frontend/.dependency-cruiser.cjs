@@ -21,14 +21,14 @@ module.exports = {
         'is what app/ is for. Reaching inside makes two domains one domain with a ' +
         'folder between them.',
       severity: 'error',
-      from: { path: 'apps/[^/]+/src/domains/([^/]+)/.+' },
+      from: { path: 'src/domains/([^/]+)/.+' },
       to: {
-        path: 'apps/[^/]+/src/domains/([^/]+)/.+',
+        path: 'src/domains/([^/]+)/.+',
         pathNot: [
           // Same domain: fine.
-          'apps/[^/]+/src/domains/$1/.+',
+          'src/domains/$1/.+',
           // Another domain's public surface: allowed, if awkward.
-          'apps/[^/]+/src/domains/[^/]+/index\\.(ts|tsx)$',
+          'src/domains/[^/]+/index\\.(ts|tsx)$',
         ],
       },
     },
@@ -40,8 +40,8 @@ module.exports = {
         'an appointment component is not app-global, it is the scheduling domain in ' +
         'the wrong folder — and it drags that domain into every app that reuses it.',
       severity: 'error',
-      from: { path: 'apps/[^/]+/src/(components|lib)/.+' },
-      to: { path: 'apps/[^/]+/src/domains/.+' },
+      from: { path: 'src/(components|lib)/.+' },
+      to: { path: 'src/domains/.+' },
     },
     {
       name: 'packages-must-not-know-domains',
@@ -68,8 +68,8 @@ module.exports = {
         'that inverts the layering and hides business logic in the routing tree, ' +
         'where nothing looks for it.',
       severity: 'error',
-      from: { path: 'apps/[^/]+/src/(domains|components|lib)/.+' },
-      to: { path: 'apps/[^/]+/src/app/.+' },
+      from: { path: 'src/(domains|components|lib)/.+' },
+      to: { path: 'src/app/.+' },
     },
     {
       name: 'api-only-through-the-client',
@@ -79,7 +79,7 @@ module.exports = {
         'idempotency key — and it means a hand-written request type, which is a ' +
         'second copy of the contract that drifts silently.',
       severity: 'error',
-      from: { path: 'apps/[^/]+/src/.+', pathNot: 'apps/[^/]+/src/lib/api\\.ts$' },
+      from: { path: 'src/.+', pathNot: 'src/lib/api\\.ts$' },
       to: { path: '^node_modules/(axios|got|node-fetch|superagent)/' },
     },
     {
@@ -91,6 +91,23 @@ module.exports = {
       severity: 'error',
       from: { pathNot: '^packages/realtime/' },
       to: { path: '^node_modules/(laravel-echo|pusher-js)/' },
+    },
+    {
+      name: 'no-unresolvable',
+      comment:
+        'Every import must resolve, and this rule is what keeps the rest of this file ' +
+        'honest. An import dependency-cruiser cannot resolve is invisible to every ' +
+        'rule above it — so a misconfigured path alias does not produce a warning, it ' +
+        'silently switches the boundary enforcement off and leaves the run green.\n\n' +
+        'That happened here: the rules were written against tsconfig.base.json, which ' +
+        'has no `@/*` mapping, so every `@/domains/...` import resolved to nothing and ' +
+        '`shared-must-not-know-domains` could not fire on the idiomatic Next import ' +
+        'style. Relative imports were caught; the ones people actually write were not. ' +
+        'The boundaries script now runs per app with that app\'s own tsconfig, and this ' +
+        'rule fails the build if anything ever stops resolving again.',
+      severity: 'error',
+      from: {},
+      to: { couldNotResolve: true },
     },
     {
       name: 'no-circular',
@@ -115,8 +132,20 @@ module.exports = {
           '(^|/)\\.[^/]+\\.(js|cjs|mjs|ts)$',
           '(^|/)(eslint|next|postcss|tailwind)\\.config\\.(js|cjs|mjs|ts)$',
           // Next.js discovers these by filename; nothing imports them.
-          'apps/[^/]+/src/app/.+',
-          'apps/[^/]+/(middleware|instrumentation)\\.ts$',
+          'src/app/.+',
+          '(middleware|instrumentation)\\.ts$',
+          'next\\.config\\.ts$',
+          // A domain's index.ts is a PUBLIC API, and a public API is legitimately
+          // unreferenced from inside its own package -- the same reason app/ routes
+          // and .d.ts files are exempt above. It is also unreferenced by
+          // construction while a domain is still a placeholder, and 26 warnings for
+          // that would mask the one real orphan this rule exists to find.
+          //
+          // Note what this does NOT weaken: everything INSIDE a domain is still
+          // checked, so an unused component or hook is still reported. And a domain
+          // that nothing routes to is caught by a different signal entirely -- no
+          // route imports it, which is visible in the dependency graph.
+          'src/domains/[^/]+/index\\.ts$',
         ],
       },
       to: {},
@@ -125,11 +154,19 @@ module.exports = {
   options: {
     doNotFollow: { path: 'node_modules' },
     tsPreCompilationDeps: true,
-    tsConfig: { fileName: 'tsconfig.base.json' },
+    // No tsConfig here on purpose. It resolves against the CWD, and this config runs
+    // both from the workspace root and from inside each package -- so the caller
+    // passes --ts-config. That is also what lets each app resolve its own `@/*`
+    // alias, without which the boundary rules are blind to the idiomatic import
+    // style; see no-unresolvable.
     enhancedResolveOptions: {
       exportsFields: ['exports'],
       conditionNames: ['import', 'require', 'node', 'default', 'types'],
-      extensions: ['.js', '.jsx', '.ts', '.tsx', '.mjs', '.cjs'],
+      // .d.ts is not optional here: the generated API client is a declaration file,
+      // and without it `export type { components } from './generated/schema'` looked
+      // unresolvable. no-unresolvable caught that on its first run, which is exactly
+      // the blind spot it was added for.
+      extensions: ['.js', '.jsx', '.ts', '.tsx', '.mjs', '.cjs', '.d.ts'],
     },
     reporterOptions: {
       dot: { collapsePattern: 'node_modules/(?:@[^/]+/[^/]+|[^/]+)' },

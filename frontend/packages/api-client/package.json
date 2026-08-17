@@ -12,7 +12,8 @@
     "check": "node scripts/check-in-sync.mjs",
     "typecheck": "tsc --noEmit",
     "build": "tsc --noEmit",
-    "lint": "eslint src"
+    "lint": "eslint src",
+    "boundaries": "depcruise src --config ../../.dependency-cruiser.cjs --ts-config tsconfig.json"
   },
   "devDependencies": {
     "@types/node": "26.2.0",

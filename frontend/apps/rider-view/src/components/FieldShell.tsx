@@ -1,0 +1,35 @@
+import type { ReactNode } from 'react'
+
+/**
+ * FieldShell — the rider view frame.
+ *
+ * The most restricted surface in the product. One column, no sidebar, nothing to get
+ * lost in: the rider sees their own assignments and changes a status, and that is
+ * the whole of it.
+ *
+ * NO CLINICAL DATA REACHES HERE, and the app carries only the delivery and identity
+ * domains so that a prescribing form or a clinical note component cannot exist in
+ * this bundle at all -- the frontend mirror of RiderDeliveryResource being a
+ * separate class rather than the dispatcher's with fields hidden.
+ *
+ * aria-current on the active item, not only a colour and a bar. Colour alone fails a
+ * colour-blind user and says nothing to a screen reader.
+ */
+export function FieldShell({ active, children }: { active?: string; children: ReactNode }) {
+  return (
+    <div className="field">
+      <a className="skip-link" href="#main">Skip to content</a>
+
+      <header className="topbar">
+        <span className="topbar__title">Deliveries</span>
+      </header>
+
+      <main className="field__main" id="main">{children}</main>
+
+      <nav className="tabbar" aria-label="Sections">
+        <a href="/assignments" className={active === 'assignments' ? 'is-active' : undefined} aria-current={active === 'assignments' ? 'page' : undefined}>Assignments</a>
+        <a href="/completed" className={active === 'completed' ? 'is-active' : undefined} aria-current={active === 'completed' ? 'page' : undefined}>Completed</a>
+      </nav>
+    </div>
+  )
+}

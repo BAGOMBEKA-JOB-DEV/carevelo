@@ -69,7 +69,7 @@ describe('the token layer', () => {
       (m) => m[1],
     )
 
-    expect(order).toEqual(['colors', 'typography', 'spacing', 'reset', 'components'])
+    expect(order).toEqual(['colors', 'typography', 'spacing', 'reset', 'components', 'layout'])
   })
 
   it('imports every token file, so none is dead', () => {
