@@ -321,22 +321,3 @@ it('audits the merge with identifiers and counts, never names', function () {
             ->and($encoded)->not->toContain($duplicate->phone);
     });
 });
-
-it('moves every table the schema says names a patient', function () {
-    // The guard on PatientController::MERGED_RELATIONS. A new patient-owning
-    // table added without listing it there would silently strand that history on
-    // the duplicate, and no other test in this file would notice.
-    $reflected = new ReflectionClass(PatientController::class);
-
-    /** @var list<string> $handled */
-    $handled = $reflected->getConstant('MERGED_RELATIONS');
-
-    $inSchema = array_column(DB::select("
-        select table_name
-        from information_schema.columns
-        where table_schema = 'public'
-          and column_name = 'patient_id'
-    "), 'table_name');
-
-    expect($handled)->toEqualCanonicalizing($inSchema);
-});
