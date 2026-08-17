@@ -1,11 +1,15 @@
 <?php
 
+use App\Models\Appointment;
+use App\Models\AppointmentStatus;
 use App\Models\OutboundNotification;
+use App\Models\Patient;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Support\Notifications\TemplateRegistry;
 use App\Tenancy\Tenancy;
 use Database\Seeders\RoleSeeder;
+use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\Queue;
 
 /*
@@ -110,6 +114,62 @@ it('signs a patient in end to end with nothing but a phone number and a code', f
         ->assertOk()
         ->assertJsonPath('id', $patient->id)
         ->assertJsonMissing(['password']);
+});
+
+it('reaches the patient\'s own records through the same real session', function () {
+    // The other half of "the API is reachable". Signing in proves authentication
+    // works; this proves the session then reaches something a patient came for.
+    //
+    // It also covers the join between the two, which is easy to miss because it is
+    // nobody's feature: a patient record registered by front desk is attached to
+    // the account by the OTP verification itself, on the strength of the phone the
+    // code just proved. The user_id column shipped before anything filled it, and
+    // every `P own` endpoint returned an empty list to patients who had records.
+    $tenant = Tenant::factory()->create();
+    $phone = '+256772400300';
+
+    $appointment = app(Tenancy::class)->run($tenant->id, function () use ($tenant, $phone) {
+        $user = User::factory()->create([
+            'tenant_id' => $tenant->id,
+            'phone' => $phone,
+            'phone_verified_at' => null,
+        ]);
+        $user->assignRole('patient');
+
+        // Registered at the front desk, against the handset and nothing else.
+        // No account, no link -- exactly as it arrives in practice.
+        $patient = Patient::factory()->create(['phone' => $phone]);
+
+        return Appointment::factory()->create([
+            'patient_id' => $patient->id,
+            'status' => AppointmentStatus::Confirmed,
+            'scheduled_start_at' => Date::now()->addMinutes(5),
+            'scheduled_end_at' => Date::now()->addMinutes(35),
+        ]);
+    });
+
+    $this->postJson(authUrl($tenant, '/api/v1/auth/otp/request'), ['phone' => $phone])
+        ->assertStatus(202);
+
+    $this->postJson(authUrl($tenant, '/api/v1/auth/otp/verify'), [
+        'phone' => $phone,
+        'code' => codeFromSms($tenant),
+    ])->assertOk();
+
+    // Their own appointment, listed to a real session that never saw actingAs().
+    $this->getJson(authUrl($tenant, '/api/v1/appointments'))
+        ->assertOk()
+        ->assertJsonPath('data.0.id', $appointment->id);
+
+    // And through to the consultation itself: issue a token, spend it, get a room.
+    $token = $this->postJson(
+        authUrl($tenant, '/api/v1/appointments/'.$appointment->id.'/join-token')
+    )->assertCreated()->json('data.token');
+
+    $this->postJson(authUrl($tenant, '/api/v1/join-tokens/redeem'), ['token' => $token])
+        ->assertOk()
+        ->assertJsonPath('data.room', 'apt-'.$appointment->id)
+        ->assertJsonPath('data.participant', 'patient');
 });
 
 it('signs a clinician in end to end with a password, then out again', function () {
