@@ -7,29 +7,37 @@ use Illuminate\Support\Facades\DB;
 | Mandatory test 2 -- schema conformance
 |--------------------------------------------------------------------------
 |
-| Every table either carries tenant_id with RLS enabled AND forced, or appears
-| on the platform-scoped allow-list below.
+| Every table either carries tenant_id with RLS enabled AND forced, or is
+| declared platform-scoped.
 |
 | This catches the commonest real mistake: a new table shipped without RLS. A
 | new table is PRESUMED tenant-scoped; making one platform-scoped must be a
 | visible, reviewable act rather than an omission.
+|
+| A table declares itself platform-scoped by calling Schema::markPlatformScoped()
+| in its own migration, which stamps a reason onto the table comment. That is the
+| declaration this file reads. It deliberately lives in the migration rather than
+| in a list here: the exemption is then visible in the same diff that creates the
+| table, and `\d+` in psql shows it to anyone auditing the live database.
+|
+| The list below is only for tables whose migrations we do not own -- framework
+| and package infrastructure that will never call our macro.
 |
 | See docs/80-quality/test-strategy.md
 |
 */
 
 /**
- * Tables that deliberately hold no tenant_id.
+ * Infrastructure tables from framework and package migrations.
  *
- * Adding to this list is a decision, not a convenience.
+ * These hold no tenant data and cannot declare themselves, because we do not
+ * write their migrations. Everything WE create declares itself instead.
  *
  * @return list<string>
  */
-function platformScopedTables(): array
+function foreignInfrastructureTables(): array
 {
     return [
-        'tenants',                  // the tenant register itself
-        'users',                    // auth must find a user before a tenant resolves
         'migrations',               // schema versioning
         'jobs', 'job_batches', 'failed_jobs',   // queue infrastructure
         'cache', 'cache_locks',     // cache store
@@ -37,9 +45,52 @@ function platformScopedTables(): array
         'personal_access_tokens',
         'permissions', 'roles', 'model_has_permissions',
         'model_has_roles', 'role_has_permissions',
-        'audit_events',             // holds platform rows too; own policy
     ];
 }
+
+/**
+ * Tables the schema itself declares platform-scoped, mapped to the reason given.
+ *
+ * @return array<string, string>
+ */
+function declaredPlatformScopedTables(): array
+{
+    $declared = DB::select("
+        select c.relname as table_name,
+               obj_description(c.oid, 'pg_class') as comment
+        from pg_class c
+        join pg_namespace n on n.oid = c.relnamespace
+        where n.nspname = 'public'
+          and c.relkind = 'r'
+          and obj_description(c.oid, 'pg_class') like 'platform-scoped:%'
+    ");
+
+    $reasons = [];
+
+    foreach ($declared as $table) {
+        $reasons[(string) $table->table_name] = (string) $table->comment;
+    }
+
+    return $reasons;
+}
+
+/**
+ * Whether this table is exempt from the tenant-scoping presumption.
+ */
+function isPlatformScoped(string $table): bool
+{
+    return in_array($table, foreignInfrastructureTables(), true)
+        || array_key_exists($table, declaredPlatformScopedTables());
+}
+
+it('states a reason for every table it exempts from tenant scoping', function () {
+    // markPlatformScoped() requires a reason, so an empty one means the comment
+    // was written by something else and the exemption is not actually declared.
+    foreach (declaredPlatformScopedTables() as $table => $reason) {
+        expect(trim(str_replace('platform-scoped:', '', $reason)))
+            ->not->toBe('', "{$table}: declared platform-scoped with no reason");
+    }
+});
 
 it('has row level security enabled and forced on every tenant-scoped table', function () {
     $tables = DB::select("
@@ -60,7 +111,7 @@ it('has row level security enabled and forced on every tenant-scoped table', fun
     $failures = [];
 
     foreach ($tables as $table) {
-        if (in_array($table->table_name, platformScopedTables(), true)) {
+        if (isPlatformScoped((string) $table->table_name)) {
             continue;
         }
 

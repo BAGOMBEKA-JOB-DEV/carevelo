@@ -4,19 +4,18 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Audit\AuditLog;
 use App\Events\DeliveryAssigned;
-use App\Exceptions\StateMachine\IllegalTransition;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\V1\Deliveries\AssignRiderRequest;
 use App\Http\Requests\V1\Deliveries\DispatchBoardRequest;
 use App\Http\Requests\V1\Deliveries\StoreDeliveryRequest;
 use App\Http\Resources\V1\DeliveryResource;
-use App\Models\ConsentRecord;
 use App\Models\Delivery;
 use App\Models\DeliveryEvent;
 use App\Models\DeliveryStatus;
 use App\Models\DispenseOrder;
 use App\Models\DispenseOrderStatus;
 use App\Models\User;
+use App\Support\Consent\DeliveryDisclosure;
 use App\Support\ReferenceGenerator;
 use Carbon\CarbonInterface;
 use Illuminate\Http\JsonResponse;
@@ -41,12 +40,10 @@ use Illuminate\Support\Facades\DB;
  */
 class DeliveryController extends Controller
 {
-    /** The consent that must exist before an address may reach a rider. */
-    private const DISCLOSURE_CONSENT = 'delivery_disclosure';
-
     public function __construct(
         private readonly AuditLog $audit,
         private readonly ReferenceGenerator $references,
+        private readonly DeliveryDisclosure $disclosure,
     ) {}
 
     /** The dispatch board. */
@@ -219,29 +216,13 @@ class DeliveryController extends Controller
     /**
      * Refuse to prepare an address for a rider without the patient's consent.
      *
-     * delivery_disclosure is captured at the point delivery is chosen, not at
-     * registration: consent under DPPA 2019 must be specific, and asking up
-     * front for a disclosure that may never happen is not specific.
-     *
-     * Withdrawal is a new record rather than an edit, so the LATEST record
-     * decides — an old grant does not survive a later withdrawal.
+     * The check itself lives in DeliveryDisclosure because the pharmacy asks the
+     * same question one step earlier, when the patient chooses delivery as the
+     * fulfilment method. Two copies could disagree, and an order accepted at the
+     * counter and then refused at dispatch is a patient sent home twice.
      */
     private function assertAddressMayBeDisclosed(DispenseOrder $order): void
     {
-        $latest = ConsentRecord::query()
-            ->where('patient_id', $order->getAttribute('patient_id'))
-            ->where('consent_type', self::DISCLOSURE_CONSENT)
-            ->orderByDesc('occurred_at')
-            ->orderByDesc('id')
-            ->first();
-
-        if ($latest?->action === 'granted') {
-            return;
-        }
-
-        throw new IllegalTransition(
-            'This patient has not agreed to their address being shared with a rider. '
-            .'Capture delivery consent first, or offer collection at the pharmacy instead.'
-        );
+        $this->disclosure->assertGrantedFor((string) $order->getAttribute('patient_id'));
     }
 }

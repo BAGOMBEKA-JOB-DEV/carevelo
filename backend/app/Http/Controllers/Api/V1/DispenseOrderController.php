@@ -8,6 +8,7 @@ use App\Exceptions\StateMachine\IllegalTransition;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\V1\Dispensing\IndexDispenseOrderRequest;
 use App\Http\Requests\V1\Dispensing\PriceDispenseOrderRequest;
+use App\Http\Requests\V1\Dispensing\RecordFulfilmentRequest;
 use App\Http\Requests\V1\Dispensing\RejectDispenseOrderRequest;
 use App\Http\Resources\V1\DispenseOrderResource;
 use App\Models\DispenseItem;
@@ -16,6 +17,7 @@ use App\Models\DispenseOrderStatus;
 use App\Models\Substitution;
 use App\Models\SubstitutionStatus;
 use App\Models\User;
+use App\Support\Consent\DeliveryDisclosure;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Collection;
@@ -33,16 +35,20 @@ use Illuminate\Support\Facades\DB;
  * different facts, and a partial fill or a substitution is only legible later if
  * both survive independently.
  *
- * The policy exposes one pharmacy-bench ability, `price`. Opening, pricing and
- * rejecting are the same authorisation question — may this user work this
- * order at the bench? — so they share it. `dispense` is separate because it is
- * a narrower one: only a pharmacist hands medicine over, never an administrator.
+ * Opening, pricing and rejecting are the same authorisation question — may this
+ * user work this order at the bench? — so they share a role set. `dispense` and
+ * `collect` are narrower: both are moments medicine physically moves, and only a
+ * pharmacist may record one, never an administrator. `chooseFulfilment` is wider
+ * instead, because the front desk takes that call too.
  *
  * @see docs/10-product/prd-h4-prescription-dispensing-delivery.md
  */
 class DispenseOrderController extends Controller
 {
-    public function __construct(private readonly AuditLog $audit) {}
+    public function __construct(
+        private readonly AuditLog $audit,
+        private readonly DeliveryDisclosure $disclosure,
+    ) {}
 
     /**
      * The pharmacy queue.
@@ -231,6 +237,101 @@ class DispenseOrderController extends Controller
         // the patient's device to go and re-fetch; it never says what was in
         // the bag.
         event(OrderDispensed::from($dispenseOrder));
+
+        return DispenseOrderResource::make($dispenseOrder->load('items'));
+    }
+
+    /**
+     * Record whether the patient is collecting or having it delivered.
+     *
+     * Two refusals live here, and both exist so that the answer given at the
+     * counter is the same one dispatch will give later:
+     *
+     *   1. an order holding a controlled item can never be delivered (NDPA Act
+     *      Cap 206). There is no override, and refusing at this point means the
+     *      patient is told while they are still standing there rather than after
+     *      they have gone home to wait;
+     *   2. delivery requires the patient's delivery_disclosure consent to already
+     *      be granted. This endpoint does not WRITE that consent -- capturing it
+     *      needs the exact policy wording the patient read, and ConsentController
+     *      owns that text and the hash taken over it. A second writer here would
+     *      pin a hash to text it had reproduced by hand, which is precisely the
+     *      failure the hash exists to catch.
+     *
+     * Choosing pickup on an already-dispensed order also readies it for
+     * collection: the medicine is on the shelf with the patient's name on it,
+     * which is what ready_for_pickup means. Delivery does not transition here,
+     * because leaving the pharmacy needs a Delivery record and a rider -- that is
+     * DeliveryController's job.
+     */
+    public function fulfilment(RecordFulfilmentRequest $request, DispenseOrder $dispenseOrder): DispenseOrderResource
+    {
+        $this->authorize('chooseFulfilment', $dispenseOrder);
+
+        if ($request->wantsDelivery()) {
+            if (! $dispenseOrder->mayBeDelivered()) {
+                throw new IllegalTransition(
+                    'This order contains a controlled medicine and must be collected in person. '
+                    .'Controlled items are excluded from delivery and there is no override.'
+                );
+            }
+
+            $this->disclosure->assertGrantedFor((string) $dispenseOrder->patient_id);
+        }
+
+        DB::transaction(function () use ($dispenseOrder, $request): void {
+            $dispenseOrder->fulfilment = $request->method();
+            $dispenseOrder->save();
+
+            if (! $request->wantsDelivery() && $dispenseOrder->status === DispenseOrderStatus::Dispensed) {
+                $dispenseOrder->transitionTo(DispenseOrderStatus::ReadyForPickup);
+            }
+
+            // The METHOD, not the address. Where someone lives is not an audit
+            // event's business even when the audit event is about delivering to it.
+            $this->audit->record('dispense_order.fulfilment_chosen', 'DispenseOrder', $dispenseOrder->id, [
+                'method' => $request->method(),
+                'status' => $dispenseOrder->status->value,
+            ]);
+        });
+
+        return DispenseOrderResource::make($dispenseOrder->load('items'));
+    }
+
+    /**
+     * The patient collected it at the pharmacy.
+     *
+     * Terminal, and deliberately narrower than it looks: an order set for
+     * DELIVERY cannot be collected here. Marking a delivery collected would close
+     * it while a rider still holds the package, and the tracking the patient is
+     * watching would go quiet with their medicines still in transit.
+     *
+     * Accepts an order that is dispensed but was never explicitly readied --
+     * ready_for_pickup is a shelf state, and a pharmacist who dispensed and handed
+     * over in one motion did not skip a step, they did two at once. The walk
+     * through ready_for_pickup is still made rather than jumped, so the state
+     * machine records both.
+     */
+    public function collect(DispenseOrder $dispenseOrder): DispenseOrderResource
+    {
+        $this->authorize('collect', $dispenseOrder);
+
+        if ($dispenseOrder->fulfilment === RecordFulfilmentRequest::DELIVERY) {
+            throw new IllegalTransition(
+                'This order is set for delivery. Complete it through the delivery, '
+                .'or change the fulfilment method to pickup first.'
+            );
+        }
+
+        DB::transaction(function () use ($dispenseOrder): void {
+            if ($dispenseOrder->status === DispenseOrderStatus::Dispensed) {
+                $dispenseOrder->transitionTo(DispenseOrderStatus::ReadyForPickup);
+            }
+
+            $dispenseOrder->transitionTo(DispenseOrderStatus::Collected);
+
+            $this->audit->record('dispense_order.collected', 'DispenseOrder', $dispenseOrder->id);
+        });
 
         return DispenseOrderResource::make($dispenseOrder->load('items'));
     }

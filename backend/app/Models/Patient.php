@@ -4,9 +4,11 @@ namespace App\Models;
 
 use App\Models\Concerns\BelongsToTenant;
 use Database\Factories\PatientFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
 
 /**
@@ -24,6 +26,7 @@ use Illuminate\Support\Carbon;
  * @property string $family_name
  * @property string $phone
  * @property PatientStatus $status
+ * @property ?string $merged_into_patient_id
  * @property ?Carbon $phone_verified_at
  * @property ?string $email
  * @property ?string $sex
@@ -76,5 +79,41 @@ class Patient extends Model
     public function mayHoldClinicalData(): bool
     {
         return $this->status === PatientStatus::Active;
+    }
+
+    /**
+     * The duplicate registration this one absorbed, if any.
+     *
+     * @return BelongsTo<self, $this>
+     */
+    public function mergedInto(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'merged_into_patient_id');
+    }
+
+    /**
+     * Whether this record was folded into another and is no longer the person.
+     *
+     * A merged record keeps its own status untouched. The status describes a
+     * consent history that genuinely happened, and rewriting it to explain a
+     * later clerical correction would falsify it.
+     */
+    public function isMerged(): bool
+    {
+        return $this->merged_into_patient_id !== null;
+    }
+
+    /**
+     * Only records that are still the person they describe.
+     *
+     * Every patient listing wants this. A merged duplicate holds no history --
+     * it moved -- so showing it invites staff to open the wrong record.
+     *
+     * @param  Builder<self>  $query
+     * @return Builder<self>
+     */
+    public function scopeNotMerged(Builder $query): Builder
+    {
+        return $query->whereNull('merged_into_patient_id');
     }
 }
