@@ -43,7 +43,12 @@ jobs:
       CACHE_STORE: array
       SESSION_DRIVER: array
       QUEUE_CONNECTION: sync
-      BROADCAST_CONNECTION: null
+      # Quoted deliberately. Bare null is a YAML null, which Actions hands to
+      # the step as an empty string -- and Laravel needs the literal string
+      # "null" to select the null broadcast driver. phpunit.xml already gets
+      # this right for the Tests step; this is for the steps that boot the
+      # framework without it, like migrate.
+      BROADCAST_CONNECTION: "null"
       REDIS_HOST: 127.0.0.1
       REDIS_PORT: 6379
 
