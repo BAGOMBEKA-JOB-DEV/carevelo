@@ -37,10 +37,35 @@ return Application::configure(basePath: dirname(__DIR__))
         // route with a model parameter would 404.
         //
         // Tenancy must be established before anything touches the database.
+
         $middleware->api(prepend: [
             ResolveTenant::class,
             BindTenantContext::class,
         ]);
+
+        /*
+         * Sanctum cookie sessions, which the architecture depends on and which were
+         * not wired up at all.
+         *
+         * Without this the api group has no StartSession and no
+         * EnsureFrontendRequestsAreStateful, so no session cookie is ever issued and
+         * `auth:sanctum` falls through to bearer-token authentication, finds none, and
+         * returns 401. Signing in appeared to work — verify returned 200 — and then
+         * every authenticated request failed, which is a product that cannot be used
+         * at all.
+         *
+         * It stayed invisible because Laravel's test client keeps the session in
+         * process: RealSignInFlowTest asserts assertAuthenticatedAs and a subsequent
+         * GET /v1/me, and both pass without a cookie ever crossing the wire. No test
+         * asserted that a Set-Cookie header exists. SessionCookieTest does now.
+         *
+         * "All three surfaces use Sanctum cookie sessions — HTTP-only, Secure,
+         * SameSite. No bearer token is held in local storage, where any script with a
+         * foothold could read it on a page rendering health data."
+         *
+         * @see docs/40-api/authentication-and-sessions.md
+         */
+        $middleware->statefulApi();
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
