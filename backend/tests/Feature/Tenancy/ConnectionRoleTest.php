@@ -56,6 +56,32 @@ it('runs migrations as a separate owner role', function () {
 it('runs the test suite against postgres, never sqlite', function () {
     // SQLite has no row-level security. If the suite ever silently fell back to
     // it, every isolation test below would pass while proving nothing.
+    //
+    // The name is matched by prefix rather than exactly, so the suite can be
+    // pointed at carevelo_testing_utc and the like to compare behaviour across
+    // server configurations. It still refuses to run against a database that is
+    // not a testing one.
     expect(DB::connection()->getDriverName())->toBe('pgsql')
-        ->and(DB::connection()->getDatabaseName())->toBe('carevelo_testing');
+        ->and(DB::connection()->getDatabaseName())->toStartWith('carevelo_testing');
+});
+
+it('pins the session timezone, so no comparison depends on the server default', function () {
+    // Laravel formats query bindings with the grammar's naive date format, so a
+    // Carbon compared against a timestamptz column arrives with no offset and
+    // PostgreSQL resolves it in the SESSION's timezone.
+    //
+    // Unpinned, that is whatever the server defaults to. This machine defaulted
+    // to Africa/Asmara (+03:00) and CI to UTC, so the same
+    // where('next_poll_at', '<=', Date::now()) matched different rows in each --
+    // and the appointment-overlap check accepted a double booking on one of
+    // them. Both are silent: no error, just the wrong rows.
+    //
+    // UTC to agree with config('app.timezone'), so a naive binding and a
+    // Date::now() denote the same instant.
+    expect(DB::selectOne('show timezone')->TimeZone)->toBe('UTC')
+        ->and(config('app.timezone'))->toBe('UTC');
+
+    // Both connections, since data migrations write timestamps the application
+    // then reads.
+    expect(DB::connection('pgsql_migrator')->selectOne('show timezone')->TimeZone)->toBe('UTC');
 });
