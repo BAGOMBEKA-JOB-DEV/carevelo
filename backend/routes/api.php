@@ -82,7 +82,18 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         Route::post('me/password', [AuthController::class, 'updatePassword'])->name('me.password');
 
         // --- Patients and consent (H2) ---------------------------------
-        Route::apiResource('patients', PatientController::class)->except(['destroy']);
+        /*
+         * PATCH only, not Laravel's default PUT|PATCH pair.
+         *
+         * These are partial updates, and PUT means "replace the whole resource".
+         * On a patient record that is the wrong verb to leave open: a client
+         * omitting a field would blank it. The catalogue says PATCH, and the
+         * published contract now agrees -- with both registered, Scramble
+         * documented `put` and the generated frontend client would have used it.
+         */
+        Route::apiResource('patients', PatientController::class)
+            ->except(['destroy', 'update']);
+        Route::patch('patients/{patient}', [PatientController::class, 'update'])->name('patients.update');
         Route::get('patients/{patient}/consents', [ConsentController::class, 'index'])->name('consents.index');
         Route::post('patients/{patient}/consents', [ConsentController::class, 'store'])->name('consents.store');
         Route::post('patients/{patient}/consents/withdraw', [ConsentController::class, 'withdraw'])
@@ -111,7 +122,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         Route::post('tenant/aggregator-account/verify', [AggregatorAccountController::class, 'verify'])
             ->name('aggregator.verify');
 
-        Route::apiResource('services', ServiceController::class)->except(['show']);
+        Route::apiResource('services', ServiceController::class)->except(['show', 'update']);
+        Route::patch('services/{service}', [ServiceController::class, 'update'])->name('services.update');
         Route::get('working-hours', [WorkingHoursController::class, 'index'])->name('working-hours.index');
         Route::put('working-hours', [WorkingHoursController::class, 'update'])->name('working-hours.update');
 

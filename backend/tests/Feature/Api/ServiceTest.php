@@ -153,7 +153,7 @@ it('changes a price without touching anything else', function () {
     $id = $created->json('data.id');
 
     $this->actingAs($f['admin'])
-        ->putJson(catalogueUrl($f['tenant'], "/api/v1/services/{$id}"), ['price_minor' => 6_000_000])
+        ->patchJson(catalogueUrl($f['tenant'], "/api/v1/services/{$id}"), ['price_minor' => 6_000_000])
         ->assertOk()
         ->assertJsonPath('data.price.amount_minor', 6_000_000)
         ->assertJsonPath('data.name', 'General Consultation')
@@ -170,7 +170,7 @@ it('leaves the price alone when an update does not mention it', function () {
         ->assertCreated();
 
     $this->actingAs($f['admin'])
-        ->putJson(
+        ->patchJson(
             catalogueUrl($f['tenant'], "/api/v1/services/{$created->json('data.id')}"),
             ['name' => 'GP Consultation']
         )
@@ -270,7 +270,7 @@ it('refuses catalogue writes to anyone but the administrator', function () {
         ->assertForbidden();
 
     $this->actingAs($f['patientUser'])
-        ->putJson(catalogueUrl($f['tenant'], "/api/v1/services/{$service->id}"), ['price_minor' => 1])
+        ->patchJson(catalogueUrl($f['tenant'], "/api/v1/services/{$service->id}"), ['price_minor' => 1])
         ->assertForbidden();
 
     $this->actingAs($f['frontDesk'])

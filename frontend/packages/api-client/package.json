@@ -1,0 +1,23 @@
+{
+  "name": "@carevelo/api-client",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./schema": "./src/generated/schema.d.ts"
+  },
+  "scripts": {
+    "generate": "openapi-typescript ../../../docs/40-api/openapi.yaml --output src/generated/schema.d.ts",
+    "check": "node scripts/check-in-sync.mjs",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc --noEmit",
+    "lint": "eslint src --max-warnings 0",
+    "boundaries": "depcruise src --config ../../.dependency-cruiser.cjs --ts-config tsconfig.json"
+  },
+  "devDependencies": {
+    "@types/node": "26.2.0",
+    "openapi-typescript": "7.13.0",
+    "typescript": "5.9.3"
+  }
+}

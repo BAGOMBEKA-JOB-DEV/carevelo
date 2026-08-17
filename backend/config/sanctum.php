@@ -18,12 +18,37 @@ return [
     |
     */
 
-    'stateful' => explode(',', env('SANCTUM_STATEFUL_DOMAINS', sprintf(
-        '%s%s',
-        'localhost,localhost:3000,127.0.0.1,127.0.0.1:8000,::1',
+    /*
+     * EVERY CLINIC IS A SUBDOMAIN, so the wildcard is required rather than tidy.
+     *
+     * Sanctum only treats a request as coming from the frontend when its Origin or
+     * Referer matches this list, and only then does it start a session. The stock
+     * default covers the bare application host — carevelo.app — and no clinic is ever
+     * served from there: patients arrive at kira.carevelo.app.
+     *
+     * Without the wildcard, no tenant request is stateful, no session cookie is issued
+     * and auth:sanctum falls through to bearer tokens this architecture deliberately
+     * does not use. The result is a sign-in that returns 200 followed by a 401 on
+     * everything else, which is how it was found — by trying to log in.
+     *
+     * @see docs/40-api/authentication-and-sessions.md
+     * @see docs/30-architecture/multi-tenancy.md — tenancy comes from the host
+     */
+    'stateful' => explode(',', (string) env('SANCTUM_STATEFUL_DOMAINS', implode(',', array_filter([
+        'localhost',
+        'localhost:3000',
+        '127.0.0.1',
+        '127.0.0.1:8000',
+        '::1',
         Sanctum::currentApplicationUrlWithPort(),
-        // Sanctum::currentRequestHost(),
-    ))),
+        // Both forms. Sanctum compares against the Origin or Referer host INCLUDING
+        // its port, so '*.carevelo.app' alone never matches 'kira.carevelo.app:3000'
+        // and every local request silently falls back to stateless. That cost an hour.
+        ($appHost = parse_url((string) env('APP_URL', 'http://localhost'), PHP_URL_HOST))
+            ? '*.'.$appHost
+            : null,
+        $appHost ? '*.'.$appHost.':*' : null,
+    ])))),
 
     /*
     |--------------------------------------------------------------------------

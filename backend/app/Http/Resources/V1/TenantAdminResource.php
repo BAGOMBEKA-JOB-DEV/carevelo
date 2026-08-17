@@ -2,8 +2,8 @@
 
 namespace App\Http\Resources\V1;
 
-use App\Http\Requests\Admin\Tenant\UpdateTenantRequest;
 use App\Models\Tenant;
+use App\Support\Branding\BrandPalette;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Carbon;
@@ -35,12 +35,6 @@ use Illuminate\Support\Facades\Storage;
  */
 class TenantAdminResource extends JsonResource
 {
-    /** WCAG 2.1 AA for normal-size text. */
-    private const AA_NORMAL_TEXT = 4.5;
-
-    /** WCAG 2.1 AA for large text, logos and UI furniture. */
-    private const AA_LARGE_TEXT = 3.0;
-
     /**
      * @return array<string, mixed>
      */
@@ -94,120 +88,29 @@ class TenantAdminResource extends JsonResource
      * control -- free-form styling in a multi-tenant health application is an
      * exfiltration vector for special-category data, not a theming feature.
      *
+     * The colour maths moved to App\Support\Branding\BrandPalette. It lived here as
+     * private statics, which meant the patient-facing TenantResource -- the one
+     * surface that absolutely must stay readable -- could not reach it, and returned
+     * raw colours with no computed foreground at all.
+     *
+     * Advisories stay admin-only: they are guidance for whoever chose the colour, of
+     * no use to a patient's browser.
+     *
      * @return array<string, mixed>
      */
     private function branding(): array
     {
-        $primary = $this->hexOrNull($this->primary_colour);
-        $secondary = $this->hexOrNull($this->secondary_colour);
+        $palette = BrandPalette::from($this->primary_colour, $this->secondary_colour);
         $logoPath = $this->logo_path;
 
         return [
-            'primary_colour' => $primary,
-            'primary_foreground' => self::readableForeground($primary),
-            'secondary_colour' => $secondary,
-            'secondary_foreground' => self::readableForeground($secondary),
+            ...$palette->toTokens(),
             'logo_url' => is_string($logoPath) && $logoPath !== ''
                 // Tenant-partitioned storage: one clinic's assets are not
                 // reachable from another clinic's path prefix.
                 ? Storage::disk('public')->url($logoPath)
                 : null,
-            'contrast_advisories' => self::contrastAdvisories($primary, $secondary),
+            'contrast_advisories' => $palette->advisories(),
         ];
-    }
-
-    /**
-     * A stored value that is not a valid hex triplet is reported as absent.
-     *
-     * Belt and braces over the entry validation. The stored value ends up in a
-     * CSS custom property, and "it was validated when it was written" is a
-     * claim about history rather than about this string.
-     */
-    private function hexOrNull(mixed $value): ?string
-    {
-        return is_string($value) && preg_match(UpdateTenantRequest::HEX_COLOUR, $value) === 1 ? $value : null;
-    }
-
-    /**
-     * Black or white, whichever the clinic's colour can actually carry.
-     */
-    private static function readableForeground(?string $hex): ?string
-    {
-        if ($hex === null) {
-            return null;
-        }
-
-        return self::contrastRatio($hex, '#FFFFFF') >= self::contrastRatio($hex, '#111111')
-            ? '#FFFFFF'
-            : '#111111';
-    }
-
-    /**
-     * Warnings the administrator sees while the choice is still cheap to change.
-     *
-     * Advisory rather than a validation failure: the portal stays readable
-     * either way, because the foreground is computed. Refusing the colour
-     * outright would be overreach -- it is the clinic's brand.
-     *
-     * @return list<string>
-     */
-    private static function contrastAdvisories(?string $primary, ?string $secondary): array
-    {
-        $advisories = [];
-
-        foreach (['primary' => $primary, 'secondary' => $secondary] as $name => $hex) {
-            if ($hex === null) {
-                continue;
-            }
-
-            if (self::contrastRatio($hex, '#FFFFFF') < self::AA_LARGE_TEXT) {
-                $advisories[] = sprintf(
-                    'The %s colour is very pale against white. Patient-facing text will use a dark '
-                    .'foreground so it stays readable; a deeper shade would carry the brand better.',
-                    $name,
-                );
-            }
-        }
-
-        if ($primary !== null && $secondary !== null && self::contrastRatio($primary, $secondary) < self::AA_NORMAL_TEXT) {
-            $advisories[] = 'The primary and secondary colours are close together, so the two will be hard '
-                .'to tell apart on screen.';
-        }
-
-        return $advisories;
-    }
-
-    /**
-     * WCAG 2.1 contrast ratio between two `#RRGGBB` values.
-     */
-    private static function contrastRatio(string $hex, string $other): float
-    {
-        $first = self::relativeLuminance($hex);
-        $second = self::relativeLuminance($other);
-
-        $lighter = max($first, $second);
-        $darker = min($first, $second);
-
-        return ($lighter + 0.05) / ($darker + 0.05);
-    }
-
-    /**
-     * WCAG 2.1 relative luminance of a `#RRGGBB` value.
-     */
-    private static function relativeLuminance(string $hex): float
-    {
-        /** @var list<float> $channels */
-        $channels = array_map(
-            static function (string $pair): float {
-                $channel = (float) hexdec($pair) / 255;
-
-                return $channel <= 0.03928
-                    ? $channel / 12.92
-                    : (($channel + 0.055) / 1.055) ** 2.4;
-            },
-            str_split(substr($hex, 1), 2),
-        );
-
-        return 0.2126 * $channels[0] + 0.7152 * $channels[1] + 0.0722 * $channels[2];
     }
 }

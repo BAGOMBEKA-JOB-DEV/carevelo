@@ -27,8 +27,32 @@ abstract class TenantAwareJob implements ShouldQueue
 {
     use Queueable;
 
-    /** Captured at construction, in the dispatching request's context. */
-    public readonly string $tenantId;
+    /**
+     * Captured at construction, in the dispatching request's context.
+     *
+     * NOT `readonly`, and that is not an oversight.
+     *
+     * PHP scopes a reflective readonly initialisation to the OBJECT's class rather
+     * than the declaring one. SerializesModels::__unserialize() reflects over
+     * `new ReflectionClass($this)` and calls setValue, so restoring a payload threw
+     * "Cannot initialize readonly property App\Jobs\TenantAwareJob::$tenantId from
+     * scope <subclass>" — on every driver that serialises, which is all of them
+     * except sync-without-serialisation.
+     *
+     * The effect was total: no notification ever sent, no prescription document ever
+     * rendered, no payment reconciliation poll ever run, and a one-time code request
+     * returning a 500 so nobody could sign in at all. It stayed invisible because
+     * every suite fakes the queue instead of round-tripping a payload, and it was
+     * diagnosed and written down in RenderPrescriptionDocumentJob's docblock without
+     * being fixed — deferred to "the owner of that file", who did not exist.
+     *
+     * TenantAwareJobPayloadTest now round-trips every descendant through a real
+     * payload, which is the test that would have caught it.
+     *
+     * Immutability is intent here rather than enforcement: it is written once in the
+     * constructor and read once in handle().
+     */
+    public string $tenantId;
 
     public function __construct()
     {

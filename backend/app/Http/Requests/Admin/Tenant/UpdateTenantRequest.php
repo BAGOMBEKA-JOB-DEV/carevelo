@@ -5,6 +5,7 @@ namespace App\Http\Requests\Admin\Tenant;
 use App\Http\Requests\Concerns\RejectsUnknownFields;
 use App\Http\Requests\V1\Patients\Concerns\NormalisesPhoneNumbers;
 use App\Rules\UgandanPhone;
+use App\Support\Branding\BrandPalette;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
@@ -43,7 +44,7 @@ class UpdateTenantRequest extends FormRequest
      * `"#ff0000\n…"` would pass and carry whatever follows the newline into a
      * stylesheet.
      */
-    public const HEX_COLOUR = '/^#[0-9a-fA-F]{6}$/D';
+    public const HEX_COLOUR = BrandPalette::HEX;
 
     /** Authorisation is the controller's job; shaping input is this class's. */
     public function authorize(): bool

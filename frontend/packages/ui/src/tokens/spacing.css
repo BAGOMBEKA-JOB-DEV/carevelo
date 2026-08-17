@@ -1,0 +1,41 @@
+/* ============================================================
+   Carevelo — spacing, radii, shadows, layout dimensions
+
+   Sharp corners. Small radii and hairline borders read as precise and clinical,
+   which is the right register for a product that issues prescriptions.
+   ============================================================ */
+
+:root {
+  --r-sm: 4px;
+  --r-md: 6px;
+  --r-lg: 11px;
+  --r-pill: 9999px;
+
+  --shadow-sm: 0 1px 3px rgba(20, 34, 30, 0.1), 0 1px 2px -1px rgba(20, 34, 30, 0.1);
+  --shadow-pop: 0 10px 34px rgba(20, 34, 30, 0.13);
+  --shadow-product: rgba(20, 34, 30, 0.18) 2px 4px 24px 0;
+
+  --nav-w: 250px;
+  --top-h: 60px;
+  --maxw: 1280px;
+
+  /* Touch targets sized for real thumbs, per the accessibility requirements. A
+     clinician works one-handed between rooms and a patient may be on a cracked
+     screen in poor light. 44px is the floor, not a target. */
+  --touch-min: 44px;
+
+  --space-1: 4px;
+  --space-2: 6px;
+  --space-3: 8px;
+  --space-4: 12px;
+  --space-5: 16px;
+  --space-6: 18px;
+  --space-7: 24px;
+  --space-8: 30px;
+}
+
+:root[data-theme='dark'] {
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-pop: 0 10px 34px rgba(0, 0, 0, 0.5);
+  --shadow-product: rgba(0, 0, 0, 0.5) 2px 4px 24px 0;
+}

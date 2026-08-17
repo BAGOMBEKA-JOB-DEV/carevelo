@@ -1,0 +1,34 @@
+{
+  "name": "carevelo-frontend",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.20.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "eslint . --max-warnings 0",
+    "boundaries": "pnpm -r boundaries && depcruise apps --config .dependency-cruiser.cross-app.cjs --ts-config tsconfig.base.json",
+    "boundaries:graph": "depcruise apps packages --config .dependency-cruiser.cross-app.cjs --ts-config tsconfig.base.json --output-type dot > boundaries.dot",
+    "api-client:generate": "pnpm --filter @carevelo/api-client generate",
+    "api-client:check": "pnpm --filter @carevelo/api-client check",
+    "check": "pnpm typecheck && pnpm lint && pnpm boundaries && pnpm api-client:check && pnpm test && pnpm build",
+    "test": "pnpm -r test",
+    "dev": "pnpm --filter @carevelo/patient-portal dev --hostname 0.0.0.0",
+    "dev:console": "pnpm --filter @carevelo/clinic-console dev --hostname 0.0.0.0",
+    "dev:rider": "pnpm --filter @carevelo/rider-view dev --hostname 0.0.0.0",
+    "dev:admin": "pnpm --filter @carevelo/platform-admin dev --hostname 0.0.0.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@next/eslint-plugin-next": "16.3.1",
+    "dependency-cruiser": "18.2.0",
+    "eslint": "10.8.1",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "globals": "17.11.0",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.67.0"
+  }
+}

@@ -130,6 +130,17 @@ jobs:
 
       # --- Blocking gates. Each catches a class of defect we cannot ship. ---
 
+      - name: API contract is in sync
+        # docs/40-api/openapi.yaml is generated from the routes, form requests and
+        # resources, and the frontend's client is generated from it in turn. Without
+        # this gate a generated-and-committed artefact is just a stale one: the
+        # previous hand-written file had drifted to 3 paths against 93 live routes,
+        # which is why the frontend had no usable client at all.
+        #
+        # Runs after migrate because the generator reads column types for model
+        # attributes and quietly produces a thinner schema without them.
+        run: php artisan api:contract --check
+
       - name: Style (Pint)
         run: ./vendor/bin/pint --test --format agent
 
@@ -147,11 +158,22 @@ jobs:
       - name: Tree boundary
         # backend/ never contains frontend code and frontend/ never contains
         # PHP. @see docs/70-decisions/0007-separate-backend-frontend-trees.md
+        #
+        # TRACKED FILES ONLY, via git ls-files. The earlier version walked the
+        # filesystem and reported a violation the moment the frontend had
+        # dependencies installed: `flatted` ships a PHP port of its own format and
+        # Redocly ships a .php test fixture, both inside node_modules, neither
+        # committed. The boundary is about what this repository contains, not what
+        # npm vendored into an ignored directory.
+        #
+        # TreeBoundaryTest uses the same command, so the two controls cannot give
+        # different answers — which they did, and that is worse than either being
+        # wrong on its own.
         working-directory: .
         run: |
           set -e
-          test ! -d frontend || ! find frontend -name '*.php' | grep -q . \
-            || { echo "PHP found under frontend/"; exit 1; }
-          ! find backend/resources -name '*.blade.php' 2>/dev/null | grep -q . \
-            || { echo "Blade product views found under backend/"; exit 1; }
+          test -z "$(git ls-files 'frontend/**/*.php')" \
+            || { echo "PHP is tracked under frontend/:"; git ls-files 'frontend/**/*.php'; exit 1; }
+          test -z "$(git ls-files 'backend/**/*.blade.php')" \
+            || { echo "Blade product views tracked under backend/:"; git ls-files 'backend/**/*.blade.php'; exit 1; }
           echo "tree boundary intact"
