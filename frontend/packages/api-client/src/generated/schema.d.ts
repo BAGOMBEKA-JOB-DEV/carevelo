@@ -206,7 +206,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Sign in with a phone number and a password */
+        /** Sign in with an email address or a phone number, and a password */
         post: operations["v1.auth.sign-in"];
         delete?: never;
         options?: never;
@@ -1918,8 +1918,8 @@ export interface components {
          * AssignRiderRequest
          * @description Handing a delivery to a named rider.
          *
-         *     The rider is validated here rather than in the controller because "is this
-         *      * person a rider of this clinic" is a property of the input. Users are
+         *     The rider is validated here rather than in the controller because
+         *     "is this person a rider of this clinic" is a property of the input. Users are
          *     deliberately NOT row-level-security scoped -- authentication has to find a
          *     user before a tenant exists -- so the tenant check on the chosen rider is
          *     explicit and cannot be assumed from the database.
@@ -2499,14 +2499,33 @@ export interface components {
         };
         /**
          * SignInRequest
-         * @description Phone plus password, for staff.
+         * @description Password sign-in, by email address or by phone number.
          *
-         *     Patients do not come through here: they sign in with a code alone. Requiring
-         *     a password from someone who consults twice a year produces forgotten
-         *     passwords, and a forgotten password in this product means abandoned care.
+         *     BOTH, because the two audiences are genuinely different. A clinic administrator sits at
+         *     a desk with an email address and expects to type it; a clinician between rooms has their
+         *     phone in their hand and their number is the identifier the clinic already holds. The
+         *     business plan is blunt about the second case: most Ugandan clinic staff have a working
+         *     phone and no reliably checked email address, so neither identifier can be the only way in.
+         *
+         *     Exactly one is required. Sending both is a confused client rather than a convenience,
+         *     and picking one silently would mean two requests that look identical signing in as
+         *     different people.
+         *
+         *     Patients may also use a code with no password at all, which is a different endpoint.
          */
         SignInRequest: {
-            phone: string;
+            /**
+             * Format: email
+             * @description required_without rather than required: either identifies the account, and
+             *     the pair is mutually exclusive below.
+             */
+            email?: string | null;
+            phone?: string | null;
+            /**
+             * @description No length or composition rule on the way IN. A minimum here tells an
+             *     attacker the shape of what to guess, and rejects a correct password set
+             *     before the rule existed.
+             */
             password: string;
         };
         /** StaffResource */
@@ -2782,8 +2801,8 @@ export interface components {
          *     that is made structurally true rather than merely checked.
          *
          *     The reason is mandatory. It is the entire basis on which a clinician who is
-         *     not standing in the pharmacy decides, and "out of stock" versus "the
-         *      * strength we hold is different" are very different clinical questions.
+         *     not standing in the pharmacy decides, and "out of stock" is a very different
+         *     clinical question from "the strength we hold is different".
          */
         StoreSubstitutionRequest: {
             prescription_item_id: string;

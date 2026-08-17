@@ -28,11 +28,35 @@ export type Tenant = components['schemas']['TenantResource']
  * @see docs/30-architecture/multi-tenancy.md
  */
 export async function resolveTenant(): Promise<Tenant> {
+  const tenant = await tryResolveTenant()
+
+  if (tenant === null) {
+    notFound()
+  }
+
+  return tenant
+}
+
+/**
+ * The same resolution, returning null instead of rendering a 404.
+ *
+ * FOR THE ROOT LAYOUT, AND ESSENTIALLY ONLY IT. `notFound()` thrown from a root layout
+ * cannot render `not-found.tsx` — that page lives INSIDE the layout that just failed — so
+ * Next falls back to its global error shell, which streams no readable text. The result
+ * was a 404 that said nothing at all to anybody without JavaScript. Neutral, but blank.
+ *
+ * So the layout tolerates an unresolved host and paints the default tokens, and the PAGES
+ * call resolveTenant() and get a real, server-rendered 404 inside a layout that worked.
+ *
+ * Every page must therefore keep calling resolveTenant(). A page that used this one and
+ * carried on would render the portal for a host that resolves to no clinic.
+ */
+export async function tryResolveTenant(): Promise<Tenant | null> {
   const requestHeaders = await headers()
   const host = requestHeaders.get('host')
 
   if (!host) {
-    notFound()
+    return null
   }
 
   const client = new ApiClient({
@@ -54,7 +78,7 @@ export async function resolveTenant(): Promise<Tenant> {
     // Anything else is our problem, not the patient's, and must not be disguised as
     // a missing clinic — a 500 rendered as "not found" would hide an outage.
     if (error instanceof ApiError && error.status === 404) {
-      notFound()
+      return null
     }
 
     throw error
