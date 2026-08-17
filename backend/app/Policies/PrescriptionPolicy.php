@@ -19,10 +19,26 @@ class PrescriptionPolicy
         ]);
     }
 
+    /**
+     * The patient's own prescriptions.
+     *
+     * Grants entry to a LISTING only, and only alongside the scoping in
+     * AuthorisesPatientReads -- holding this and querying unscoped would hand one
+     * patient the whole clinic's records. Which rows are theirs is settled by
+     * isPatientOf(), not by this.
+     */
+    public function viewOwn(User $user): bool
+    {
+        return $this->hasAnyRole($user, [ClinicalRole::Patient]);
+    }
+
     public function view(User $user, Prescription $prescription): bool
     {
-        return $this->sameTenant($user, $prescription->tenant_id)
-            && $this->viewAny($user);
+        if (! $this->sameTenant($user, $prescription->tenant_id)) {
+            return false;
+        }
+
+        return $this->viewAny($user) || $this->isPatientOf($user, $prescription->patient_id);
     }
 
     /** Only a clinician issues a prescription. It is a clinical act. */

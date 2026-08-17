@@ -17,8 +17,15 @@ class ConsultationPolicy
      */
     public function view(User $user, Consultation $consultation): bool
     {
-        return $this->sameTenant($user, $consultation->tenant_id)
-            && $this->hasAnyRole($user, [ClinicalRole::ClinicAdmin, ClinicalRole::Clinician]);
+        if (! $this->sameTenant($user, $consultation->tenant_id)) {
+            return false;
+        }
+
+        // The patient may read the record of their own consultation. Their own
+        // care is not confidential FROM them, and the clinical notes on it are
+        // exactly what a second opinion needs.
+        return $this->hasAnyRole($user, [ClinicalRole::ClinicAdmin, ClinicalRole::Clinician])
+            || $this->isPatientOf($user, $consultation->patient_id);
     }
 
     /** Only a clinician conducts a consultation. */

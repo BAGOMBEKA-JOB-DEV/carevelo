@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Audit\AuditLog;
 use App\Events\PrescriptionIssued;
 use App\Exceptions\StateMachine\IllegalTransition;
+use App\Http\Controllers\Api\V1\Concerns\AuthorisesPatientReads;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\V1\Prescriptions\CancelPrescriptionRequest;
 use App\Http\Requests\V1\Prescriptions\IndexPrescriptionRequest;
@@ -35,11 +36,18 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class PrescriptionController extends Controller
 {
+    use AuthorisesPatientReads;
+
     public function index(IndexPrescriptionRequest $request, AuditLog $audit): AnonymousResourceCollection
     {
-        $this->authorize('viewAny', Prescription::class);
-
-        $query = Prescription::query()->with('items');
+        // Authorises AND narrows: a patient gets only their own prescriptions.
+        // The patient_id filter below then intersects with that, so passing
+        // someone else's id returns nothing rather than their records.
+        $query = $this->authoriseListing(
+            Prescription::query()->with('items'),
+            $request->user(),
+            Prescription::class,
+        );
 
         $patientId = $request->patientId();
 

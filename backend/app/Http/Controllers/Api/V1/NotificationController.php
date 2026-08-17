@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Http\Controllers\Api\V1\Concerns\AuthorisesPatientReads;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\V1\Reads\IndexNotificationRequest;
 use App\Http\Resources\V1\OutboundNotificationResource;
@@ -38,6 +39,8 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
  */
 class NotificationController extends Controller
 {
+    use AuthorisesPatientReads;
+
     public function __construct(protected TemplateRegistry $templates) {}
 
     /**
@@ -48,9 +51,13 @@ class NotificationController extends Controller
      */
     public function index(IndexNotificationRequest $request): AnonymousResourceCollection
     {
-        $this->authoriseAdministrator($request->user());
-
-        $query = OutboundNotification::query();
+        // The administrator sees the clinic's log; a patient sees messages sent
+        // to their own number, and nothing else.
+        $query = $this->authoriseListing(
+            OutboundNotification::query(),
+            $request->user(),
+            OutboundNotification::class,
+        );
 
         $status = $request->status();
 

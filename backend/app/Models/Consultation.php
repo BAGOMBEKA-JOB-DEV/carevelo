@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToTenant;
+use App\Models\Concerns\ScopedToPatientOwner;
+use App\Models\Contracts\RestrictableToPatient;
 use Database\Factories\ConsultationFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -18,7 +20,7 @@ use Illuminate\Support\Facades\Date;
  * @property ConsultationMode $mode_used
  * @property ?ConsultationOutcome $outcome
  */
-class Consultation extends Model
+class Consultation extends Model implements RestrictableToPatient
 {
     use BelongsToTenant;
 
@@ -26,6 +28,7 @@ class Consultation extends Model
     use HasFactory;
 
     use HasUlids;
+    use ScopedToPatientOwner;
 
     protected $fillable = [
         'appointment_id', 'patient_id', 'clinician_id',

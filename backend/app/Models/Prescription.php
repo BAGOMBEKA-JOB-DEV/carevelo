@@ -4,6 +4,8 @@ namespace App\Models;
 
 use App\Exceptions\StateMachine\IllegalTransition;
 use App\Models\Concerns\BelongsToTenant;
+use App\Models\Concerns\ScopedToPatientOwner;
+use App\Models\Contracts\RestrictableToPatient;
 use Database\Factories\PrescriptionFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -35,7 +37,7 @@ use LogicException;
  * @property string $registration_body_snapshot
  * @property ?string $supersedes_prescription_id
  */
-class Prescription extends Model
+class Prescription extends Model implements RestrictableToPatient
 {
     use BelongsToTenant;
 
@@ -43,6 +45,7 @@ class Prescription extends Model
     use HasFactory;
 
     use HasUlids;
+    use ScopedToPatientOwner;
 
     protected $fillable = [
         'consultation_id', 'clinician_id', 'patient_id',

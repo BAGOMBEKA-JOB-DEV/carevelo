@@ -4,6 +4,8 @@ namespace App\Models;
 
 use App\Exceptions\StateMachine\IllegalTransition;
 use App\Models\Concerns\BelongsToTenant;
+use App\Models\Concerns\ScopedToPatientOwner;
+use App\Models\Contracts\RestrictableToPatient;
 use App\Support\Money;
 use Database\Factories\DispenseOrderFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
@@ -40,7 +42,7 @@ use Illuminate\Support\Facades\Date;
  * @property ?string $rejection_reason
  * @property ?Carbon $dispensed_at
  */
-class DispenseOrder extends Model
+class DispenseOrder extends Model implements RestrictableToPatient
 {
     use BelongsToTenant;
 
@@ -48,6 +50,7 @@ class DispenseOrder extends Model
     use HasFactory;
 
     use HasUlids;
+    use ScopedToPatientOwner;
 
     protected $fillable = [
         'reference', 'prescription_id', 'patient_id', 'pharmacist_id',

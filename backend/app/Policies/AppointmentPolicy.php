@@ -19,9 +19,26 @@ class AppointmentPolicy
         ]);
     }
 
+    /**
+     * The patient's own appointments.
+     *
+     * Grants entry to a LISTING only, and only alongside the scoping in
+     * AuthorisesPatientReads -- holding this and querying unscoped would hand one
+     * patient the whole clinic's records. Which rows are theirs is settled by
+     * isPatientOf(), not by this.
+     */
+    public function viewOwn(User $user): bool
+    {
+        return $this->hasAnyRole($user, [ClinicalRole::Patient]);
+    }
+
     public function view(User $user, Appointment $appointment): bool
     {
-        return $this->sameTenant($user, $appointment->tenant_id) && $this->viewAny($user);
+        if (! $this->sameTenant($user, $appointment->tenant_id)) {
+            return false;
+        }
+
+        return $this->viewAny($user) || $this->isPatientOf($user, $appointment->patient_id);
     }
 
     public function create(User $user): bool
@@ -29,9 +46,19 @@ class AppointmentPolicy
         return $this->viewAny($user);
     }
 
+    /**
+     * Cancelling is the patient's own decision as much as the clinic's.
+     *
+     * A patient who cannot cancel telephones the clinic instead, and a slot nobody
+     * released is a slot nobody else could book.
+     */
     public function cancel(User $user, Appointment $appointment): bool
     {
-        return $this->sameTenant($user, $appointment->tenant_id) && $this->viewAny($user);
+        if (! $this->sameTenant($user, $appointment->tenant_id)) {
+            return false;
+        }
+
+        return $this->viewAny($user) || $this->isPatientOf($user, $appointment->patient_id);
     }
 
     /**

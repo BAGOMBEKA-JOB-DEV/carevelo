@@ -4,8 +4,10 @@ namespace App\Models;
 
 use App\Exceptions\StateMachine\IllegalTransition;
 use App\Models\Concerns\BelongsToTenant;
+use App\Models\Contracts\RestrictableToPatient;
 use App\Support\Money;
 use Database\Factories\PaymentIntentFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -39,7 +41,7 @@ use Illuminate\Support\Facades\Date;
  * @property ?Carbon $resolved_at
  * @property ?Carbon $initiated_at
  */
-class PaymentIntent extends Model
+class PaymentIntent extends Model implements RestrictableToPatient
 {
     use BelongsToTenant;
 
@@ -100,6 +102,78 @@ class PaymentIntent extends Model
             'next_poll_at' => 'datetime',
             'poll_attempts' => 'integer',
         ];
+    }
+
+    /**
+     * The payable types a patient can own, mapped to the model that holds the
+     * patient_id.
+     *
+     * Named here rather than inlined so a test can assert it covers every type
+     * the API accepts. A type missing from this map does not leak -- the patient
+     * simply never sees those intents -- but it does mean a receipt the patient
+     * is entitled to becomes unreachable, and silently.
+     *
+     * @var array<string, class-string<Appointment|DispenseOrder>>
+     */
+    public const PATIENT_OWNED_PAYABLES = [
+        'appointment' => Appointment::class,
+        'dispense_order' => DispenseOrder::class,
+    ];
+
+    /**
+     * Whose payment attempt this is, resolved through the payable.
+     *
+     * An intent names what is being paid for, not who is paying, so policies
+     * cannot read patient_id off it directly.
+     *
+     * An unrecognised payable_type yields null rather than an error. The row is
+     * then owned by nobody, so a patient is refused it -- the safe direction. A
+     * new payable type therefore has to be added to PATIENT_OWNED_PAYABLES to
+     * become reachable, and a test asserts that map matches what the API accepts.
+     */
+    public function patientId(): ?string
+    {
+        $model = self::PATIENT_OWNED_PAYABLES[(string) $this->payable_type] ?? null;
+
+        if ($model === null) {
+            return null;
+        }
+
+        $patientId = $model::query()->whereKey($this->payable_id)->value('patient_id');
+
+        // is_string rather than a null check: the payable may not exist, or may be
+        // hidden from this session by RLS, and both arrive here as a non-string.
+        return is_string($patientId) ? $patientId : null;
+    }
+
+    /**
+     * Narrow to payment intents for the patient records this account owns.
+     *
+     * payable_type/payable_id is a hand-rolled polymorphic reference holding
+     * short strings rather than class names, and there is no morphTo relation to
+     * lean on, so ownership is resolved with one subquery per type.
+     *
+     * The type is matched as well as the id. Without it an intent of one type
+     * would be reachable through an id that happens to match a record of the
+     * other -- ULIDs make that unlikely rather than impossible, and "unlikely"
+     * is not an access control.
+     *
+     * @param  Builder<covariant Model>  $query
+     */
+    public static function restrictToPatient(Builder $query, User $user): void
+    {
+        $patientIds = $user->ownedPatientIds();
+
+        $query->where(function (Builder $outer) use ($patientIds): void {
+            foreach (self::PATIENT_OWNED_PAYABLES as $type => $model) {
+                $outer->orWhere(function (Builder $inner) use ($type, $model, $patientIds): void {
+                    $inner->where('payable_type', $type)
+                        ->whereIn('payable_id', $model::query()
+                            ->whereIn('patient_id', $patientIds)
+                            ->select('id'));
+                });
+            }
+        });
     }
 
     /**

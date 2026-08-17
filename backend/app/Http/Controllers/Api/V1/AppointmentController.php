@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Audit\AuditLog;
 use App\Exceptions\StateMachine\IllegalTransition;
+use App\Http\Controllers\Api\V1\Concerns\AuthorisesPatientReads;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\V1\Appointments\CancelAppointmentRequest;
 use App\Http\Requests\V1\Appointments\IndexAppointmentRequest;
@@ -39,6 +40,8 @@ use Illuminate\Validation\ValidationException;
  */
 class AppointmentController extends Controller
 {
+    use AuthorisesPatientReads;
+
     /**
      * The statuses that occupy a clinician's slot.
      *
@@ -67,9 +70,10 @@ class AppointmentController extends Controller
      */
     public function index(IndexAppointmentRequest $request): AnonymousResourceCollection
     {
-        $this->authorize('viewAny', Appointment::class);
-
-        $query = Appointment::query();
+        // Authorises AND narrows. A patient reaches their own appointments here;
+        // staff reach the clinic's. See AuthorisesPatientReads for why the two are
+        // one call rather than two lines that must both be remembered.
+        $query = $this->authoriseListing(Appointment::query(), $request->user(), Appointment::class);
 
         if (($status = $request->status()) !== null) {
             $query->where('status', $status->value);

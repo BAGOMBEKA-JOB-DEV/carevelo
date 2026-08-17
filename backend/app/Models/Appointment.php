@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToTenant;
+use App\Models\Concerns\ScopedToPatientOwner;
+use App\Models\Contracts\RestrictableToPatient;
 use Database\Factories\AppointmentFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -20,7 +22,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $reference
  * @property AppointmentStatus $status
  */
-class Appointment extends Model
+class Appointment extends Model implements RestrictableToPatient
 {
     use BelongsToTenant;
 
@@ -28,6 +30,7 @@ class Appointment extends Model
     use HasFactory;
 
     use HasUlids;
+    use ScopedToPatientOwner;
 
     protected $fillable = [
         'reference', 'patient_id', 'clinician_id', 'service_id',

@@ -3,10 +3,12 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToTenant;
+use App\Models\Contracts\RestrictableToPatient;
 use App\Support\Notifications\NotificationChannel;
 use App\Support\Notifications\NotificationStatus;
 use App\Support\PhoneNumber;
 use Database\Factories\OutboundNotificationFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -39,7 +41,7 @@ use Illuminate\Support\Facades\Date;
  * @property ?Carbon $delivered_at
  * @property ?string $failure_reason
  */
-class OutboundNotification extends Model
+class OutboundNotification extends Model implements RestrictableToPatient
 {
     use BelongsToTenant;
 
@@ -91,6 +93,34 @@ class OutboundNotification extends Model
     }
 
     /** The gateway accepted it. Not proof any handset received it. */
+    /**
+     * Narrow to notifications addressed to the patient records this account owns.
+     *
+     * Matched on the RECIPIENT NUMBER, because that is the only link there is: a
+     * notification records a channel, a number and a body, and the Notifier is
+     * handed an E.164 string rather than a patient. (tenant_id, phone) is unique
+     * on patients, so within one clinic a number resolves to at most one record
+     * and the mapping is unambiguous.
+     *
+     * Deliberately UNDER-inclusive. A notification sent to a guardian_phone that
+     * differs from the record's own phone is not listed here. That withholds a
+     * message the patient could arguably see, which is the right direction for the
+     * mistake to run -- the alternative is showing one patient a message about
+     * another.
+     *
+     * A subquery rather than a plucked list: phone is cast to PhoneNumber, and
+     * comparing casts against a raw column invites a mismatch that would silently
+     * return nothing.
+     *
+     * @param  Builder<covariant Model>  $query
+     */
+    public static function restrictToPatient(Builder $query, User $user): void
+    {
+        $query->whereIn('recipient', Patient::query()
+            ->whereIn('id', $user->ownedPatientIds())
+            ->select('phone'));
+    }
+
     public function markSent(): void
     {
         $this->status = NotificationStatus::Sent;

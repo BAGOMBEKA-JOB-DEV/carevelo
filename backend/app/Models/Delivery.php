@@ -4,7 +4,9 @@ namespace App\Models;
 
 use App\Exceptions\StateMachine\IllegalTransition;
 use App\Models\Concerns\BelongsToTenant;
+use App\Models\Contracts\RestrictableToPatient;
 use Database\Factories\DeliveryFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -41,7 +43,7 @@ use Illuminate\Support\Facades\Date;
  * @property ?Carbon $delivered_at
  * @property-read ?DispenseOrder $dispenseOrder
  */
-class Delivery extends Model
+class Delivery extends Model implements RestrictableToPatient
 {
     use BelongsToTenant;
 
@@ -100,6 +102,41 @@ class Delivery extends Model
     public function dispenseOrder(): BelongsTo
     {
         return $this->belongsTo(DispenseOrder::class);
+    }
+
+    /**
+     * Whose delivery this is, resolved through the dispense order.
+     *
+     * A delivery names an order and a rider, never a patient, so policies cannot
+     * read patient_id off it the way they can everywhere else. This keeps them
+     * uniform.
+     *
+     * Null when the order is missing or unreadable -- which includes the case
+     * where RLS is hiding it -- and null is never owned by anyone.
+     */
+    public function patientId(): ?string
+    {
+        $patientId = $this->dispenseOrder?->patient_id;
+
+        return $patientId === null ? null : (string) $patientId;
+    }
+
+    /**
+     * Narrow to deliveries for the patient records this account owns.
+     *
+     * A delivery carries no patient_id of its own -- it names a dispense order
+     * and a rider. Ownership therefore resolves one hop away, and doing it in SQL
+     * rather than in PHP matters: a listing that loaded rows first and filtered
+     * after would still have read another patient's row out of the database.
+     *
+     * @param  Builder<covariant Model>  $query
+     */
+    public static function restrictToPatient(Builder $query, User $user): void
+    {
+        $query->whereHas(
+            'dispenseOrder',
+            fn (Builder $order) => $order->whereIn('patient_id', $user->ownedPatientIds())
+        );
     }
 
     /** @return HasMany<DeliveryEvent, $this> */

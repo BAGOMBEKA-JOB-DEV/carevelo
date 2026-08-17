@@ -180,7 +180,10 @@ class DeliveryController extends Controller
      */
     public function tracking(Request $request, Delivery $delivery): JsonResponse
     {
-        $this->authorize('view', $delivery);
+        // track, not view. The patient waiting for this delivery may follow its
+        // progress without gaining the record itself, which names an address and
+        // hangs off an order full of medicines.
+        $this->authorize('track', $delivery);
 
         $milestones = $delivery->events()
             ->orderBy('occurred_at')

@@ -16,14 +16,30 @@ class DispenseOrderPolicy
         return $this->hasAnyRole($user, [ClinicalRole::ClinicAdmin, ClinicalRole::Pharmacist]);
     }
 
+    /**
+     * The patient's own dispense orders.
+     *
+     * Grants entry to a LISTING only, and only alongside the scoping in
+     * AuthorisesPatientReads -- holding this and querying unscoped would hand one
+     * patient the whole clinic's records. Which rows are theirs is settled by
+     * isPatientOf(), not by this.
+     */
+    public function viewOwn(User $user): bool
+    {
+        return $this->hasAnyRole($user, [ClinicalRole::Patient]);
+    }
+
     public function view(User $user, DispenseOrder $order): bool
     {
-        return $this->sameTenant($user, $order->tenant_id)
-            && $this->hasAnyRole($user, [
-                ClinicalRole::ClinicAdmin,
-                ClinicalRole::Pharmacist,
-                ClinicalRole::Clinician,
-            ]);
+        if (! $this->sameTenant($user, $order->tenant_id)) {
+            return false;
+        }
+
+        return $this->hasAnyRole($user, [
+            ClinicalRole::ClinicAdmin,
+            ClinicalRole::Pharmacist,
+            ClinicalRole::Clinician,
+        ]) || $this->isPatientOf($user, $order->patient_id);
     }
 
     /**
@@ -78,14 +94,28 @@ class DispenseOrderPolicy
      * the patient role is added HERE, to this one method, and no controller
      * changes.
      */
+    /**
+     * Pickup or delivery: primarily the PATIENT's choice.
+     *
+     * The catalogue marks this `P own`, and it is their medicine and their
+     * address. Staff keep the ability because plenty of patients decide at the
+     * counter or over the telephone and someone has to record it.
+     *
+     * This is the deviation flagged during the last pass, when there was no
+     * User -> Patient link and "the patient of this order" could not be
+     * expressed at all. It now matches the RBAC matrix.
+     */
     public function chooseFulfilment(User $user, DispenseOrder $order): bool
     {
-        return $this->sameTenant($user, $order->tenant_id)
-            && $this->hasAnyRole($user, [
-                ClinicalRole::ClinicAdmin,
-                ClinicalRole::Pharmacist,
-                ClinicalRole::FrontDesk,
-            ]);
+        if (! $this->sameTenant($user, $order->tenant_id)) {
+            return false;
+        }
+
+        return $this->hasAnyRole($user, [
+            ClinicalRole::ClinicAdmin,
+            ClinicalRole::Pharmacist,
+            ClinicalRole::FrontDesk,
+        ]) || $this->isPatientOf($user, $order->patient_id);
     }
 
     /**
