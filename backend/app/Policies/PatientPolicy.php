@@ -63,6 +63,26 @@ class PatientPolicy
     }
 
     /**
+     * Fold a duplicate registration into this record.
+     *
+     * Administrator and front desk only -- NOT a clinician, who may update a
+     * record but should not be re-pointing which record a consultation belongs
+     * to. This is a registration-desk correction, and the front desk is who
+     * creates the duplicates in the first place.
+     *
+     * Within a tenant only. There is no cross-tenant variant of this ability
+     * because there is no cross-tenant patient identity to merge onto.
+     */
+    public function merge(User $user, Patient $patient): bool
+    {
+        return $this->sameTenant($user, $patient->tenant_id)
+            && $this->hasAnyRole($user, [
+                ClinicalRole::ClinicAdmin,
+                ClinicalRole::FrontDesk,
+            ]);
+    }
+
+    /**
      * Nobody deletes a patient.
      *
      * Erasure is a controller decision handled through the retention process,

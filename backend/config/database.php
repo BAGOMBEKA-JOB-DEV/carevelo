@@ -108,6 +108,24 @@ return [
             'prefix_indexes' => true,
             'search_path' => 'public',
             'sslmode' => env('DB_SSLMODE', 'prefer'),
+
+            /*
+             * Pin the session timezone. Not cosmetic -- a correctness control.
+             *
+             * Laravel formats query BINDINGS with the grammar's date format,
+             * which is naive ('Y-m-d H:i:s'), so a Carbon compared against a
+             * timestamptz column arrives without an offset and PostgreSQL
+             * resolves it in the session's timezone. Unpinned, that is whatever
+             * the server happens to be set to: this developer machine defaulted
+             * to Africa/Asmara (+03:00) and CI to UTC, so `where('next_poll_at',
+             * '<=', Date::now())` selected different rows in each -- three hours
+             * of appointments and payment polls, silently.
+             *
+             * UTC to match config('app.timezone'), so a naive binding and a
+             * Date::now() mean the same instant. Writes carry an explicit offset
+             * as well: see $dateFormat on the models with timestamptz columns.
+             */
+            'timezone' => 'UTC',
         ],
 
         /*
@@ -134,6 +152,11 @@ return [
             'prefix_indexes' => true,
             'search_path' => 'public',
             'sslmode' => env('DB_SSLMODE', 'prefer'),
+
+            /* Same reasoning as the application connection above. Data
+             * migrations write timestamps too, and must land on the same
+             * instants the application reads. */
+            'timezone' => 'UTC',
         ],
 
         'sqlsrv' => [

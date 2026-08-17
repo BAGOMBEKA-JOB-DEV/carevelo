@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Audit\AuditLog;
 use App\Exceptions\StateMachine\IllegalTransition;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\V1\Patients\MergePatientRequest;
 use App\Http\Requests\V1\Patients\StorePatientRequest;
 use App\Http\Requests\V1\Patients\UpdatePatientRequest;
 use App\Http\Resources\V1\PatientResource;
@@ -15,6 +16,7 @@ use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -29,6 +31,23 @@ use Illuminate\Validation\ValidationException;
  */
 class PatientController extends Controller
 {
+    /**
+     * Every table that names a patient, and so every table a merge must move.
+     *
+     * A new patient-owning table added without appearing here would leave history
+     * stranded on the duplicate, which is why MergesEveryPatientRelationTest
+     * derives this same list from the schema and fails if the two disagree.
+     *
+     * @var list<string>
+     */
+    private const MERGED_RELATIONS = [
+        'consent_records',
+        'appointments',
+        'consultations',
+        'prescriptions',
+        'dispense_orders',
+    ];
+
     public function __construct(protected AuditLog $audit) {}
 
     /**
@@ -50,6 +69,9 @@ class PatientController extends Controller
         $status = $filters['status'] ?? null;
 
         $patients = Patient::query()
+            // A merged duplicate holds no history any more. Listing it invites
+            // staff to open the empty half of a person.
+            ->notMerged()
             ->when(
                 is_string($status),
                 fn (Builder $query) => $query->where('status', $status),
@@ -161,5 +183,74 @@ class PatientController extends Controller
         );
 
         return new PatientResource($patient);
+    }
+
+    /**
+     * Fold a duplicate registration into this record.
+     *
+     * Within a tenant only, and that is not enforced here: row-level security is
+     * bound before dispatch, so a patient identifier from another clinic does not
+     * resolve at all. There is no cross-tenant patient identity to merge onto and
+     * adding one would breach the isolation boundary.
+     *
+     * The duplicate SURVIVES, pointing at the winner. Nobody deletes a patient --
+     * the clinic may be obliged to retain the medical record, and a row that once
+     * carried a consent decision has to stay explicable.
+     *
+     * What deliberately does NOT happen: the survivor's status is not recomputed
+     * from the consent records it inherits. If the duplicate was `active` and the
+     * survivor is `pending_consent`, the survivor stays `pending_consent` and the
+     * front desk confirms consent through the consent surface. Silently promoting
+     * a record to `active` because a different registration once consented is the
+     * one failure mode here that ends with clinical data attached to a patient who
+     * never agreed to any of it.
+     */
+    public function merge(MergePatientRequest $request, Patient $patient): PatientResource
+    {
+        $this->authorize('merge', $patient);
+
+        $duplicate = Patient::query()->findOrFail($request->duplicatePatientId());
+
+        if ($patient->isMerged()) {
+            throw new IllegalTransition(
+                'This record was itself merged into another. Merge into the record that survived.'
+            );
+        }
+
+        if ($duplicate->isMerged()) {
+            throw new IllegalTransition('That duplicate has already been merged.');
+        }
+
+        $moved = DB::transaction(function () use ($patient, $duplicate): array {
+            // Every table that names a patient. Repointing rather than copying:
+            // a consultation belongs to one patient record, and duplicating it
+            // would double the medical history rather than unify it.
+            $moved = [];
+
+            foreach (self::MERGED_RELATIONS as $table) {
+                $moved[$table] = DB::table($table)
+                    ->where('patient_id', $duplicate->id)
+                    ->update(['patient_id' => $patient->id]);
+            }
+
+            $duplicate->merged_into_patient_id = $patient->id;
+            $duplicate->save();
+
+            return $moved;
+        });
+
+        $this->audit->record(
+            'patient.merged',
+            subjectType: 'Patient',
+            subjectId: $patient->id,
+            // Identifiers and row counts. How many consultations moved is an
+            // outcome; what any of them said is not this record's business.
+            metadata: [
+                'merged_patient_id' => $duplicate->id,
+                'records_moved' => $moved,
+            ],
+        );
+
+        return new PatientResource($patient->refresh());
     }
 }

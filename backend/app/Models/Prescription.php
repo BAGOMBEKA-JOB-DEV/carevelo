@@ -69,6 +69,21 @@ class Prescription extends Model
         });
     }
 
+    /**
+     * issued_at are timestamptz.
+     *
+     * Laravel's default format is naive ('Y-m-d H:i:s'), so PostgreSQL resolves
+     * the missing offset in the SESSION's timezone rather than the application's.
+     * The instant stored then depends on how the database server happens to be
+     * configured. What shifts here is the issue time on a legal prescribing document.
+     *
+     * Columns declared without a timezone ignore the offset, so created_at and
+     * updated_at are unaffected.
+     *
+     * @var string
+     */
+    protected $dateFormat = 'Y-m-d H:i:sP';
+
     /** @return array<string, string> */
     protected function casts(): array
     {

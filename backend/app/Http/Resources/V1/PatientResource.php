@@ -42,6 +42,10 @@ class PatientResource extends JsonResource
                 'relationship' => $this->guardian_relationship,
             ],
             'status' => $this->status->value,
+            // Non-null means this registration was a duplicate and its history
+            // now lives on the record named here. Staff who reach it by an old
+            // link need somewhere to go, so the pointer is part of the record.
+            'merged_into_patient_id' => $this->merged_into_patient_id,
             'phone_verified' => $this->phone_verified_at !== null,
             'created_at' => $this->created_at?->toIso8601String(),
         ];

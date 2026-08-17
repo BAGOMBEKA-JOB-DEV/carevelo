@@ -71,6 +71,21 @@ class PaymentIntent extends Model
         3600 => 3600,   // over 60 min: hourly, up to 24h
     ];
 
+    /**
+     * initiated_at, next_poll_at, resolved_at are timestamptz.
+     *
+     * Laravel's default format is naive ('Y-m-d H:i:s'), so PostgreSQL resolves
+     * the missing offset in the SESSION's timezone rather than the application's.
+     * The instant stored then depends on how the database server happens to be
+     * configured. What shifts here is reconciliation against the aggregator, and next_poll_at drives the poller -- a shift stalls or hammers it.
+     *
+     * Columns declared without a timezone ignore the offset, so created_at and
+     * updated_at are unaffected.
+     *
+     * @var string
+     */
+    protected $dateFormat = 'Y-m-d H:i:sP';
+
     /** @return array<string, string> */
     protected function casts(): array
     {

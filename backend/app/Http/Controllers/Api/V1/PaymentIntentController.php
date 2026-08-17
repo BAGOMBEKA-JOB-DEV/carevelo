@@ -6,9 +6,11 @@ use App\Audit\AuditLog;
 use App\Exceptions\StateMachine\IllegalTransition;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\V1\PaymentIntentResource;
+use App\Http\Resources\V1\ReceiptResource;
 use App\Models\PaymentIntent;
 use App\Models\PaymentIntentStatus;
 use App\Models\PaymentMethod;
+use App\Services\Reconciliation\PaymentReceipt;
 use App\Support\ReferenceGenerator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -172,5 +174,23 @@ class PaymentIntentController extends Controller
         });
 
         return new PaymentIntentResource($paymentIntent);
+    }
+
+    /**
+     * The receipt. It NAMES THE CLINIC AS PAYEE.
+     *
+     * Carevelo appears nowhere on it in that role, because the clinic is what
+     * received the money: the patient paid the clinic's own merchant account and
+     * the aggregator settled to the clinic direct. A receipt naming us would be
+     * a false document and a claim of custody at once.
+     *
+     * Only a succeeded intent has one. The precondition and the payee lookup
+     * live in PaymentReceipt.
+     */
+    public function receipt(PaymentIntent $paymentIntent, PaymentReceipt $receipts): ReceiptResource
+    {
+        $this->authorize('view', $paymentIntent);
+
+        return new ReceiptResource($paymentIntent, $receipts->issue($paymentIntent));
     }
 }

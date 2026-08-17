@@ -18,6 +18,40 @@ jobs:
   check:
     runs-on: ubuntu-latest
 
+    # Job-level, so EVERY step shares one coherent database configuration.
+    #
+    # Previously only the migrate step carried credentials, and only the
+    # migrator's. That broke in a way that does not reproduce locally: spatie's
+    # permission migration flushes its cache, CACHE_STORE=database turns that
+    # into a DELETE on the DEFAULT connection, and the default connection was
+    # still on .env.example's DB_USERNAME=root with an empty password ->
+    # "fe_sendauth: no password supplied". A local Postgres on trust auth
+    # accepts that silently; a service container does not.
+    #
+    # CACHE_STORE=array is the real fix rather than just adding a password:
+    # migrations should not depend on a cache TABLE existing, since the cache
+    # migration is itself one of the migrations being run.
+    env:
+      DB_CONNECTION: pgsql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_DATABASE: carevelo_testing
+      DB_USERNAME: carevelo_app
+      DB_PASSWORD: app_secret
+      DB_MIGRATOR_USERNAME: carevelo_migrator
+      DB_MIGRATOR_PASSWORD: migrator_secret
+      CACHE_STORE: array
+      SESSION_DRIVER: array
+      QUEUE_CONNECTION: sync
+      # Quoted deliberately. Bare null is a YAML null, which Actions hands to
+      # the step as an empty string -- and Laravel needs the literal string
+      # "null" to select the null broadcast driver. phpunit.xml already gets
+      # this right for the Tests step; this is for the steps that boot the
+      # framework without it, like migrate.
+      BROADCAST_CONNECTION: "null"
+      REDIS_HOST: 127.0.0.1
+      REDIS_PORT: 6379
+
     services:
       postgres:
         # Real PostgreSQL, never SQLite. Tenant isolation is enforced by
@@ -74,11 +108,25 @@ jobs:
       - run: cp .env.example .env && php artisan key:generate
 
       - name: Migrate as the owner role
-        env:
-          DB_DATABASE: carevelo_testing
-          DB_MIGRATOR_USERNAME: carevelo_migrator
-          DB_MIGRATOR_PASSWORD: migrator_secret
+        # Credentials come from the job-level env above. The application role
+        # deliberately has no DDL, so migrations must run on this connection.
         run: php artisan migrate --database=pgsql_migrator --force
+
+      - name: Prove the application role cannot bypass RLS
+        # The silent-failure mode: if the app role owned the tables, PostgreSQL
+        # would exempt it from row-level security and every isolation policy
+        # would be inert while the suite still passed. Assert it here, before
+        # any test has a chance to look green for the wrong reason.
+        run: |
+          php artisan tinker --execute '
+            $r = DB::selectOne("select current_user u, (select rolbypassrls from pg_roles where rolname=current_user) b");
+            $owner = DB::selectOne("select tableowner from pg_tables where tablename = ?", ["users"]);
+            if ($r->u !== "carevelo_app" || $r->b || $owner->tableowner === $r->u) {
+                fwrite(STDERR, "RLS role separation is broken: user={$r->u} bypass={$r->b} owner={$owner->tableowner}\n");
+                exit(1);
+            }
+            echo "ok: {$r->u} cannot bypass RLS and owns no table\n";
+          '
 
       # --- Blocking gates. Each catches a class of defect we cannot ship. ---
 
