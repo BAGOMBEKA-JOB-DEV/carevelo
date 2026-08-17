@@ -82,6 +82,31 @@ class Patient extends Model
     }
 
     /**
+     * The account that may read this record as its own, if one has claimed it.
+     *
+     * Null is the ordinary case, not an incomplete one: front desk registers
+     * people who have no login, and plenty never get one.
+     *
+     * Deliberately absent from $fillable. Linking an account to a medical record
+     * grants a human being sight of it, so it is an explicit audited act rather
+     * than something a request body can do on the way past.
+     *
+     * @return BelongsTo<User, $this>
+     */
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Whether an account can already reach this record as its own.
+     */
+    public function isClaimed(): bool
+    {
+        return $this->user_id !== null;
+    }
+
+    /**
      * The duplicate registration this one absorbed, if any.
      *
      * @return BelongsTo<self, $this>

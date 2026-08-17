@@ -40,4 +40,27 @@ trait HandlesTenantAuthorisation
 
         return $user->hasAnyRole(array_map(fn (ClinicalRole $r) => $r->value, $roles));
     }
+
+    /**
+     * Whether this user is the patient the record belongs to, or their guardian.
+     *
+     * The one control standing between two patients of the SAME clinic. Row-level
+     * security cannot help here: both rows carry the same tenant_id, so the
+     * database is satisfied and the answer has to come from authorisation.
+     *
+     * Deactivation revokes it, exactly as it revokes a staff role. A patient whose
+     * account was disabled after a disputed claim must not keep reading the
+     * record on the strength of the link alone.
+     *
+     * Callers must also check sameTenant(). This says whose record it is, not
+     * which clinic it is at.
+     */
+    protected function isPatientOf(User $user, ?string $patientId): bool
+    {
+        if (! $user->is_active) {
+            return false;
+        }
+
+        return $user->owns($patientId);
+    }
 }
