@@ -69,7 +69,8 @@ No endpoint accepts a tenant identifier — tenancy comes from the host or the s
 | GET | `/v1/appointments/{id}` | P own, S | |
 | POST | `/v1/appointments/{id}/cancel` | P own, S | |
 | POST | `/v1/appointments/{id}/confirm-deferred` | S admin | **Audited** payment deferral (§H3.3) |
-| POST | `/v1/appointments/{id}/join-token` | P own, S clinician | Short-lived, single-use, participant-bound |
+| POST | `/v1/appointments/{id}/join-token` | P own, S clinician | Issues. Short-lived, single-use, participant-bound |
+| POST | `/v1/join-tokens/redeem` | P own, S clinician | Spends it, returns provider credentials. Token in the **body**, never a path |
 | POST | `/v1/consultations` | S clinician | Starts; records `started_at` |
 | GET | `/v1/consultations/{id}` | P own, S clinical | |
 | POST | `/v1/consultations/{id}/mode` | P, S clinician | Records a step-down truthfully |
@@ -114,13 +115,15 @@ No `PUT` or `PATCH`. Prescriptions are immutable ([Domain Model](../20-domain/do
 | POST | `/v1/deliveries/{id}/assign` | S dispatcher | |
 | GET | `/v1/rider/deliveries` | S rider | **Only their own assignments** |
 | GET | `/v1/rider/deliveries/{id}` | S rider | **Rider serialisation: recipient, address, contact, package reference. No clinical fields** |
-| POST | `/v1/rider/deliveries/{id}/picked-up` | S rider | |
-| POST | `/v1/rider/deliveries/{id}/en-route` | S rider | |
-| POST | `/v1/rider/deliveries/{id}/delivered` | S rider | |
-| POST | `/v1/rider/deliveries/{id}/failed` | S rider | Reason from a fixed list |
-| GET | `/v1/deliveries/{id}/tracking` | P own | Status milestones. **Never contents** |
+| POST | `/v1/rider/deliveries/{id}/status` | S rider | One transition endpoint, not four verbs. Reason from a fixed list on failure |
+| GET | `/v1/deliveries/{id}` | S dispatcher, S rider assigned | Full record. Distinct from tracking below |
+| GET | `/v1/deliveries/{id}/tracking` | P own, S | Status milestones. **Never contents** |
 
 The rider endpoints are a separate namespace with distinct resource classes — not the dispatcher resource with fields hidden client-side ([API Conventions](api-conventions.md)).
+
+**Deviation, accepted.** This document originally specified four rider verbs — `/picked-up`, `/en-route`, `/delivered`, `/failed`. One `POST .../status` is implemented instead, carrying the target status. The transitions are identical and the state machine refuses an illegal one, which is a better place for that rule than the routing table: with four verbs, "may this delivery go straight from assigned to delivered" is answered by which routes happen to exist, and the answer has to be repeated in each of them. Fewer routes, one place to change the lifecycle.
+
+`GET /v1/deliveries/{id}` and `GET /v1/deliveries/{id}/tracking` are deliberately separate abilities rather than one endpoint serialised two ways. The first returns the record — recipient, address, and an order whose items are medicines. The second returns statuses and timestamps. The patient waiting for the delivery holds the second and not the first, and a shared endpoint would put that distinction in a resource class where a careless change could undo it.
 
 ## Payments — [H5](../10-product/prd-h5-payments-non-custodial.md)
 

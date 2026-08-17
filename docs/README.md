@@ -114,6 +114,7 @@ When you have finished, you should be able to answer three questions without loo
 | [0007](70-decisions/0007-separate-backend-frontend-trees.md) | Separate `backend/` and `frontend/` trees, API-only boundary. |
 | [0008](70-decisions/0008-laravel-reverb-for-realtime.md) | Laravel Reverb for realtime. |
 | [0009](70-decisions/0009-standard-laravel-layout.md) | Standard Laravel layout, not `app/Modules/`. |
+| [0010](70-decisions/0010-patient-account-link.md) | One account, many patient records — and why the index path is the sharp edge. |
 
 ### 80 — Quality
 

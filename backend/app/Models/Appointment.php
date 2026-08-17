@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
 /**
  * A booking: patient, service, clinician, slot, mode, payment expectation.
@@ -21,6 +22,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $id
  * @property string $reference
  * @property AppointmentStatus $status
+ * @property ?string $patient_id
+ * @property ?string $clinician_id
+ * @property ?Carbon $scheduled_start_at
+ * @property ?Carbon $scheduled_end_at
  */
 class Appointment extends Model implements RestrictableToPatient
 {

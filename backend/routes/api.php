@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\V1\ConsentController;
 use App\Http\Controllers\Api\V1\ConsultationController;
 use App\Http\Controllers\Api\V1\DeliveryController;
 use App\Http\Controllers\Api\V1\DispenseOrderController;
+use App\Http\Controllers\Api\V1\JoinTokenController;
 use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\PatientController;
 use App\Http\Controllers\Api\V1\PaymentIntentController;
@@ -128,6 +129,15 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             ->name('appointments.cancel');
         Route::post('appointments/{appointment}/confirm-deferred', [AppointmentController::class, 'confirmDeferred'])
             ->name('appointments.confirm-deferred');
+
+        // Entry to the consultation itself. Issue hands the participant a
+        // short-lived secret; redeem spends it and returns the provider
+        // credentials. The token travels in the redeem BODY and never in a path,
+        // because a URL is written to access logs and browser history.
+        Route::post('appointments/{appointment}/join-token', [JoinTokenController::class, 'issue'])
+            ->name('appointments.join-token');
+        Route::post('join-tokens/redeem', [JoinTokenController::class, 'redeem'])
+            ->name('consultations.join.redeem');
 
         Route::apiResource('consultations', ConsultationController::class)->only(['store', 'show']);
         Route::post('consultations/{consultation}/mode', [ConsultationController::class, 'recordMode'])

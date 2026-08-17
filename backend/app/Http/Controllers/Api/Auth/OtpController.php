@@ -13,6 +13,7 @@ use App\Support\Auth\CredentialVerifier;
 use App\Support\Auth\OneTimeCodes;
 use App\Support\Auth\OtpOutcome;
 use App\Support\Auth\OtpPurpose;
+use App\Support\Auth\PatientRecordClaims;
 use App\Support\Auth\SessionRegistry;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Date;
@@ -60,6 +61,7 @@ class OtpController extends Controller
         protected CredentialVerifier $credentials,
         protected SessionRegistry $sessions,
         protected AuditLog $audit,
+        protected PatientRecordClaims $claims,
     ) {}
 
     /**
@@ -160,6 +162,15 @@ class OtpController extends Controller
             $user->setAttribute('phone_verified_at', Date::now());
             $user->save();
         }
+
+        // Now, and only now, may this account be attached to the patient records
+        // registered against the same number: the code just proved control of the
+        // handset, and claiming a medical record on anything weaker than that is
+        // handing it to whoever typed the number.
+        //
+        // Ordinarily claims nothing -- the link persists, so this does real work on
+        // a first sign-in or after front desk has registered the patient afresh.
+        $this->claims->attach($user);
 
         $this->sessions->start($request, $user);
 
