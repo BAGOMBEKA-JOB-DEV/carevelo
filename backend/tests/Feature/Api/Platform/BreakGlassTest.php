@@ -386,7 +386,12 @@ it('refuses access under another operator\'s grant', function () {
 it('refuses to widen a scope or extend a time box on an issued grant', function () {
     // Both are new grants, each notified to the clinic and audited again. An
     // editable grant is an audit trail that can be rewritten after the fact.
-    $grant = BreakGlassGrant::factory()->create();
+    // Pin the starting scope. The factory picks one at random, so an unpinned
+    // grant was already 'audit_trail' about one run in four -- the assignment
+    // below then set the value it already held, the model was never dirty,
+    // save() was a no-op, and the updating hook that raises this exception
+    // never ran. The test failed intermittently while the guard was fine.
+    $grant = BreakGlassGrant::factory()->forScope('patient_record')->create();
 
     expect(function () use ($grant) {
         $grant->scope = 'audit_trail';
