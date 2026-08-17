@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\V1;
 
+use App\Http\Requests\Admin\Tenant\UpdateTenantRequest;
 use App\Models\Tenant;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -124,7 +125,7 @@ class TenantAdminResource extends JsonResource
      */
     private function hexOrNull(mixed $value): ?string
     {
-        return is_string($value) && preg_match('/^#[0-9a-fA-F]{6}$/', $value) === 1 ? $value : null;
+        return is_string($value) && preg_match(UpdateTenantRequest::HEX_COLOUR, $value) === 1 ? $value : null;
     }
 
     /**

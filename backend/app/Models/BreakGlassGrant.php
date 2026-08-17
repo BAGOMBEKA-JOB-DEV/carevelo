@@ -92,6 +92,20 @@ class BreakGlassGrant extends Model
         'expires_at',
     ];
 
+    /**
+     * Timestamps are written WITH their offset.
+     *
+     * These columns are timestamptz and Laravel's default format is naive
+     * ('Y-m-d H:i:s'), so PostgreSQL resolves the missing offset using the
+     * session's TimeZone — which is not the application's. The result is a
+     * silent shift of a few hours in whichever direction the deployment
+     * happens to be configured, and the value that shifts here is a TIME BOX:
+     * a grant would expire early or, far worse, late.
+     *
+     * @var string
+     */
+    protected $dateFormat = 'Y-m-d H:i:sP';
+
     /** Fixed once issued, except for ending it early and recording notification. */
     protected static function booted(): void
     {
@@ -182,6 +196,9 @@ class BreakGlassGrant extends Model
         return $query
             ->whereNotNull('tenant_notified_at')
             ->whereNull('revoked_at')
-            ->where('expires_at', '>', Date::now());
+            // An offset-bearing string, not a Carbon: the query grammar renders
+            // a bound date naively, which PostgreSQL would then read in the
+            // session's own timezone rather than the application's.
+            ->where('expires_at', '>', Date::now()->toIso8601String());
     }
 }

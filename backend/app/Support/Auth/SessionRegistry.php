@@ -3,7 +3,7 @@
 namespace App\Support\Auth;
 
 use App\Models\User;
-use Illuminate\Contracts\Auth\Factory as AuthFactory;
+use Illuminate\Auth\AuthManager;
 use Illuminate\Contracts\Auth\StatefulGuard;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Database\DatabaseManager;
@@ -28,7 +28,7 @@ use Illuminate\Support\Str;
 class SessionRegistry
 {
     public function __construct(
-        protected AuthFactory $auth,
+        protected AuthManager $auth,
         protected DatabaseManager $db,
         protected Repository $config,
     ) {}
@@ -42,6 +42,12 @@ class SessionRegistry
      */
     public function start(Request $request, User $user): void
     {
+        // `auth:sanctum` leaves the sanctum guard as the default one, holding a
+        // resolved "nobody" from before this request authenticated. Dropping the
+        // resolved guards makes the new session visible to every reader of
+        // $request->user() rather than only to the `web` guard.
+        $this->auth->forgetGuards();
+
         $this->guard()->login($user);
 
         if ($request->hasSession()) {
@@ -57,6 +63,10 @@ class SessionRegistry
             $request->session()->invalidate();
             $request->session()->regenerateToken();
         }
+
+        // Same reason in reverse: the sanctum guard caches the user it resolved
+        // at the start of this request, and would keep answering with them.
+        $this->auth->forgetGuards();
     }
 
     /**

@@ -34,13 +34,16 @@ class UpdateTenantRequest extends FormRequest
     use RejectsUnknownFields;
 
     /**
-     * `#RRGGBB`, anchored at both ends.
+     * `#RRGGBB`, anchored at both ends, with a hard end anchor.
      *
      * Anchoring is the whole rule: an unanchored pattern matches the valid
      * prefix of `#ff0000; background:url(https://evil/x)` and waves the rest
-     * through.
+     * through. The `D` modifier matters for the same reason at the other end --
+     * without it PCRE lets `$` match before a trailing newline, so
+     * `"#ff0000\n…"` would pass and carry whatever follows the newline into a
+     * stylesheet.
      */
-    public const HEX_COLOUR = '/^#[0-9a-fA-F]{6}$/';
+    public const HEX_COLOUR = '/^#[0-9a-fA-F]{6}$/D';
 
     /** Authorisation is the controller's job; shaping input is this class's. */
     public function authorize(): bool

@@ -63,10 +63,13 @@ class AuthController extends Controller
 
         $user = $this->accounts->activeFor($phone);
 
-        // Called with a null user on purpose. The comparison happens either way,
-        // against a decoy digest when there is no account, so the two branches
-        // cost the same and return the same.
-        if (! $this->credentials->matches($user, $request->password())) {
+        // Called with a null user on purpose, and BEFORE the null is tested. The
+        // comparison happens either way -- against a decoy digest when there is
+        // no account -- so the two branches cost the same and return the same.
+        // Short-circuiting on the null would put the timing leak straight back.
+        $authenticated = $this->credentials->matches($user, $request->password());
+
+        if ($user === null || ! $authenticated) {
             $this->audit->record('auth.sign_in_failed', metadata: [
                 'method' => 'password',
                 // Whether an account exists is recorded for the CLINIC, which

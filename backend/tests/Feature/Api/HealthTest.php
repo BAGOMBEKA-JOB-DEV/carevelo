@@ -73,11 +73,13 @@ it('reports not ready, with no detail, when a dependency is unreachable', functi
         ->assertJsonPath('checks.redis', 'unavailable')
         ->assertJsonPath('checks.database', 'ok');
 
-    // The host, the port and the driver message stay inside the application.
-    expect(json_encode($response->json()) ?: '')
-        ->not->toContain('redis-primary.internal')
-        ->not->toContain('6379')
-        ->not->toContain('Connection refused');
+    // The host, the port and the driver message stay inside the application: a
+    // failing health endpoint must not become a reconnaissance endpoint.
+    $body = (string) json_encode($response->json());
+
+    foreach (['redis-primary.internal', '6379', 'Connection refused'] as $leak) {
+        expect($body)->not->toContain($leak, "The readiness response leaked '{$leak}'");
+    }
 });
 
 // --- Isolation -------------------------------------------------------------
@@ -149,16 +151,22 @@ it('reveals nothing about tenants from any health endpoint', function () {
     Redis::shouldReceive('connection')->andReturnSelf();
     Redis::shouldReceive('command')->with('ping')->andReturn(true);
 
+    $forbidden = [
+        strtolower($tenant->id),
+        strtolower($tenant->subdomain),
+        strtolower($tenant->legal_name),
+        // A table name is schema disclosure and a tenant count is a customer
+        // count. Neither belongs on an unauthenticated endpoint, and our tenants
+        // are frequently each other's local competitors.
+        'tenants',
+        'patients',
+    ];
+
     foreach (['/api/health/live', '/api/health/ready', '/api/health/isolation'] as $path) {
         $body = strtolower((string) $this->getJson(healthUrl($path))->getContent());
 
-        expect($body)
-            ->not->toContain($tenant->id, "{$path} disclosed a tenant identifier")
-            ->not->toContain(strtolower($tenant->subdomain), "{$path} disclosed a tenant subdomain")
-            ->not->toContain(strtolower($tenant->legal_name), "{$path} disclosed a clinic name")
-            // A table name is schema disclosure; a tenant count is a customer
-            // count. Neither belongs on an unauthenticated endpoint.
-            ->not->toContain('tenants')
-            ->not->toContain('patients');
+        foreach ($forbidden as $leak) {
+            expect($body)->not->toContain($leak, "{$path} disclosed '{$leak}'");
+        }
     }
 });

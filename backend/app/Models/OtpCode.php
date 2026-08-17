@@ -73,6 +73,22 @@ class OtpCode extends Model
         'consumed_at', 'attempts', 'ip_address',
     ];
 
+    /**
+     * Timestamps carry an explicit UTC offset.
+     *
+     * expires_at and consumed_at are `timestamptz`, and PostgreSQL resolves an
+     * offset-less literal against the SERVER's timezone -- which is not
+     * guaranteed to be UTC and is not UTC on every machine this runs on. Sending
+     * "07:53:56" from a UTC application to a +03 server stored 04:53:56, so
+     * every code this model issued was already five minutes expired the moment
+     * it was written, and sign-in was impossible.
+     *
+     * An offset removes the ambiguity at the wire rather than depending on the
+     * server being configured correctly. Columns declared without a timezone
+     * ignore the offset, so created_at and updated_at are unaffected.
+     */
+    protected $dateFormat = 'Y-m-d H:i:sP';
+
     /** @return array<string, string> */
     protected function casts(): array
     {

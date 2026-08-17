@@ -63,9 +63,12 @@ function codeFromSms(Tenant $tenant): string
             ->latest()
             ->firstOrFail();
 
-        expect(preg_match('/\b(\d{6})\b/', $sms->body, $matches))->toBe(1);
+        preg_match('/\b(\d{6})\b/', $sms->body, $matches);
 
-        return $matches[1];
+        // "{code} is your {clinic} verification code..." -- if there is no
+        // six-digit group in the body then the template changed, and a test
+        // silently reading an empty code would pass for the wrong reason.
+        return $matches[1] ?? throw new RuntimeException('No code in the message body.');
     });
 }
 

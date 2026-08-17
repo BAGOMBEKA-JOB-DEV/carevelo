@@ -152,7 +152,8 @@ it('shows a clinic only its own send history', function () {
         ->assertOk()
         ->json('data.*.id');
 
-    expect($ids)->toContain($ofA->id)->not->toContain($ofB->id);
+    expect($ids)->toContain($ofA->id)
+        ->and($ids)->not->toContain($ofB->id);
 });
 
 it('reports SMS consumption without claiming to hold anything', function () {

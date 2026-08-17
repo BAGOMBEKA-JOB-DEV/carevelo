@@ -67,7 +67,7 @@ it('serves the tenant register to a platform administrator', function () {
         ->getJson(platformUrl('/api/v1/platform/tenants'))
         ->assertOk();
 
-    expect(collect($response->json('data'))->pluck('id')->all())->toContain($tenant->id);
+    expect(array_column((array) $response->json('data'), 'id'))->toContain($tenant->id);
 });
 
 it('serves the tenant register to platform support', function () {

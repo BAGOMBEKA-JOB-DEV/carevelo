@@ -12,6 +12,7 @@ use App\Models\AggregatorAccount;
 use App\Models\ClinicalRole;
 use App\Models\Clinician;
 use App\Models\Service;
+use App\Models\StaffInvitation;
 use App\Models\Tenant;
 use App\Models\TenantStatus;
 use App\Models\User;
@@ -167,7 +168,11 @@ class TenantAdminController extends Controller
         $hasBranding = $tenant->primary_colour !== null && $tenant->logo_path !== null;
         $hasServices = Service::query()->where('is_active', true)->exists();
         $hasClinicians = Clinician::query()->exists();
-        $hasStaff = User::query()->where('tenant_id', $tenant->id)->where('is_active', true)->count() > 1;
+        // An invitation that has been sent counts. The administrator has done
+        // their part, and a checklist that only ticks once colleagues accept
+        // reads as a failure of the administrator rather than a wait.
+        $hasStaff = User::query()->where('tenant_id', $tenant->id)->where('is_active', true)->count() > 1
+            || StaffInvitation::query()->whereNull('accepted_at')->exists();
         $hasCompliance = $tenant->umdpc_facility_reference !== null && $tenant->nda_licence_reference !== null;
 
         return [

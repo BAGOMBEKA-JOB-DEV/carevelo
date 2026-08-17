@@ -86,7 +86,7 @@ it('records a reason, a scope, a time box and the tenant notification', function
         ->and($response->json('data.tenant_notified_at'))->not->toBeNull()
         ->and($response->json('data.permits_access_now'))->toBeTrue();
 
-    $grant = BreakGlassGrant::query()->findOrFail($response->json('data.id'));
+    $grant = BreakGlassGrant::query()->findOrFail((string) $response->json('data.id'));
 
     expect($grant->wasTenantNotified())->toBeTrue()
         ->and($grant->expires_at->isFuture())->toBeTrue();
@@ -399,6 +399,29 @@ it('refuses to widen a scope or extend a time box on an issued grant', function 
     })->toThrow(LogicException::class);
 });
 
+it('keeps the time box intact across a database round trip', function () {
+    // The subtle one. These are timestamptz columns, and a naive timestamp is
+    // resolved by PostgreSQL in the session's timezone rather than the
+    // application's -- so a two-hour grant silently became a grant that had
+    // already expired, or could as easily have become a longer one.
+    $tenant = Tenant::factory()->create();
+
+    $response = $this->actingAs(platformOperator())
+        ->postJson(breakGlassUrl(), [
+            ...grantRequest($tenant),
+            'expires_at' => Date::now()->addHours(2)->toIso8601String(),
+        ])
+        ->assertCreated();
+
+    $grant = BreakGlassGrant::query()->findOrFail((string) $response->json('data.id'));
+
+    expect($grant->hasExpired())->toBeFalse()
+        ->and($grant->expires_at->diffInMinutes(Date::now(), absolute: true))
+        ->toBeGreaterThan(110)
+        ->and($grant->expires_at->diffInMinutes(Date::now(), absolute: true))
+        ->toBeLessThan(130);
+});
+
 it('lists the grant register for a platform reviewer', function () {
     $tenant = Tenant::factory()->create();
     $grant = BreakGlassGrant::factory()->create(['tenant_id' => $tenant->id]);
@@ -407,7 +430,7 @@ it('lists the grant register for a platform reviewer', function () {
         ->getJson(breakGlassUrl())
         ->assertOk();
 
-    expect(collect($response->json('data'))->pluck('id')->all())->toContain($grant->id);
+    expect(array_column((array) $response->json('data'), 'id'))->toContain($grant->id);
 });
 
 it('shows a clinic the grants against itself and no others', function () {
@@ -429,7 +452,7 @@ it('shows a clinic the grants against itself and no others', function () {
         ->getJson(breakGlassUrl())
         ->assertOk();
 
-    $ids = collect($response->json('data'))->pluck('id')->all();
+    $ids = array_column((array) $response->json('data'), 'id');
 
     expect($ids)->toContain($own->id)
         ->and($ids)->not->toContain($foreign->id);

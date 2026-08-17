@@ -67,6 +67,17 @@ class StaffInvitation extends Model
         'expires_at', 'accepted_at', 'accepted_user_id',
     ];
 
+    /**
+     * Timestamps carry an explicit UTC offset.
+     *
+     * expires_at is `timestamptz`, and PostgreSQL resolves an offset-less
+     * literal against the SERVER's timezone, which is not guaranteed to be UTC.
+     * On a +03 server that silently shortened every invitation by three hours.
+     * See the same note on OtpCode, where it shortened a five-minute code to
+     * nothing at all.
+     */
+    protected $dateFormat = 'Y-m-d H:i:sP';
+
     /** @return array<string, string> */
     protected function casts(): array
     {
