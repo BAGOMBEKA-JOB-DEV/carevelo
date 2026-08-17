@@ -2850,10 +2850,11 @@ export interface components {
             branding: {
                 primary_colour: string | null;
                 /** @enum {string|null} */
-                primary_foreground: "#FFFFFF" | "#111111" | null;
+                primary_foreground: "#FFFFFF" | "#000000" | null;
                 secondary_colour: string | null;
                 /** @enum {string|null} */
-                secondary_foreground: "#FFFFFF" | "#111111" | null;
+                secondary_foreground: "#FFFFFF" | "#000000" | null;
+                surface: string | null;
                 logo_url: null;
                 contrast_advisories: string[];
             };
@@ -2877,9 +2878,26 @@ export interface components {
         TenantResource: {
             id: string;
             trading_name: string;
+            /**
+             * @description The RESOLVED token set, not the raw colours. This endpoint feeds the patient portal, which is the surface that has
+             *     to stay readable — and until now it returned primary_colour and
+             *     secondary_colour with no foreground, so the client would have had to
+             *     compute contrast itself. That contradicts the rule that branding
+             *     tokens are "validated server-side before reaching the client" and
+             *     "arrive as a strict, typed set", and it would have meant two
+             *     implementations of the same WCAG maths, free to disagree.
+             *
+             *     Advisories are deliberately absent: they are guidance for the
+             *     administrator who chose the colour.
+             */
             branding: {
                 primary_colour: string | null;
+                /** @enum {string|null} */
+                primary_foreground: "#FFFFFF" | "#000000" | null;
                 secondary_colour: string | null;
+                /** @enum {string|null} */
+                secondary_foreground: "#FFFFFF" | "#000000" | null;
+                surface: string | null;
                 logo_url: string | null;
             };
             contact: {

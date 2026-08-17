@@ -109,7 +109,11 @@ it('advises on a colour too pale to carry the brand, without refusing it', funct
         ->patchJson(h1TenantUrl($tenant, '/api/v1/tenant'), ['primary_colour' => '#FFFEF0'])
         ->assertOk();
 
-    expect($response->json('data.branding.primary_foreground'))->toBe('#111111');
+    // #000000, not #111111. Paired with white, near-black left ordinary colours
+    // where neither option reached AA 4.5:1 -- 9,217 of 262,144 sampled, worst
+    // #E43430 at 4.35:1. BrandPaletteTest sweeps the space and holds the guarantee;
+    // this example just documents the pale-colour path.
+    expect($response->json('data.branding.primary_foreground'))->toBe('#000000');
     expect($response->json('data.branding.contrast_advisories'))->not->toBeEmpty();
 });
 
