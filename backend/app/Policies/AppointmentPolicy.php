@@ -62,6 +62,30 @@ class AppointmentPolicy
     }
 
     /**
+     * Ask for a token to enter this consultation.
+     *
+     * The two people who belong in the room: the patient whose appointment it is,
+     * and the clinic's clinical staff. An administrator is deliberately excluded
+     * -- they may read that a consultation happened, which the audit trail gives
+     * them, but sitting in on one is a different act entirely and no clinic asked
+     * for it.
+     *
+     * Whether the appointment is at a joinable moment is decided by the
+     * controller, not here: that is a question about state, and a policy that
+     * mixes state into an authorisation answer produces "forbidden" for what is
+     * really "not yet".
+     */
+    public function join(User $user, Appointment $appointment): bool
+    {
+        if (! $this->sameTenant($user, $appointment->tenant_id)) {
+            return false;
+        }
+
+        return $this->hasAnyRole($user, [ClinicalRole::Clinician])
+            || $this->isPatientOf($user, $appointment->patient_id);
+    }
+
+    /**
      * Confirming an unpaid appointment is an audited staff decision, and only
      * the administrator may take it.
      */
