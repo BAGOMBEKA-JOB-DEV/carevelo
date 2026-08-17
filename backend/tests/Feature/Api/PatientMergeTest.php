@@ -1,12 +1,14 @@
 <?php
 
-use App\Http\Controllers\Api\V1\PatientController;
 use App\Models\Appointment;
 use App\Models\AuditEvent;
 use App\Models\ClinicalRole;
 use App\Models\Clinician;
+use App\Models\Consultation;
+use App\Models\DispenseOrder;
 use App\Models\Patient;
 use App\Models\PatientStatus;
+use App\Models\Prescription;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Tenancy\Tenancy;
@@ -148,7 +150,7 @@ it('leaves nothing behind in any table that names a patient', function () {
 
     app(Tenancy::class)->run($tenant->id, function () use ($survivor, $duplicate) {
         $tables = array_map(
-            static fn (object $row): string => (string) $row->table_name,
+            static fn (stdClass $row): string => (string) $row->table_name,
             DB::select("
                 select table_name
                 from information_schema.columns
