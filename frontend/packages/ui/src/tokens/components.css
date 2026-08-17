@@ -1,0 +1,195 @@
+/* ============================================================
+   Carevelo — component classes
+
+   Classes rather than utilities, and that is the white-label decision rather than a
+   taste one. A clinic's colour enters the system in exactly one place: the --brand-*
+   custom properties. A button that reads `background: var(--brand-primary)` is
+   themed by that automatically; a button assembled from utility classes in markup
+   would need the brand decision repeated at every call site, and every missed site
+   is a patch of Carevelo green in a clinic's portal.
+
+   PATIENT-FACING elements use --brand-*. STAFF chrome uses --primary. The two must
+   not be mixed: the patient portal belongs to the clinic, the console belongs to
+   Carevelo.
+   ============================================================ */
+
+/* ---- Page header ---- */
+.page-head { display: flex; align-items: flex-end; gap: var(--space-7); margin-bottom: var(--space-7); flex-wrap: wrap; }
+.page-head h1 { font-family: var(--head); font-size: 29px; font-weight: 700; letter-spacing: -0.02em; }
+.page-head p { margin-top: var(--space-2); color: var(--ink-muted); font-size: 14.5px; }
+
+/* ============================================================
+   BUTTONS
+   ============================================================ */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  font-size: 14px; font-weight: 550; letter-spacing: -0.005em;
+  /* Never below the touch floor. A patient tapping "Pay" on a cracked screen in
+     poor light is the worst case this product has, and it is a common one. */
+  min-height: var(--touch-min);
+  padding: 0 var(--space-5);
+  border-radius: var(--r-md);
+  border: 1px solid transparent;
+  cursor: pointer;
+  background: transparent;
+  color: var(--ink);
+  white-space: nowrap;
+  transition: transform 0.08s, background 0.12s, border-color 0.12s;
+}
+.btn:active { transform: scale(0.97); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn .ico { width: 16px; height: 16px; }
+
+/* Staff surfaces: Carevelo's own colour. */
+.btn-primary { background: var(--primary); color: #fff; box-shadow: var(--shadow-sm); }
+.btn-primary:hover:not(:disabled) { background: var(--primary-press); }
+
+/* Patient surfaces: the CLINIC's colour, with the foreground the API computed for
+   WCAG AA. Never a hard-coded #fff here — that is the bug the backend's colour
+   sweep exists to prevent. */
+.btn-brand { background: var(--brand-primary); color: var(--brand-primary-fg); box-shadow: var(--shadow-sm); }
+.btn-brand:hover:not(:disabled) { filter: brightness(0.93); }
+
+.btn-quiet { background: var(--surface); color: var(--ink); border-color: var(--hairline); }
+.btn-quiet:hover:not(:disabled) { border-color: var(--ink-faint); }
+
+.btn-ghost { background: transparent; color: var(--primary); border-color: color-mix(in srgb, var(--primary) 45%, transparent); }
+.btn-ghost:hover:not(:disabled) { background: var(--primary-soft); }
+
+/* Destructive. Red is reserved for a forbidden or failure state by the diagram
+   convention, and a button that cancels an appointment qualifies. */
+.btn-danger { background: var(--bad); color: #fff; }
+
+.btn-sm { min-height: 32px; padding: 0 var(--space-4); font-size: 13px; }
+.btn-lg { min-height: 52px; padding: 0 var(--space-7); font-size: 16px; }
+.btn-block { width: 100%; }
+
+.lnk { color: var(--primary); font-weight: 550; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
+.lnk:hover { text-decoration: underline; }
+
+/* ============================================================
+   CARDS AND STATS
+   ============================================================ */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-lg);
+  padding: var(--space-7);
+}
+.card-tight { padding: var(--space-5); }
+.card-brand { background: var(--brand-surface); border-color: transparent; }
+
+.stat { display: flex; flex-direction: column; gap: var(--space-1); }
+.stat__label { font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint); }
+.stat__value { font-family: var(--head); font-size: 28px; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.stat__note { font-size: 12.5px; color: var(--ink-muted); }
+
+/* ============================================================
+   BADGES
+
+   Status is never carried by colour alone: each badge shows a word. A red dot with
+   no label is unreadable to a colour-blind pharmacist and invisible to a screen
+   reader, and these badges say things like "controlled item".
+   ============================================================ */
+.badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 12px; font-weight: 600;
+  padding: 3px 9px; border-radius: var(--r-pill);
+  background: var(--surface-sunken); color: var(--ink-2);
+  white-space: nowrap;
+}
+.badge-good { background: var(--good-soft); color: var(--good); }
+.badge-warn { background: var(--warn-soft); color: var(--warn); }
+.badge-bad  { background: var(--bad-soft);  color: var(--bad); }
+.badge-info { background: var(--info-soft); color: var(--info); }
+
+/* ============================================================
+   FORMS
+   ============================================================ */
+.field { display: flex; flex-direction: column; gap: var(--space-2); }
+.field__label { font-size: 13px; font-weight: 600; color: var(--ink-2); }
+.field__hint { font-size: 12px; color: var(--ink-muted); }
+
+/* The error message is text, and it is associated with the input by aria-describedby
+   rather than by proximity. A red border alone tells a screen reader nothing. */
+.field__error { font-size: 12.5px; color: var(--bad); font-weight: 550; }
+
+.input, .select, .textarea {
+  font-family: inherit; font-size: 15px;
+  min-height: var(--touch-min);
+  padding: 0 var(--space-4);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-md);
+  background: var(--canvas);
+  color: var(--ink);
+  width: 100%;
+}
+.textarea { padding: var(--space-4); min-height: 120px; resize: vertical; line-height: 1.55; }
+.input[aria-invalid='true'], .textarea[aria-invalid='true'] { border-color: var(--bad); }
+.input:disabled, .textarea:disabled { background: var(--surface-sunken); cursor: not-allowed; }
+
+/* ============================================================
+   TABLES
+   ============================================================ */
+.table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.table th {
+  text-align: left; font-size: 11.5px; font-weight: 600;
+  letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--hairline);
+  white-space: nowrap;
+}
+.table td { padding: var(--space-4); border-bottom: 1px solid var(--hairline-soft); }
+.table tr:last-child td { border-bottom: none; }
+.table .tnum { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* A table wider than its container scrolls inside itself. The page body must never
+   scroll sideways — on a phone that hides the primary action. */
+.table-scroll { overflow-x: auto; }
+
+/* ============================================================
+   TABS
+   ============================================================ */
+.tabs { display: flex; gap: var(--space-1); border-bottom: 1px solid var(--hairline); }
+.tab {
+  min-height: var(--touch-min); padding: 0 var(--space-5);
+  font-size: 14px; font-weight: 550; color: var(--ink-muted);
+  background: transparent; border: none; border-bottom: 2px solid transparent;
+  cursor: pointer;
+}
+.tab.is-active { color: var(--primary); border-bottom-color: var(--primary); }
+
+/* ============================================================
+   EMPTY AND LOADING STATES
+
+   An empty state says what would appear here and what to do about it. "No results"
+   on a pharmacy queue is ambiguous between "nothing to dispense" and "the filter is
+   wrong", and one of those needs action.
+   ============================================================ */
+.empty { text-align: center; padding: var(--space-8) var(--space-7); color: var(--ink-muted); }
+.empty__title { font-weight: 600; color: var(--ink-2); margin-bottom: var(--space-2); }
+
+.skeleton {
+  background: var(--surface-sunken);
+  border-radius: var(--r-sm);
+  animation: skeleton-pulse 1.4s ease-in-out infinite;
+}
+@keyframes skeleton-pulse { 50% { opacity: 0.55; } }
+
+/* ============================================================
+   NOTICES
+
+   Used for the disclosures that must not be dismissible: the unverified-attestation
+   note, the delivery disclosure, the mandatory consent elements.
+   ============================================================ */
+.notice {
+  display: flex; gap: var(--space-4);
+  padding: var(--space-5);
+  border-radius: var(--r-md);
+  border: 1px solid var(--hairline);
+  background: var(--surface-2);
+  font-size: 14px;
+}
+.notice-warn { background: var(--warn-soft); border-color: transparent; color: var(--warn); }
+.notice-bad  { background: var(--bad-soft);  border-color: transparent; color: var(--bad); }
+.notice-info { background: var(--info-soft); border-color: transparent; color: var(--info); }

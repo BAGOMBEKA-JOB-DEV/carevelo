@@ -1,0 +1,161 @@
+/* ============================================================
+   Carevelo — colour tokens
+
+   Two palettes live here and they must not be confused.
+
+   CAREVELO'S OWN CHROME is what staff see. The clinic console, the rider view and
+   platform admin are Carevelo products and say so: staff know they use Carevelo, and
+   the clinic is the customer rather than the audience.
+
+   THE CLINIC'S BRAND is the --brand-* group at the bottom. It arrives at RUNTIME
+   from GET /v1/tenant and owns the patient portal completely. A patient who sees
+   Carevelo's name where their clinic's should be has been told, correctly, that they
+   are dealing with a stranger.
+
+   The primary is #1F6F5C. Not invented: it is the colour every diagram in docs/ uses
+   for the platform boundary, per the convention recorded in docs/README.md — "teal
+   for the platform boundary, blue for the RLS-enforced data layer, amber for the
+   clinic's own funds, red for a forbidden or failure state." The product should look
+   like its own documentation.
+
+   Dark theme via [data-theme="dark"] on the root element.
+
+   @see docs/10-product/white-labeling-and-branding.md
+   ============================================================ */
+
+:root {
+  /* ---- Carevelo chrome (staff surfaces) ---- */
+  --primary: #1f6f5c;
+  --primary-focus: #268471;
+  --primary-press: #185848;
+  --primary-soft: #e6f1ee;
+
+  /* Constant dark band across the top of staff surfaces, light theme and dark.
+     It is what makes a console feel like one product rather than a set of pages. */
+  --topbar-bg: #0d3d33;
+  --topbar-ink: #e9f2f0;
+  --topbar-ink-soft: rgba(233, 242, 240, 0.64);
+  --topbar-line: rgba(255, 255, 255, 0.13);
+  --topbar-surface: rgba(255, 255, 255, 0.08);
+
+  /* ---- Surfaces ---- */
+  --canvas: #ffffff;
+  --parchment: #f4f5f5;
+  --surface: #ffffff;
+  --surface-2: #fafafa;
+  --surface-sunken: #eeefef;
+
+  /* ---- Ink ---- */
+  --ink: #1e2422;
+  --ink-2: #3c4340;
+  --ink-muted: #68706d;
+  --ink-faint: #8f9693;
+
+  /* ---- Lines. Hairlines, not borders: the house style is sharp and quiet. ---- */
+  --hairline: rgba(20, 34, 30, 0.11);
+  --hairline-soft: rgba(20, 34, 30, 0.06);
+  --divider: #e6e8e7;
+
+  /* ---- Sidebar ---- */
+  --sidebar-bg: #ffffff;
+  --sidebar-ink: #29302e;
+  --sidebar-muted: #808886;
+  --sidebar-hair: rgba(20, 34, 30, 0.08);
+  --sidebar-hover: rgba(20, 34, 30, 0.045);
+  /* Literal, not var-chained, so a cascade override paints reliably. */
+  --sidebar-active: #e6f1ee;
+
+  --scrollbar-thumb: rgba(20, 34, 30, 0.2);
+  --scrollbar-thumb-hover: rgba(20, 34, 30, 0.34);
+
+  /* ---- Semantic status ----
+     `bad` is red because the diagram convention reserves red for a forbidden or
+     failure state, and nothing else should borrow it. */
+  --good: #2e8f62;
+  --good-soft: #e3f1ea;
+  --warn: #7a5c1f;
+  --warn-soft: #f6efdd;
+  --bad: #c0392b;
+  --bad-soft: #f9e7e4;
+  --info: #1f4f6f;
+  --info-soft: #e6eef3;
+
+  /* ---- Data visualisation. Starts at the platform teal and moves away by hue,
+     so a two-series chart is distinguishable without relying on colour alone. ---- */
+  --c1: #1f6f5c;
+  --c2: #1f4f6f;
+  --c3: #7a5c1f;
+  --c4: #6b5b95;
+  --c5: #8c6239;
+
+  /* ============================================================
+     THE CLINIC'S BRAND — replaced at runtime, per tenant.
+
+     These five are the complete surface a clinic can influence. There is no font
+     token, no spacing token and no stylesheet: free-form CSS in a multi-tenant
+     health application is a cross-site scripting vector and, given what is on
+     these screens, an exfiltration vector for special-category data.
+
+     The values below are FALLBACKS, used before a tenant resolves and by staff
+     surfaces that are not clinic-branded at all. A clinic's real values are set on
+     the root element by brandStyle() during the server render — see brandStyle.ts
+     for why it is not an effect.
+
+     --brand-primary-fg is computed server-side for WCAG AA and never chosen. A
+     clinic that picks pale yellow gets readable text anyway, because an unreadable
+     dosage instruction is a safety problem rather than a taste problem.
+     ============================================================ */
+  --brand-primary: var(--primary);
+  --brand-primary-fg: #ffffff;
+  --brand-secondary: var(--info);
+  --brand-secondary-fg: #ffffff;
+  --brand-surface: var(--primary-soft);
+}
+
+/* ---------- Dark theme ---------- */
+:root[data-theme='dark'] {
+  --primary: #62b39d;
+  --primary-focus: #74c0ac;
+  --primary-press: #4e9c87;
+  --primary-soft: rgba(98, 179, 157, 0.15);
+
+  --canvas: #121513;
+  --parchment: #161917;
+  --surface: #1b1f1d;
+  --surface-2: #222725;
+  --surface-sunken: #141715;
+
+  --ink: #eceeed;
+  --ink-2: #ccd1cf;
+  --ink-muted: #949b98;
+  --ink-faint: #6a716e;
+
+  --hairline: rgba(255, 255, 255, 0.12);
+  --hairline-soft: rgba(255, 255, 255, 0.07);
+  --divider: rgba(255, 255, 255, 0.09);
+
+  --sidebar-bg: #151816;
+  --sidebar-ink: #e6eae8;
+  --sidebar-muted: #838a87;
+  --sidebar-hair: rgba(255, 255, 255, 0.08);
+  --sidebar-hover: rgba(255, 255, 255, 0.04);
+  --sidebar-active: rgba(98, 179, 157, 0.16);
+
+  --scrollbar-thumb: rgba(255, 255, 255, 0.16);
+  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.3);
+
+  --good: #4cba82;
+  --good-soft: rgba(76, 186, 130, 0.14);
+  --warn: #d3a552;
+  --warn-soft: rgba(211, 165, 82, 0.15);
+  --bad: #e8776b;
+  --bad-soft: rgba(232, 119, 107, 0.15);
+  --info: #6ba3c7;
+  --info-soft: rgba(107, 163, 199, 0.15);
+
+  --c1: #62b39d;
+  --c2: #6ba3c7;
+  --c3: #d3a552;
+  --c4: #a294c9;
+  --c5: #c08f66;
+}

@@ -1,0 +1,17 @@
+/* ============================================================
+   Carevelo — the design system, in dependency order.
+
+   The order is load-bearing: colours and metrics define the custom properties that
+   everything after them reads, so a component layer imported first would resolve
+   its variables to nothing.
+
+   The clinic's own brand is NOT in this file. It arrives per request from
+   GET /v1/tenant and is set on the root element during the server render — see
+   brandStyle.ts. What is here are the fallbacks it overrides.
+   ============================================================ */
+
+@import './colors.css';
+@import './typography.css';
+@import './spacing.css';
+@import './reset.css';
+@import './components.css';

@@ -1,0 +1,46 @@
+/* ============================================================
+   Carevelo — typography tokens
+
+   SYSTEM FONTS ONLY. NO WEBFONTS.
+
+   This is the one place the reference design system is deliberately not followed.
+   impala loads Poppins and JetBrains Mono from Google Fonts; Carevelo cannot,
+   because frontend-nextjs.md sets the budget: "No web fonts on the critical path;
+   system font stack."
+
+   That budget is not an engineering nicety, it is a competitive advantage in this
+   market. The governing constraint is a mid-range Android phone on variable mobile
+   data, and the patient portal has to reach first paint in under two seconds on a
+   throttled 3G connection. A webfont on the critical path costs a round trip and a
+   render-blocking fetch before the patient can see whether their appointment is
+   confirmed.
+
+   The stack below resolves to Roboto on Android, San Francisco on iOS and Segoe on
+   Windows. All three are good, and all three are already on the device.
+   ============================================================ */
+
+:root {
+  --font: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  /* Headings differ by weight and tracking, not by family — a second family would
+     be a second download. */
+  --head: var(--font);
+  --mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, Consolas, monospace;
+
+  --text-base-size: 15px;
+  --text-base-line: 1.5;
+  --text-tracking: -0.005em;
+}
+
+.display  { font-family: var(--head); font-size: 40px; font-weight: 700; letter-spacing: -0.022em; line-height: 1.06; }
+.title-lg { font-family: var(--head); font-size: 27px; font-weight: 700; letter-spacing: -0.016em; }
+.title    { font-size: 21px; font-weight: 600; letter-spacing: -0.015em; }
+.subtitle { font-size: 16px; font-weight: 400; color: var(--ink-muted); }
+.eyebrow  { font-size: 11.5px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-faint); }
+.lede     { font-size: 16px; color: var(--ink-2); }
+.fine     { font-size: 12px; color: var(--ink-faint); }
+.mono     { font-family: var(--mono); }
+.muted    { color: var(--ink-muted); }
+
+/* Tabular figures. Not cosmetic: a column of prices or times that shifts width as
+   digits change is hard to scan, and these screens are full of both. */
+.tnum     { font-variant-numeric: tabular-nums; }
