@@ -78,7 +78,7 @@ Front desk can book on the patient's behalf for someone who telephones the clini
 
 The fee is shown before commitment. The patient either pays now (see [H5](prd-h5-payments-non-custodial.md)) or selects pay-at-clinic where the tenant allows it.
 
-- Prepaid: `Appointment` is created in `awaiting_payment` and the slot is held for a limited window.
+- Prepaid: `Appointment` is created in `awaiting_payment` and the slot is held for **15 minutes**, after which `appointments:release-unpaid` expires the booking and gives the slot back. The window matches the aggressive phase of the payment poll schedule, which checks every minute for the first fifteen — so the slot is released at the moment the system stops expecting an imminent mobile-money confirmation. Most prompts are never completed, and availability excludes a held slot, so a hold nothing releases removes a slot from the clinic's calendar permanently.
 - Pay-at-clinic: `Appointment` goes straight to `confirmed`.
 - Tenant with no aggregator configured: only pay-at-clinic is offered (§H1.6).
 

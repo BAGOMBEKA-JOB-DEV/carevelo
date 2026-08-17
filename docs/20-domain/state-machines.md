@@ -44,6 +44,8 @@ stateDiagram-v2
 **Notes**
 
 - `expired` and `cancelled` differ: expiry is the system releasing an unpaid slot, cancellation is a human decision. The clinic owner reads these differently and so should we.
+- The two transitions no human triggers are performed by scheduled commands, not by a request: `appointments:release-unpaid` expires an unpaid hold after 15 minutes, and `consultations:abandon-stale` abandons a consultation left `in_progress` an hour past its scheduled end. Both were specified here and implemented nowhere until the scheduler was wired up — a state machine transition with no actor is a transition that never happens.
+- Expiry does **not** cancel the payment. `timed_out` is not final and a late mobile-money confirmation is ordinary, so the collection resolves on its own schedule; money that arrives after the slot was released is in the clinic's own account, and the clinic refunds it through its own aggregator.
 - `no_show` triggers the tenant's own refund policy. Carevelo does not decide refund policy — it records the outcome and lets the clinic act through its own aggregator (§H3.6).
 - `abandoned` covers a dropped call that could not be resumed. The patient gets a resume link first; only after the window closes does the appointment abandon.
 - A cancelled or expired appointment releases the slot immediately.

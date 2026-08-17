@@ -44,6 +44,38 @@ class Appointment extends Model implements RestrictableToPatient
     ];
 
     /**
+     * How long an unpaid booking holds its slot before the system releases it.
+     *
+     * Chosen to match the aggressive phase of PaymentIntent::POLL_SCHEDULE, which
+     * polls every minute for the first fifteen. The slot is therefore released at
+     * the moment the system stops expecting an imminent mobile-money confirmation
+     * — generous for a patient on a slow USSD prompt, without leaving a slot dead
+     * for half an hour.
+     *
+     * It matters because availability deliberately excludes `awaiting_payment`
+     * bookings: the slot is genuinely held while the prompt is on the handset. So
+     * an abandoned prompt with nothing to release it removes a slot from the
+     * clinic's calendar permanently, which is what it did until this existed.
+     *
+     * @see docs/10-product/prd-h3-teleconsultation.md
+     * @see app/Console/Commands/ReleaseUnpaidAppointmentsCommand.php
+     */
+    public const UNPAID_HOLD_MINUTES = 15;
+
+    /**
+     * How long past its scheduled end an in-progress appointment may sit before
+     * it is treated as abandoned.
+     *
+     * The patient gets a resume link first; only once this window closes is the
+     * call taken to have dropped for good. Long enough that a clinician
+     * reconnecting after a power cut resumes the same consultation rather than
+     * finding it closed.
+     *
+     * @see docs/20-domain/state-machines.md
+     */
+    public const RESUME_WINDOW_MINUTES = 60;
+
+    /**
      * scheduled_start_at, scheduled_end_at are timestamptz.
      *
      * Laravel's default format is naive ('Y-m-d H:i:s'), so PostgreSQL resolves

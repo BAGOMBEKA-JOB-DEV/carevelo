@@ -233,15 +233,29 @@ Every job is idempotent, carries a deterministic key where it has an external ef
 
 ## Scheduled work
 
-| Schedule | Task |
-|---|---|
-| every minute | Payment reconciliation sweep — selects intents **due** for a poll |
-| every 5 minutes | Timed-out payment sweep |
-| hourly | Appointment reminders; expire unpaid holds |
-| daily | Reconciliation report; retention sweep; audit archive |
-| weekly | Isolation self-check; credential-expiry warnings |
+**Registered today**, in `backend/routes/console.php`:
+
+| Schedule | Command | Task |
+|---|---|---|
+| every minute | `payments:reconcile` | Payment reconciliation sweep — selects intents **due** for a poll. Includes `timed_out`, which is not a final state |
+| every minute | `appointments:release-unpaid` | Releases the slot held by a booking left unpaid past `Appointment::UNPAID_HOLD_MINUTES` |
+| every 15 minutes | `consultations:abandon-stale` | Abandons a consultation left `in_progress` past `Appointment::RESUME_WINDOW_MINUTES` |
+
+Every entry carries `withoutOverlapping()` and `onOneServer()`. These sweeps *dispatch* jobs rather than doing the work inline, so two concurrent runs double-dispatch — the poller would ask an aggregator twice about one payment. Both rely on a cache lock, so a deployment running more than one scheduler needs a **shared** cache store.
 
 Every scheduled command declares its tenant scope explicitly. A command that iterates tenants does so with `Tenancy::run()` per tenant, never with a raw cross-tenant query.
+
+**Specified but NOT yet built.** Listed so the gap is visible rather than implied by a table that reads as current:
+
+| Task | Note |
+|---|---|
+| Appointment reminders | Needs a reminder-window decision and a template; the notification machinery exists |
+| Reconciliation report | The clinic-facing export exists on demand ([Reconciliation](../40-api/endpoint-catalogue.md)); the scheduled digest does not |
+| Retention sweep, audit archive | Deliberately deferred. Retention is the **clinic's** controller obligation and [Retention & Deletion](../50-security-compliance/data-retention-and-deletion.md) is emphatic that the system must not silently delete what a clinic is obliged to hold — this is a design piece, not a scheduler entry |
+| Isolation self-check | `/health/isolation` exists and can be polled; nothing schedules it |
+| Credential-expiry warnings | Clinician licence currency is warned on at point of use, not swept |
+
+`ScheduledWorkTest` asserts that every command in `app/Console/Commands` appears in the schedule. It exists because the opposite shipped: `payments:reconcile` was written, tested, and carried its own registration line in a docblock, and nothing ever invoked it — so a missed webhook left a payment pending for ever and no test noticed.
 
 **On the reconciliation sweep:** the command *runs* every minute, but it does not poll every pending intent every minute. It selects the intents whose next poll is **due** under the graduated schedule — frequent while a mobile-money confirmation is plausibly imminent, sparse thereafter. [Webhooks](../40-api/webhooks.md) holds that schedule and is the single source for it; do not restate the intervals here, or they will drift.
 
