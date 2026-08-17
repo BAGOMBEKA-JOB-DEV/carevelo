@@ -28,7 +28,18 @@ trait ResolvesPhoneNumber
      */
     protected function phoneRules(): array
     {
-        return ['phone' => ['required', 'string', new UgandanPhone]];
+        return ['phone' => ['required', 'string', $this->phoneRule()]];
+    }
+
+    /**
+     * The format rule on its own.
+     *
+     * Separate from phoneRules() because SignInRequest composes its own set: there the
+     * number is one of two possible identifiers rather than a required field.
+     */
+    protected function phoneRule(): UgandanPhone
+    {
+        return new UgandanPhone;
     }
 
     /** The validated number in E.164, ready to use as a lookup key. */

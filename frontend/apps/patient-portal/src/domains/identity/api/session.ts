@@ -182,6 +182,41 @@ export async function verifyCode(phone: string, code: string): Promise<StepResul
   return failure(response.status, response.body)
 }
 
+/**
+ * Sign in with an email address or a phone number, and a password.
+ *
+ * ENUMERATION-SAFE, AND THE UI MUST NOT UNDO IT. The API answers "no account for that
+ * address" and "wrong password" with the same status and the same sentence, so a person
+ * cannot be confirmed as a patient or a member of staff at a named clinic by anyone who
+ * can type an address. Everything below passes that one sentence through: no branching on
+ * the field, no second message, no "check your email address" refinement.
+ *
+ * Exactly one identifier goes up. Sending both is rejected by the API rather than
+ * silently preferred, which is why the caller chooses.
+ */
+export async function signInWithPassword(
+  field: 'email' | 'phone',
+  identifier: string,
+  password: string,
+): Promise<StepResult> {
+  const xsrf = await csrfToken()
+  const response = await call('/v1/auth/sign-in', {
+    method: 'POST',
+    body: { [field]: identifier, password },
+    xsrf,
+  })
+
+  // The session cookie arrives here, and has to be re-issued on the portal's own
+  // response or the person signs in on the server and stays a guest in the browser.
+  await forward(response.cookies)
+
+  if (response.status === 200) {
+    return { ok: true }
+  }
+
+  return failure(response.status, response.body)
+}
+
 export async function signOut(): Promise<void> {
   const xsrf = await csrfToken()
   const response = await call('/v1/auth/sign-out', { method: 'POST', xsrf })

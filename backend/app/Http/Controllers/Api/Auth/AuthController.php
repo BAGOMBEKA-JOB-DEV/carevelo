@@ -49,19 +49,24 @@ class AuthController extends Controller
     ) {}
 
     /**
-     * Sign in with a phone number and a password.
+     * Sign in with an email address or a phone number, and a password.
      */
     public function signIn(SignInRequest $request): JsonResponse
     {
-        $phone = $request->phone();
+        $field = $request->identifierField();
+        $identifier = $request->identifier();
 
-        $retryAfter = $this->throttle->passwordSignIn($phone, $request->ip());
+        $retryAfter = $this->throttle->passwordSignIn($identifier, $request->ip());
 
         if ($retryAfter !== null) {
             return AuthProblem::throttled($retryAfter);
         }
 
-        $user = $this->accounts->activeFor($phone);
+        // Either identifier, one code path. Both lookups are tenant-scoped and both
+        // return null for a deactivated account, so the branches below stay identical.
+        $user = $field === 'email'
+            ? $this->accounts->activeForEmail($identifier)
+            : $this->accounts->activeFor($identifier);
 
         // Called with a null user on purpose, and BEFORE the null is tested. The
         // comparison happens either way -- against a decoy digest when there is
@@ -79,7 +84,10 @@ class AuthController extends Controller
                 'account_exists' => $user !== null,
             ]);
 
-            throw ValidationException::withMessages(['phone' => self::REJECTED]);
+            // Attached to whichever field was sent, so the message appears under the
+            // input the person actually filled in. The SENTENCE is the same either way:
+            // "no account" and "wrong password" must stay indistinguishable.
+            throw ValidationException::withMessages([$field => self::REJECTED]);
         }
 
         if (! $this->accounts->mayStartSession($user)) {

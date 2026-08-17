@@ -1,5 +1,3 @@
-import '@carevelo/ui/tokens.css'
-
 /**
  * Shown for a host that does not resolve to a clinic.
  *
@@ -9,21 +7,32 @@ import '@carevelo/ui/tokens.css'
  * carries no branding — there is no tenant to brand it with — and reads the same for
  * a host that never existed and one offboarded last week.
  *
- * Its own <html> because the root layout resolves a tenant, and there isn't one.
+ * Rendered INSIDE the root layout, which is why it no longer carries an <html> of its own.
+ * It used to, because the layout called notFound() itself and so could never wrap this
+ * page — Next answered with a global error shell containing no readable text at all. With
+ * the layout lenient (see lib/tenant.ts) a stale or mistyped PATH on a real clinic's host
+ * now renders this text server-side, and reads with JavaScript switched off. That is the
+ * 404 a patient can actually arrive at.
+ *
+ * ONE CASE STILL DEFERS ITS BODY TO THE CLIENT, knowingly: an unknown clinic HOST. There
+ * the page itself throws notFound() during render, and in a production build Next answers
+ * a render-time notFound() with a minimal shell so it can still send a 404 status —
+ * `loading.md` is explicit that a 404 status requires the resource to be checked "before
+ * the response body is streamed", and points at `proxy` as the only place to do that. A
+ * proxy check means an extra tenant lookup on EVERY request, including every real
+ * patient's, to improve a page reached only by typos and subdomain scanners. On a product
+ * whose binding constraint is a slow mobile network that is the wrong way round, so the
+ * status is kept, the body is left to the client, and nothing leaks either way.
  *
  * @see docs/10-product/white-labeling-and-branding.md acceptance criterion 8
  */
 export default function NotFound() {
   return (
-    <html lang="en">
-      <body>
-        <main className="site__main">
-          <div className="empty">
-            <p className="empty__title">Page not found</p>
-            <p>Check the address and try again.</p>
-          </div>
-        </main>
-      </body>
-    </html>
+    <main className="site-pagehero">
+      <div className="empty">
+        <p className="empty__title">Page not found</p>
+        <p>Check the address and try again.</p>
+      </div>
+    </main>
   )
 }

@@ -1,0 +1,127 @@
+/* ============================================================
+   Carevelo — the split-screen sign-in
+
+   The shape impala uses for its console login: the brand and its proposition on one
+   side, the form in a card on the other. It reads as a product rather than a form on a
+   page, which is the whole difference between "enterprise" and "unfinished".
+
+   Clinic-branded, like everything patient-facing: the left panel carries the clinic's
+   colour and the clinic's name. Carevelo appears nowhere on it.
+
+   Collapses to one column on a phone, form FIRST — somebody arriving on a handset came
+   to sign in, not to read the proposition.
+   ============================================================ */
+
+.auth-page {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1.05fr 1fr;
+  background: var(--canvas);
+}
+@media (max-width: 940px) {
+  .auth-page { grid-template-columns: 1fr; min-height: auto; }
+}
+
+/* ---- The branded panel ---- */
+.auth__brand {
+  /* The clinic's colour, and the foreground the API computed for it. A clinic that
+     picks pale yellow still gets readable text, because this pairing is decided
+     server-side by BrandPalette and never chosen. */
+  background: var(--brand-primary);
+  color: var(--brand-primary-fg);
+  padding: var(--space-8) clamp(24px, 5vw, 64px);
+  display: flex; flex-direction: column; gap: var(--space-8);
+  justify-content: center;
+}
+@media (max-width: 940px) {
+  /* Second in the visual order on a phone, though it stays first in the DOM for a
+     screen reader — the clinic's identity is the context for the form. */
+  .auth__brand { order: 2; padding: var(--space-8) var(--space-6); gap: var(--space-6); }
+}
+
+.auth__mark {
+  display: flex; align-items: center; gap: var(--space-4);
+  font-family: var(--head); font-weight: 700; font-size: 21px; letter-spacing: -0.015em;
+}
+.auth__mark img { max-height: 44px; width: auto; }
+.auth__mark-tile {
+  width: 44px; height: 44px; border-radius: 11px; flex: none;
+  display: grid; place-items: center;
+  /* A translucent tile over the brand rather than a second colour: it cannot clash
+     with any hex a clinic chooses. */
+  background: color-mix(in srgb, var(--brand-primary-fg) 18%, transparent);
+  font-size: 18px;
+}
+
+.auth__lead h2 {
+  font-family: var(--head);
+  font-size: clamp(24px, 2.9vw, 34px);
+  font-weight: 700; letter-spacing: -0.02em; line-height: 1.12;
+}
+.auth__lead p {
+  margin-top: var(--space-5);
+  font-size: 15.5px; line-height: 1.6;
+  max-width: 46ch;
+  /* Softened against the brand rather than a fixed grey, so it stays legible on a dark
+     brand and on a light one. */
+  color: color-mix(in srgb, var(--brand-primary-fg) 82%, transparent);
+}
+
+.auth__stats { display: flex; flex-wrap: wrap; gap: var(--space-8); }
+.auth__stat { display: flex; flex-direction: column; gap: 2px; }
+.auth__stat .v { font-family: var(--head); font-size: 24px; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.auth__stat .k {
+  font-size: 11.5px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase;
+  color: color-mix(in srgb, var(--brand-primary-fg) 70%, transparent);
+}
+
+/* ---- The form side ---- */
+.auth__form {
+  display: grid; place-items: center;
+  padding: var(--space-8) clamp(24px, 4vw, 56px);
+}
+@media (max-width: 940px) {
+  .auth__form { order: 1; padding: var(--space-8) var(--space-5); }
+}
+
+.auth__card { width: 100%; max-width: 420px; }
+.auth__card h1 { font-family: var(--head); font-size: 27px; font-weight: 700; letter-spacing: -0.02em; }
+.auth__card .subtitle { margin-top: var(--space-2); font-size: 14.5px; }
+
+.auth__fields { display: flex; flex-direction: column; gap: var(--space-5); margin-top: var(--space-6); }
+
+.auth__aside { margin-top: var(--space-6); padding-top: var(--space-5); border-top: 1px solid var(--hairline); font-size: 13px; color: var(--ink-muted); }
+
+/* ---- Segmented control: which way to sign in ----
+   A real radio group, so it works with no JavaScript and announces itself properly to a
+   screen reader. The inputs are visually hidden rather than display:none — a hidden
+   input is not focusable, and this has to be reachable by keyboard. */
+.segmented { display: flex; gap: 2px; padding: 3px; background: var(--surface-sunken); border-radius: var(--r-md); }
+.segmented input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.segmented label {
+  flex: 1;
+  display: grid; place-items: center;
+  min-height: 38px; padding: 0 var(--space-4);
+  border-radius: var(--r-sm);
+  font-size: 13.5px; font-weight: 550; color: var(--ink-muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.segmented input:checked + label { background: var(--surface); color: var(--ink); box-shadow: var(--shadow-sm); }
+.segmented input:focus-visible + label { outline: 2px solid var(--primary-focus); outline-offset: 2px; }
+
+/* Panel switching, in CSS.
+   Both panels are in the document and the unchosen one is hidden, which is what lets the
+   control work before any JavaScript arrives — the whole reason it is a radio group and
+   not a button with an onClick.
+
+   Matched on the input's VALUE rather than its id, so the markup is free to name its ids
+   whatever it likes; the two values are the two ways into this product and belong to this
+   stylesheet as much as the class names do.
+
+   If :has() were unavailable the result is both panels visible — cluttered, entirely
+   usable, and nothing is lost. That is the correct direction to fail in. */
+.segmented-group:has(input[value='password']:checked) > .segmented-panel[data-method='code'],
+.segmented-group:has(input[value='code']:checked) > .segmented-panel[data-method='password'] {
+  display: none;
+}

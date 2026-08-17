@@ -11,8 +11,8 @@ use Illuminate\Foundation\Http\FormRequest;
 /**
  * Handing a delivery to a named rider.
  *
- * The rider is validated here rather than in the controller because "is this
- * person a rider of this clinic" is a property of the input. Users are
+ * The rider is validated here rather than in the controller because
+ * "is this person a rider of this clinic" is a property of the input. Users are
  * deliberately NOT row-level-security scoped -- authentication has to find a
  * user before a tenant exists -- so the tenant check on the chosen rider is
  * explicit and cannot be assumed from the database.

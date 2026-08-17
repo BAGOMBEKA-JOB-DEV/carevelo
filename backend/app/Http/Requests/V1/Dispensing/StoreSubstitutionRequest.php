@@ -14,8 +14,8 @@ use Illuminate\Foundation\Http\FormRequest;
  * that is made structurally true rather than merely checked.
  *
  * The reason is mandatory. It is the entire basis on which a clinician who is
- * not standing in the pharmacy decides, and "out of stock" versus "the
- * strength we hold is different" are very different clinical questions.
+ * not standing in the pharmacy decides, and "out of stock" is a very different
+ * clinical question from "the strength we hold is different".
  *
  * @see docs/10-product/prd-h4-prescription-dispensing-delivery.md — out of stock
  */

@@ -42,6 +42,27 @@ class Accounts
     }
 
     /**
+     * The active account for this EMAIL at this clinic, if there is one.
+     *
+     * Scoped by tenant for the same reason activeFor() is: an address registered at
+     * another clinic is not registered here. Uniqueness is (tenant_id, email) — it was
+     * global until email sign-in was built, which would have let one clinic's address
+     * block another's.
+     *
+     * Deactivated accounts return null and therefore fail exactly as an unknown address
+     * does. A distinct "your account is disabled" would confirm the account exists to
+     * whoever now has the mailbox.
+     */
+    public function activeForEmail(string $email): ?User
+    {
+        return User::query()
+            ->where('tenant_id', $this->context->currentOrFail())
+            ->whereRaw('lower(email) = ?', [mb_strtolower($email)])
+            ->where('is_active', true)
+            ->first();
+    }
+
+    /**
      * Whether this account may open a session right now.
      *
      * Suspension is a COMMERCIAL action and must never become a clinical one. It

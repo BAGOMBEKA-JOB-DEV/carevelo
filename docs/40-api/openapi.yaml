@@ -1,10 +1,10 @@
 openapi: 3.1.0
 info:
-  title: Carevelo
+  title: Laravel
   version: 0.0.1
 servers:
   -
-    url: 'http://carevelo.test/api'
+    url: 'http://localhost/api'
 paths:
   /v1/me:
     get:
@@ -476,7 +476,7 @@ paths:
   /v1/auth/sign-in:
     post:
       operationId: v1.auth.sign-in
-      summary: 'Sign in with a phone number and a password'
+      summary: 'Sign in with an email address or a phone number, and a password'
       tags:
         - Auth
       requestBody:
@@ -4151,7 +4151,7 @@ components:
       title: AppointmentStatus
     AssignRiderRequest:
       type: object
-      description: "Handing a delivery to a named rider.\n\nThe rider is validated here rather than in the controller because \"is this\n * person a rider of this clinic\" is a property of the input. Users are\ndeliberately NOT row-level-security scoped -- authentication has to find a\nuser before a tenant exists -- so the tenant check on the chosen rider is\nexplicit and cannot be assumed from the database."
+      description: "Handing a delivery to a named rider.\n\nThe rider is validated here rather than in the controller because\n\"is this person a rider of this clinic\" is a property of the input. Users are\ndeliberately NOT row-level-security scoped -- authentication has to find a\nuser before a tenant exists -- so the tenant check on the chosen rider is\nexplicit and cannot be assumed from the database."
       properties:
         rider_id:
           type: string
@@ -5276,14 +5276,23 @@ components:
       title: ServiceResource
     SignInRequest:
       type: object
-      description: "Phone plus password, for staff.\n\nPatients do not come through here: they sign in with a code alone. Requiring\na password from someone who consults twice a year produces forgotten\npasswords, and a forgotten password in this product means abandoned care."
+      description: "Password sign-in, by email address or by phone number.\n\nBOTH, because the two audiences are genuinely different. A clinic administrator sits at\na desk with an email address and expects to type it; a clinician between rooms has their\nphone in their hand and their number is the identifier the clinic already holds. The\nbusiness plan is blunt about the second case: most Ugandan clinic staff have a working\nphone and no reliably checked email address, so neither identifier can be the only way in.\n\nExactly one is required. Sending both is a confused client rather than a convenience,\nand picking one silently would mean two requests that look identical signing in as\ndifferent people.\n\nPatients may also use a code with no password at all, which is a different endpoint."
       properties:
+        email:
+          type:
+            - string
+            - 'null'
+          format: email
+          description: "required_without rather than required: either identifies the account, and\nthe pair is mutually exclusive below."
+          maxLength: 255
         phone:
-          type: string
+          type:
+            - string
+            - 'null'
         password:
           type: string
+          description: "No length or composition rule on the way IN. A minimum here tells an\nattacker the shape of what to guess, and rejects a correct password set\nbefore the rule existed."
       required:
-        - phone
         - password
       title: SignInRequest
     StaffResource:
@@ -5659,7 +5668,7 @@ components:
       title: StoreServiceRequest
     StoreSubstitutionRequest:
       type: object
-      description: "A pharmacist PROPOSING a substitute.\n\nProposing only. There is deliberately no `status` field and no\n`approve_immediately` flag: a substitution takes effect on a clinician's\napproval or not at all, and the shape of this request is one of the places\nthat is made structurally true rather than merely checked.\n\nThe reason is mandatory. It is the entire basis on which a clinician who is\nnot standing in the pharmacy decides, and \"out of stock\" versus \"the\n * strength we hold is different\" are very different clinical questions."
+      description: "A pharmacist PROPOSING a substitute.\n\nProposing only. There is deliberately no `status` field and no\n`approve_immediately` flag: a substitution takes effect on a clinician's\napproval or not at all, and the shape of this request is one of the places\nthat is made structurally true rather than merely checked.\n\nThe reason is mandatory. It is the entire basis on which a clinician who is\nnot standing in the pharmacy decides, and \"out of stock\" is a very different\nclinical question from \"the strength we hold is different\"."
       properties:
         prescription_item_id:
           type: string
