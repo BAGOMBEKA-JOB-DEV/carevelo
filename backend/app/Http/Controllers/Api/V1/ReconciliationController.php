@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\V1\Reads\ExportReconciliationRequest;
 use App\Models\Appointment;
 use App\Models\AppointmentStatus;
 use App\Models\AuditEvent;
@@ -11,9 +12,11 @@ use App\Models\DispenseOrderStatus;
 use App\Models\PaymentIntent;
 use App\Models\PaymentIntentStatus;
 use App\Models\Tenant;
+use App\Services\Reconciliation\ReconciliationExport;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Collection;
 
 /**
@@ -98,6 +101,22 @@ class ReconciliationController extends Controller
                     .'about them. Confirm each flagged reference in your own aggregator dashboard.',
             ],
         ]);
+    }
+
+    /**
+     * The same records as CSV, for the clinic's own books.
+     *
+     * Every line carries the aggregator's own reference so an administrator can
+     * match it against their aggregator dashboard unaided. There is no total and
+     * no reconciled figure, for the reason given on this class: we cannot see
+     * what the clinic received, and a number implying we can would be worse than
+     * no number at all.
+     */
+    public function export(ExportReconciliationRequest $request, ReconciliationExport $export): Response
+    {
+        $this->authorize('reconcile', PaymentIntent::class);
+
+        return $export->csv($request->from(), $request->to());
     }
 
     /**

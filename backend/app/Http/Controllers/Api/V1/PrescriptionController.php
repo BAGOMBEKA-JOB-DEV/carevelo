@@ -13,6 +13,7 @@ use App\Http\Resources\V1\PrescriptionResource;
 use App\Models\Clinician;
 use App\Models\Consultation;
 use App\Models\Prescription;
+use App\Services\Documents\PrescriptionDocuments;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -113,6 +114,20 @@ class PrescriptionController extends Controller
         $audit->record('prescription.read', 'Prescription', $prescription->id);
 
         return PrescriptionResource::make($prescription->load('items'));
+    }
+
+    /**
+     * Issue a short-lived signed link to the rendered document.
+     *
+     * The authorisation check happens HERE, before any URL exists. The document
+     * itself never sits at a public or guessable path, so this endpoint is the
+     * only way to reach one.
+     */
+    public function document(Prescription $prescription, PrescriptionDocuments $documents): JsonResponse
+    {
+        $this->authorize('view', $prescription);
+
+        return $documents->linkResponse($prescription);
     }
 
     /**
