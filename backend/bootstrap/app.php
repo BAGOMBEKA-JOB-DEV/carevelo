@@ -66,6 +66,21 @@ return Application::configure(basePath: dirname(__DIR__))
          * @see docs/40-api/authentication-and-sessions.md
          */
         $middleware->statefulApi();
+
+        /*
+         * Never redirect an unauthenticated API request.
+         *
+         * Illuminate\Auth\Middleware\Authenticate redirects a guest to route('login')
+         * unless the request expects JSON — and this application has no `login` route,
+         * because it has no web UI. So any unauthenticated call that did not send
+         * `Accept: application/json` -- a browser opening an API URL, a client that
+         * forgot the header -- got "Route [login] not defined" and a 500 instead of the
+         * 401 the API contract promises.
+         *
+         * Returning null makes it throw AuthenticationException, which the handler below
+         * renders as RFC 9457 problem details.
+         */
+        $middleware->redirectGuestsTo(fn (Request $request) => $request->is('api/*') ? null : '/');
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

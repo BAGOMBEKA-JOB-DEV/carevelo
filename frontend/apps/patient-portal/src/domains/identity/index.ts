@@ -1,12 +1,9 @@
 /**
  * The identity domain's PUBLIC SURFACE.
  *
- * Everything this domain offers the rest of the app is exported here, and nothing
- * else is importable: reaching into ./components or ./api from another domain is a
- * build failure, not a code-review note. Cross-domain composition belongs in the
- * route layer.
- *
- * Empty until the feature lands. The folder and this file exist so the structure is
- * the same on day one as on day one hundred.
+ * Signing in, signing out, and reading who the caller is. Everything else in this
+ * folder is internal: the cookie-forwarding in api/session.ts is the kind of plumbing
+ * that should have exactly one way in.
  */
-export {}
+export { SignInForm } from './components/SignInForm'
+export { requestCode, verifyCode, signOut, type StepResult } from './api/session'

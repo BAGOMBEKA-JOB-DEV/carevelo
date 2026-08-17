@@ -197,6 +197,83 @@ They communicate **only** over the versioned HTTP API and authenticated WebSocke
 
 The API contract is published as [openapi.yaml](docs/40-api/openapi.yaml), from which the frontend's TypeScript client is **generated and committed** — so the contract is a document both sides read, not a dependency one has on the other. → [ADR-0007](docs/70-decisions/0007-separate-backend-frontend-trees.md)
 
+## Running it locally
+
+Verified from a clean state: these are the exact commands, in this order.
+
+**You need** PHP 8.3, Composer, PostgreSQL 16+ running locally, Node 22 and pnpm.
+
+```bash
+# 1. The API. Creates the two database roles, the database, the schema, and a demo clinic.
+cd backend
+composer setup
+
+# 2. Serve it.
+composer dev                      # http://localhost:8000
+
+# 3. The patient portal, in another terminal.
+cd ../frontend
+pnpm install
+cp apps/patient-portal/.env.example apps/patient-portal/.env.local
+pnpm dev                          # http://kira.localhost:3000
+```
+
+Then open **http://kira.localhost:3000** — the seeded clinic is Kira Family Clinic, and
+the page is rendered in *its* colours, not Carevelo's.
+
+`*.localhost` resolves to 127.0.0.1 on its own, so there is nothing to add to
+`/etc/hosts`. That is why `APP_URL` is `http://localhost` rather than a `.test` domain:
+tenancy is resolved from the host, and every clinic is a subdomain.
+
+### Signing in
+
+`composer setup` seeds three accounts at Kira Family Clinic:
+
+| Role | Phone |
+|---|---|
+| Patient | `0772 000 001` |
+| Clinic administrator | `0772 000 002` |
+| Clinician | `0772 000 003` |
+
+There is no SMS gateway locally, so read the code out of the message that would have
+been sent:
+
+```bash
+cd backend
+php artisan dev:otp 0772000001
+```
+
+`dev:otp` and `DemoClinicSeeder` both refuse to run outside `local` — one prints a live
+credential and the other creates accounts with known numbers.
+
+### Why `composer setup` creates database roles
+
+Two PostgreSQL roles, and the split is the tenant-isolation control rather than tidiness:
+PostgreSQL exempts a table's **owner** from row-level security, so `carevelo_migrator`
+owns the schema and `carevelo_app` — which the application connects as — owns nothing and
+holds `NOBYPASSRLS`. One role for both would leave every isolation policy silently inert.
+
+`php artisan db:roles` does that step on its own and is idempotent. It detects the
+superuser (`postgres` on Debian and Docker, the OS user on Homebrew); pass
+`--superuser=<role>` if yours is named otherwise.
+
+### The other three surfaces
+
+```bash
+pnpm dev:console    # clinic staff        :3001
+pnpm dev:rider      # rider view          :3002
+pnpm dev:admin      # platform admin      :3003
+```
+
+Each needs its own `.env.local`, copied from the `.env.example` beside it.
+
+### Checks
+
+```bash
+cd backend  && composer check    # Pint, PHPStan level 8, the full suite
+cd frontend && pnpm check        # typecheck, lint, boundaries, contract freshness, build
+```
+
 ## Repository layout
 
 ```

@@ -6,4 +6,10 @@ dist/
 boundaries.dot
 .env
 .env.local
+!.env.example
 next-env.d.ts
+
+# Written by `next build` / `next dev` (nextjs-agent-rules). Regenerated per app on
+# every build, so committing them for whichever app was built last is just noise.
+apps/*/AGENTS.md
+apps/*/CLAUDE.md

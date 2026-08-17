@@ -41,9 +41,13 @@ return [
         '127.0.0.1:8000',
         '::1',
         Sanctum::currentApplicationUrlWithPort(),
+        // Both forms. Sanctum compares against the Origin or Referer host INCLUDING
+        // its port, so '*.carevelo.app' alone never matches 'kira.carevelo.app:3000'
+        // and every local request silently falls back to stateless. That cost an hour.
         ($appHost = parse_url((string) env('APP_URL', 'http://localhost'), PHP_URL_HOST))
             ? '*.'.$appHost
             : null,
+        $appHost ? '*.'.$appHost.':*' : null,
     ])))),
 
     /*

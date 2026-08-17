@@ -15,7 +15,11 @@
     "api-client:generate": "pnpm --filter @carevelo/api-client generate",
     "api-client:check": "pnpm --filter @carevelo/api-client check",
     "check": "pnpm typecheck && pnpm lint && pnpm boundaries && pnpm api-client:check && pnpm test && pnpm build",
-    "test": "pnpm -r test"
+    "test": "pnpm -r test",
+    "dev": "pnpm --filter @carevelo/patient-portal dev --hostname 0.0.0.0",
+    "dev:console": "pnpm --filter @carevelo/clinic-console dev --hostname 0.0.0.0",
+    "dev:rider": "pnpm --filter @carevelo/rider-view dev --hostname 0.0.0.0",
+    "dev:admin": "pnpm --filter @carevelo/platform-admin dev --hostname 0.0.0.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
