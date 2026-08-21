@@ -308,3 +308,50 @@ export function accessProblem(failure: Extract<Attempt<unknown>, { ok: false }>)
     tone: 'bad',
   }
 }
+
+/* ============================================================================
+   READING A SUBMITTED FORM
+   ============================================================================ */
+
+/**
+ * One text field from a native form post.
+ *
+ * `FormData.get()` returns `File | string | null`, and a screen that assumed `string`
+ * would render a File object's `toString()` into a clinic's record the first time somebody
+ * pointed a file input at a field of that name. Anything that is not a string is `null`,
+ * which every caller already handles because a field can legitimately be absent.
+ */
+export function text(formData: FormData, name: string): string | null {
+  const value = formData.get(name)
+
+  return typeof value === 'string' ? value : null
+}
+
+/**
+ * A trimmed text field, or `null` where the administrator left it empty.
+ *
+ * A box containing three spaces is an empty box. Sending it would store three spaces as a
+ * clinic's trading name, and every screen downstream would render an invisible name.
+ */
+export function trimmed(formData: FormData, name: string): string | null {
+  const value = text(formData, name)?.trim()
+
+  return value === undefined || value === '' ? null : value
+}
+
+/**
+ * Whether a checkbox was ticked.
+ *
+ * An unticked checkbox is ABSENT from a form post rather than present and false — which is
+ * a fact about HTML rather than about this product, and the single commonest way a "leave
+ * it switched on" setting silently switches itself off. Every boolean in this domain goes
+ * through here so that fact is stated once.
+ */
+export function checked(formData: FormData, name: string): boolean {
+  return formData.get(name) !== null
+}
+
+/** Every value of a repeated field — a checkbox group, for instance. */
+export function every(formData: FormData, name: string): string[] {
+  return formData.getAll(name).filter((value): value is string => typeof value === 'string')
+}

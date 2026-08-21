@@ -74,11 +74,6 @@ export function consentDisplay(type: string): ConsentDisplay {
   )
 }
 
-/** Whether this console knows how to put a consent question to a patient in words. */
-export function isKnownConsentType(type: string): type is ConsentType {
-  return Object.hasOwn(DISPLAY, type)
-}
-
 /**
  * `delivery_disclosure` IS NOT CAPTURED AT THE DESK, and the reason is a rule rather than a
  * scoping decision.

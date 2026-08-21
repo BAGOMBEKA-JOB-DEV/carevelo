@@ -82,7 +82,7 @@ export { PaymentRecordScreen, type PaymentRecordScreenProps } from './components
 export { ReconciliationScreen, type ReconciliationScreenProps } from './components/ReconciliationScreen'
 
 /* ---- The section's own tab bar, shared by all four routes under /payments. ---- */
-export { SectionNav, MONEY_TABS, type MoneyTabId } from './components/SectionNav'
+export { SectionNav, type MoneyTabId } from './components/SectionNav'
 
 /*
  * DELIBERATELY NOT EXPORTED: attestCash, and the transport.

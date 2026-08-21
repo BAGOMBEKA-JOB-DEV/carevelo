@@ -23,8 +23,9 @@ import { RefundGuidance } from './RefundGuidance'
  * the place where the button is not.
  *
  * `timed_out` COUNTS AS UNRESOLVED and therefore still offers the control, because a
- * timeout is not an ending — a patient may well pay the balance in cash at the counter
- * after an unanswered prompt, and that is the ordinary case rather than an edge one.
+ * timeout is not an ending — a patient whose mobile-money prompt went unanswered very often
+ * pays in cash at the counter instead, and that is the ordinary case rather than an edge
+ * one.
  *
  * ------------------------------------------------------------------
  * THE FAILURE MESSAGE IS SHOWN VERBATIM
@@ -80,7 +81,14 @@ export function PaymentRecordScreen({
       </div>
 
       {attested === true ? (
-        <Notice tone="good" title="Recorded" announce>
+        /*
+         * `info` AND NOT A SUCCESS TONE, BECAUSE `Notice` HAS NONE. The component offers
+         * neutral, info, warn and bad — packages/ui has deliberately not grown a green
+         * notice, and adding one is a change to a package four apps share rather than
+         * something to slip in from a screen. The heading and `announce` carry the outcome
+         * to a screen reader either way, which is the part that has to work.
+         */
+        <Notice tone="info" title="Recorded" announce>
           <p>
             This payment is marked as paid in cash at the clinic, under your name. The audit
             log has the entry.

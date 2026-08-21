@@ -119,3 +119,46 @@ export async function findStaff(id: string): Promise<Staff | null> {
 
   return null
 }
+
+/**
+ * How many active administrators this clinic has.
+ *
+ * WHY THE SCREEN NEEDS THIS AT ALL, given that the backend already refuses to remove the
+ * last one. Because the refusal arrives AFTER the administrator has pressed the button on
+ * their own account, and the two are not equivalent: `StaffController` stops the clinic
+ * being locked out, and this stops the console offering an action whose only outcome is a
+ * refusal. Offering a control that cannot work and then explaining why is a worse screen
+ * than not offering it, and on this particular control the explanation arrives at the
+ * moment somebody believed they had just removed their own access.
+ *
+ * IT IS NOT A SECOND COPY OF THE RULE. The rule stays exactly where it is; nothing here
+ * decides whether the change is legal, and if this count is stale — a colleague promoted in
+ * another tab a second ago — the backend still gets the last word and the screen still
+ * shows its sentence. This is a presentation decision informed by a count, and the count
+ * is allowed to be a moment out of date.
+ *
+ * The walk is bounded by one clinic's payroll: tens of people, twenty-five to a page. The
+ * page cap stops a paginator that never terminates from hanging a render.
+ */
+export async function countActiveAdministrators(): Promise<number> {
+  let cursor: string | undefined
+  let total = 0
+
+  for (let page = 0; page < 40; page += 1) {
+    const result = await listStaff(cursor)
+
+    total += result.data.filter(
+      (person) => person.is_active && person.roles.includes('clinic_admin'),
+    ).length
+
+    const next = result.meta.next_cursor
+
+    if (!next) {
+      return total
+    }
+
+    cursor = next
+  }
+
+  return total
+}

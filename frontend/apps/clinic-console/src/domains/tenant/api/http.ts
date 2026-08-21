@@ -277,24 +277,26 @@ export async function attempt<T>(work: Promise<T>): Promise<Attempt<T>> {
 }
 
 /**
- * The sentence a failed WRITE comes back with, and nothing more.
+ * The sentence a failed WRITE comes back with.
  *
- * Writes in this domain report through the URL rather than through an `Attempt`, because
- * a Server Action ends in a redirect and cannot hand a value back to the screen it came
- * from without making that screen a client component. See `components/screen.ts`.
+ * Writes in this domain report through the URL rather than through an `Attempt`, because a
+ * Server Action ends in a redirect and cannot hand a value back to the screen it came from
+ * without making that screen a client component. See `components/screen.ts`.
+ *
+ * `ApiError.message` has already been through `humanise()`, which prefers the API's own
+ * field message — so a mistyped colour comes back as "Enter a colour as six hexadecimal
+ * digits, for example #1B7F5A" and the last-administrator refusal comes back naming the
+ * remedy. Anything that is NOT an `ApiError` never reached the API, and the sentence says
+ * exactly that rather than implying the clinic did something wrong: the difference between
+ * "we refused this" and "we never heard about it" is the difference between correcting a
+ * field and checking a cable.
  */
-export async function attemptWrite(work: Promise<unknown>): Promise<string | null> {
-  try {
-    await work
-
-    return null
-  } catch (error) {
-    if (error instanceof ApiError) {
-      return error.message
-    }
-
-    console.error('[tenant] a write to the API did not complete', error)
-
-    return null
+export function writeFailure(error: unknown, what: string): string {
+  if (error instanceof ApiError) {
+    return error.message
   }
+
+  console.error(`[tenant] ${what} did not complete`, error)
+
+  return 'That did not reach Carevelo, so nothing has changed. Check the connection and try again.'
 }
