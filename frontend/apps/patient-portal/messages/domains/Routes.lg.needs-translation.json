@@ -35,7 +35,6 @@
     "Routes.booking.noRecordTitle",
     "Routes.booking.noRecordBody",
     "Routes.booking.noRecordBodyWithPhone",
-    "Routes.booking.browseAnyway",
     "Routes.fulfilment.consentNotHere"
   ],
   "identicalOnPurpose": []

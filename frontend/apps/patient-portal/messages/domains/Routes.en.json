@@ -36,8 +36,7 @@
     "booking": {
       "noRecordTitle": "We cannot tell which patient record is yours",
       "noRecordBody": "Booking has to be attached to a patient record, and {clinic}'s system does not yet let this portal ask which record belongs to your sign-in. Please telephone {clinic} and they will book for you at the desk.",
-      "noRecordBodyWithPhone": "Booking has to be attached to a patient record, and {clinic}'s system does not yet let this portal ask which record belongs to your sign-in. Please telephone {clinic} on {phone} and they will book for you at the desk.",
-      "browseAnyway": "You can still see what {clinic} offers and what it costs."
+      "noRecordBodyWithPhone": "Booking has to be attached to a patient record, and {clinic}'s system does not yet let this portal ask which record belongs to your sign-in. Please telephone {clinic} on {phone} and they will book for you at the desk."
     },
     "fulfilment": {
       "consentNotHere": "Having medicines brought to you means giving {clinic} your address to pass to a rider, and that permission has to be recorded by {clinic} rather than on this page. Please telephone the clinic, or choose collection."
