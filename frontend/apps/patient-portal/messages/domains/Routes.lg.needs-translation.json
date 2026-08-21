@@ -1,0 +1,42 @@
+{
+  "note": "Every string in Routes.lg.json is still the ENGLISH text. Nothing here was guessed: these sentences tell a patient which parts of their care they can reach and which they cannot, and a fluent-sounding mistranslation of 'we cannot tell which patient record is yours' or of the delivery-address sentence would send somebody to the wrong place about their own medicines. A visibly English paragraph is an honest gap.",
+  "translateFirst": [
+    "Routes.fulfilment.consentNotHere",
+    "Routes.booking.noRecordBodyWithPhone",
+    "Routes.booking.noRecordBody",
+    "Routes.booking.noRecordTitle",
+    "Routes.hub.byLinkBody"
+  ],
+  "translateFirstWhy": "The first is a data-protection sentence: it is the only place this portal explains that delivery means handing an address to a rider, and a patient who cannot read it cannot weigh the choice. The next three are the reason booking refuses, and a patient who cannot read them will conclude the clinic's portal is broken rather than telephone the desk. The last is why there is no list of orders and deliveries, which is the difference between 'keep the clinic's message' and 'the clinic lost my order'.",
+  "needsTranslation": [
+    "Routes.hub.eyebrow",
+    "Routes.hub.welcome",
+    "Routes.hub.signedInTo",
+    "Routes.hub.signOut",
+    "Routes.hub.yourClinicLabel",
+    "Routes.hub.signedInAsLabel",
+    "Routes.hub.doHeading",
+    "Routes.hub.services.title",
+    "Routes.hub.services.body",
+    "Routes.hub.services.action",
+    "Routes.hub.book.title",
+    "Routes.hub.book.body",
+    "Routes.hub.book.action",
+    "Routes.hub.appointments.title",
+    "Routes.hub.appointments.body",
+    "Routes.hub.appointments.action",
+    "Routes.hub.prescriptions.title",
+    "Routes.hub.prescriptions.body",
+    "Routes.hub.prescriptions.action",
+    "Routes.hub.byLinkHeading",
+    "Routes.hub.byLinkBody",
+    "Routes.hub.contact",
+    "Routes.hub.contactWithPhone",
+    "Routes.booking.noRecordTitle",
+    "Routes.booking.noRecordBody",
+    "Routes.booking.noRecordBodyWithPhone",
+    "Routes.booking.browseAnyway",
+    "Routes.fulfilment.consentNotHere"
+  ],
+  "identicalOnPurpose": []
+}

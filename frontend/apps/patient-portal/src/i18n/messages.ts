@@ -12,6 +12,8 @@ import prescriptionsEn from '../../messages/domains/Prescriptions.en.json'
 import prescriptionsLg from '../../messages/domains/Prescriptions.lg.json'
 import deliveryEn from '../../messages/domains/Delivery.en.json'
 import deliveryLg from '../../messages/domains/Delivery.lg.json'
+import routesEn from '../../messages/domains/Routes.en.json'
+import routesLg from '../../messages/domains/Routes.lg.json'
 import type { Locale } from './locales'
 
 /**
@@ -46,6 +48,13 @@ import type { Locale } from './locales'
  * The merge is a spread of STATIC imports, so `typeof EN` and `typeof LG` stay precise and
  * the bidirectional `satisfies` below still proves the two catalogues have the same shape.
  * A dynamic glob would have bought convenience and thrown that guarantee away.
+ *
+ * `Routes` IS THE ONE NAMESPACE THAT BELONGS TO NO DOMAIN, and it is deliberately thin. It
+ * holds only what the route layer itself says: the words on the account hub, and the two
+ * places where a route has to tell a patient that something cannot be done here yet. Every
+ * sentence about booking, consent, payment, a prescription or a delivery lives in the
+ * domain that owns that screen — a route that started writing clinical or financial copy
+ * would be business logic in the routing tree, spelled in JSON instead of in TSX.
  */
 const EN = {
   ...en,
@@ -55,6 +64,7 @@ const EN = {
   ...consultationsEn,
   ...prescriptionsEn,
   ...deliveryEn,
+  ...routesEn,
 }
 
 const LG = {
@@ -65,6 +75,7 @@ const LG = {
   ...consultationsLg,
   ...prescriptionsLg,
   ...deliveryLg,
+  ...routesLg,
 }
 
 export const MESSAGES = { en: EN, lg: LG } satisfies Record<Locale, typeof EN> &
