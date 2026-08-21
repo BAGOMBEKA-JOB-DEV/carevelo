@@ -65,8 +65,18 @@
 
 /* reset.css paints every <a> in Carevelo's own --primary. On a clinic's surface that
    is the one colour that must never appear by accident, so links inherit their ink
-   here and the few places that WANT the clinic's colour ask for it by name. */
-.site-root a { color: inherit; text-decoration: none; }
+   here and the few places that WANT the clinic's colour ask for it by name.
+
+   :not(.btn) IS LOAD-BEARING, and its absence was a WCAG failure on every primary action
+   in the portal. Most "buttons" here are links — "Book a consultation", "Sign in", every
+   card call-to-action — and `.site-root a` outranks `.btn-brand` on specificity, so
+   `color: inherit` beat `color: var(--brand-primary-fg)` and the label took --ink instead.
+   Near-black on the clinic's green measured 3.18:1 where AA needs 4.5:1.
+
+   The irony is that the backend had it right the whole way: BrandPalette computes
+   #FFFFFF for this clinic and sweeps the entire RGB cube to guarantee the pairing. The
+   contrast was lost in the last inch, in a rule written to protect the clinic's colour. */
+.site-root a:not(.btn) { color: inherit; text-decoration: none; }
 
 .site-wrap {
   max-width: var(--maxw);

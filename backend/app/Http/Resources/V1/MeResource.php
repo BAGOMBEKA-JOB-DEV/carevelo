@@ -54,6 +54,26 @@ class MeResource extends JsonResource
             'password_change_required' => $this->mustChangePassword(),
 
             'roles' => $this->getRoleNames()->values()->all(),
+
+            /*
+             * THE RECORDS THIS ACCOUNT MAY ACT FOR, and without them the patient portal
+             * cannot function.
+             *
+             * Every patient-facing action is attached to a patient RECORD, not to a user
+             * account: booking takes a patient_id, so do consents, orders and deliveries.
+             * The link lives on patients.user_id and nothing exposed it, so the portal had
+             * no way to answer "which record is mine" — the booking screen was a dead end
+             * that told the patient to telephone the clinic instead.
+             *
+             * A LIST, not a single id. ADR-0010 bought the one-account-to-many-records
+             * cardinality deliberately: a guardian holds their children's records as well
+             * as their own. A scalar here would quietly work for the common case and lose
+             * a child's record for the case the column was designed for.
+             *
+             * Staff get an empty list, which is correct — a clinician acts on records
+             * through the clinical endpoints and their policies, never through "mine".
+             */
+            'patient_ids' => $this->ownedPatientIds(),
         ];
     }
 }
