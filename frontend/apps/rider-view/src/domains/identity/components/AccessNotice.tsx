@@ -1,16 +1,16 @@
 import { Notice } from '@carevelo/ui'
 
 /**
- * A valid session that still cannot be used on this surface, and why.
+ * A session that cannot be used on this surface right now, and why.
  *
  * ==================================================================
  * WHY THIS EXISTS INSTEAD OF AN EMPTY LIST
  * ==================================================================
  *
- * Both cases below end with the API answering, correctly, with nothing — and "nothing" on
- * a rider's screen is indistinguishable from a quiet morning. A rider who believes they
- * have no deliveries does not telephone anybody; they wait. So the two states that are not
- * "no work today" say so out loud.
+ * All three cases below end with a screen that has nothing on it — and "nothing" on a
+ * rider's screen is indistinguishable from a quiet morning. A rider who believes they have
+ * no deliveries does not telephone anybody; they wait. So every state that is not "no work
+ * today" says so out loud.
  *
  * `not_a_rider` — `RiderDeliveryController::index()` filters on `rider_id` from the
  * session, so a dispatcher or a pharmacist who opens this app gets an empty list rather
@@ -20,6 +20,12 @@ import { Notice } from '@carevelo/ui'
  * `password_change_required` — while `password_change_required_at` is set, the API refuses
  * every authenticated request except reading the account, changing the password and
  * signing out. Every screen in this app would be an unexplained failure.
+ *
+ * `unreachable` — the API could not be asked at all, which outdoors is the common case and
+ * not an exception. It is deliberately NOT treated as being signed out: sending a rider to
+ * the sign-in screen would tell them their session had ended when it had not, and the
+ * screen they landed on could not work either, since signing in needs the same API. Some
+ * of them would then sign out to "fix" it and be locked out until they found signal.
  *
  * ==================================================================
  * THERE IS NO PASSWORD FORM IN THIS APP, AND THAT IS A DECISION.
@@ -41,9 +47,38 @@ import { Notice } from '@carevelo/ui'
  */
 export function AccessNotice({
   reason,
+  message,
 }: {
-  reason: 'not_a_rider' | 'password_change_required'
+  reason: 'not_a_rider' | 'password_change_required' | 'unreachable'
+  /**
+   * The API's own sentence, where there was one. Only meaningful for `unreachable`.
+   *
+   * `null` AS WELL AS `undefined`, because the two callers genuinely produce it: `null` is
+   * how `Attempt` and `Session` say "the request never reached the API, so there is no
+   * sentence to pass on". Narrowing this to `string | undefined` would push a `?? undefined`
+   * onto every call site, which is the kind of conversion that becomes `?? ''` and then
+   * renders an empty notice.
+   */
+  message?: string | null | undefined
 }) {
+  if (reason === 'unreachable') {
+    return (
+      <Notice tone="warn" icon="activity" title="Cannot reach the clinic system">
+        {/*
+          "PULL DOWN", NOT "IT WILL REFRESH ITSELF". The 30-second refresher lives inside
+          the assignments screen, and this notice is rendered INSTEAD of that screen — so
+          nothing on this page is retrying, and promising otherwise would leave a rider
+          waiting at a screen that has stopped asking.
+        */}
+        {message ??
+          'The clinic’s system could not be reached from this phone. Nothing has been lost '
+            + 'and nothing has changed. Pull the page down to try again once you have '
+            + 'signal, and if you are signed in, stay signed in — you will not be able to '
+            + 'sign back in until the connection returns.'}
+      </Notice>
+    )
+  }
+
   if (reason === 'password_change_required') {
     return (
       <Notice tone="warn" icon="lock" title="Your password needs changing first">

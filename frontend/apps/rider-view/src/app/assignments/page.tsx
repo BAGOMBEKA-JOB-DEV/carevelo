@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { FieldShell } from '@/components/FieldShell'
 import { AssignmentsScreen } from '@/domains/delivery'
-import { AccessNotice, SignOutButton, currentRider, isRider } from '@/domains/identity'
+import { AccessNotice, SignOutButton, currentSession, isRider } from '@/domains/identity'
 import { DELIVERY_PATHS, SIGN_IN_PATH } from '@/app/paths'
 
 /**
@@ -15,6 +15,10 @@ import { DELIVERY_PATHS, SIGN_IN_PATH } from '@/app/paths'
  * cannot know it has been invalidated — sessions end on password change, role change,
  * deactivation and tenant suspension — and a rider whose role was revoked this morning
  * must not be shown a round.
+ *
+ * ONLY A GUEST IS REDIRECTED. A session that could not be READ is a third state and is
+ * handled on this page rather than by bouncing to sign-in; see `currentSession()` for why
+ * conflating the two locks a rider out of their own round in a dead spot.
  *
  * THE ROLE CHECK IS SEPARATE FROM THE SESSION CHECK AND BOTH ARE NEEDED. A signed-in
  * non-rider is not refused by the API; `RiderDeliveryController::index()` filters on
@@ -36,11 +40,28 @@ export default async function AssignmentsPage({
     message?: string
   }>
 }) {
-  const [rider, params] = await Promise.all([currentRider(), searchParams])
+  const [session, params] = await Promise.all([currentSession(), searchParams])
 
-  if (!rider) {
+  if (session.state === 'guest') {
     redirect(SIGN_IN_PATH)
   }
+
+  if (session.state === 'unreachable') {
+    /*
+     * NO SIGN-OUT BUTTON IN THIS BRANCH, and its absence is the point. Signing out clears
+     * the cookie jar whether or not the API answers, so from here it would work — and
+     * would leave the rider unable to sign back in until they found signal, having lost a
+     * session that was never actually broken. The notice says to wait, so the screen does
+     * not offer the one action that would make waiting impossible.
+     */
+    return (
+      <FieldShell active="assignments">
+        <AccessNotice reason="unreachable" message={session.message} />
+      </FieldShell>
+    )
+  }
+
+  const rider = session.rider
 
   return (
     <FieldShell active="assignments">

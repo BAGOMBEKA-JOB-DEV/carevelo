@@ -1,4 +1,5 @@
 import { cookies, headers } from 'next/headers'
+import { unstable_rethrow } from 'next/navigation'
 import { ApiClient, ApiError } from '@carevelo/api-client'
 
 /**
@@ -249,6 +250,17 @@ export async function attempt<T>(work: Promise<T>): Promise<Attempt<T>> {
   try {
     return { ok: true, value: await work }
   } catch (error) {
+    /*
+     * CONTROL FLOW FIRST, ALWAYS. `headers()` and `cookies()` throw a `DynamicServerError`
+     * while Next decides whether a route can be prerendered, and `redirect()` and
+     * `notFound()` signal by throwing too. Swallowing one of those does not fail loudly —
+     * it turns a redirect into a rendered page, or lets a route be prerendered, which on
+     * this app would mean serving every rider the same cached HTML and, because the CSP
+     * nonce is minted per request, HTML whose scripts the browser then refuses.
+     * `unstable_rethrow` recognises those and re-throws; it is a no-op for anything else.
+     */
+    unstable_rethrow(error)
+
     if (error instanceof ApiError) {
       return { ok: false, message: error.message }
     }

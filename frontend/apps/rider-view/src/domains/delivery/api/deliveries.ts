@@ -1,3 +1,4 @@
+import { unstable_rethrow } from 'next/navigation'
 import { ApiError } from '@carevelo/api-client'
 import { readClient, writeClient } from '@/domains/identity'
 import { hasReached, isFailureReason } from '../model/status'
@@ -85,6 +86,9 @@ export async function getAssignment(id: string): Promise<RiderDelivery | null> {
       return null
     }
 
+    // Everything else, including Next's own control-flow throws, goes up untouched. The
+    // caller decides what an unreachable API means on its screen; this function only
+    // decides what "no such delivery for you" means.
     throw error
   }
 }
@@ -192,6 +196,10 @@ async function diagnose(
   id: string,
   target: DeliveryStatus,
 ): Promise<StatusOutcome> {
+  // Control flow first — a swallowed `redirect()` or `DynamicServerError` fails silently
+  // rather than loudly. See `attempt()` in the identity domain for the whole reasoning.
+  unstable_rethrow(error)
+
   if (error instanceof ApiError) {
     /*
      * 403 and 404 collapse to one answer, exactly as `getAssignment()` does. The rider is
@@ -258,6 +266,8 @@ async function reconcile(
 
     return { kind: 'problem', problem: otherwise, message }
   } catch (error) {
+    unstable_rethrow(error)
+
     console.error('[rider] could not re-read a delivery after a failed status change', error)
 
     return { kind: 'problem', problem: otherwise, message }

@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { notFound, redirect } from 'next/navigation'
 import { FieldShell } from '@/components/FieldShell'
 import { DeliveryScreen, getAssignment } from '@/domains/delivery'
-import { AccessNotice, SignOutButton, currentRider, isRider } from '@/domains/identity'
+import { AccessNotice, SignOutButton, attempt, currentSession, isRider } from '@/domains/identity'
 import { DELIVERY_PATHS, SIGN_IN_PATH } from '@/app/paths'
 
 /**
@@ -42,15 +42,30 @@ export default async function DeliveryPage({
     message?: string
   }>
 }) {
-  const [rider, { delivery: id }, query] = await Promise.all([
-    currentRider(),
+  const [session, { delivery: id }, query] = await Promise.all([
+    currentSession(),
     params,
     searchParams,
   ])
 
-  if (!rider) {
+  if (session.state === 'guest') {
     redirect(SIGN_IN_PATH)
   }
+
+  /*
+   * An unreadable session is NOT a signed-out one — see `currentSession()`. It is handled
+   * here rather than by a redirect, and without a sign-out button, so a rider in a dead
+   * spot waits rather than losing a session that was never broken.
+   */
+  if (session.state === 'unreachable') {
+    return (
+      <FieldShell active="assignments">
+        <AccessNotice reason="unreachable" message={session.message} />
+      </FieldShell>
+    )
+  }
+
+  const rider = session.rider
 
   /*
    * The guards come BEFORE the read, deliberately. A non-rider's request would be refused
@@ -69,7 +84,25 @@ export default async function DeliveryPage({
     )
   }
 
-  const delivery = await getAssignment(id)
+  /*
+   * `attempt()` RATHER THAN A BARE AWAIT, and the distinction it draws is the one that
+   * matters outdoors: `getAssignment()` returns null when the API SAID no — 404 and 403
+   * alike — and throws when it could not be asked at all. Only the first is a 404 for the
+   * rider. Letting the second reach Next's error boundary would replace this screen with a
+   * blank apology that a rider cannot tell from the app being broken, on the one screen
+   * that holds the address they are riding to.
+   */
+  const loaded = await attempt(getAssignment(id))
+
+  if (!loaded.ok) {
+    return (
+      <FieldShell active="assignments">
+        <AccessNotice reason="unreachable" message={loaded.message} />
+      </FieldShell>
+    )
+  }
+
+  const delivery = loaded.value
 
   if (!delivery) {
     notFound()

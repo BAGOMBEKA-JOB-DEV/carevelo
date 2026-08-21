@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { Button, Card, Choice, Icon, Notice } from '@carevelo/ui'
 import { setStatus } from '../api/deliveries'
 import { deliveryHref, href } from '../model/links'
-import { FAILURE_REASONS, view } from '../model/status'
+import { FAILURE_REASONS, isKnownStatus, view } from '../model/status'
 import type { DeliveryPaths, DeliveryStatus, RiderDelivery, StatusProblem } from '../model/types'
 import { CallRecipient } from './CallRecipient'
 import { DeliveryStatusBadge } from './DeliveryStatusBadge'
@@ -190,7 +190,9 @@ export function DeliveryScreen({
       </div>
 
       <div className="stack" style={{ gap: 'var(--space-5)' }}>
-        {done ? (
+        {/* `isKnownStatus` because `done` came off the query string — see model/status.ts.
+            A banner that says "Recorded: status unknown" is worse than no banner. */}
+        {done && isKnownStatus(done) ? (
           <Notice tone="info" icon="check" title={`Recorded: ${view(done).label.toLowerCase()}`}>
             {already
               ? 'This was already recorded — your first tap went through. Nothing was '

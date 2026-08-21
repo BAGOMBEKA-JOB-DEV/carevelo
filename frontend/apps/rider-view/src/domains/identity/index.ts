@@ -23,11 +23,15 @@
  *    convenience it buys is that a signed-in person who navigates back to the sign-in
  *    screen sees the sign-in screen. It is not worth it.
  *
- * 2. Every other route calls `currentRider()`, sends `null` to `/sign-in`, and checks
- *    `isRider()` before rendering anything from the delivery domain. The API would refuse
- *    a non-rider anyway — `RiderDeliveryController` filters on `rider_id` and the policy
- *    requires the role — but it refuses by returning an EMPTY LIST, which on a rider's
- *    screen is indistinguishable from a quiet morning.
+ * 2. Every other route calls `currentSession()` and handles all THREE of its states.
+ *    `guest` goes to `/sign-in`. `unreachable` renders `<AccessNotice reason="unreachable">`
+ *    and MUST NOT be redirected to sign-in — see api/session.ts for why that distinction
+ *    is the difference between a rider waiting out a dead spot and a rider locked out of
+ *    their own round. `signed_in` is then checked with `isRider()` before anything from the
+ *    delivery domain is rendered: the API would refuse a non-rider anyway —
+ *    `RiderDeliveryController` filters on `rider_id` and the policy requires the role — but
+ *    it refuses by returning an EMPTY LIST, which on a rider's screen is indistinguishable
+ *    from a quiet morning.
  *
  * 3. `<SignOutButton name={rider.name} />` goes at the FOOT of a screen, composed by the
  *    route rather than rendered by the delivery domain. The delivery domain has no
@@ -41,13 +45,14 @@
 /* ---- Screens and controls ---- */
 export { SignInScreen } from './components/SignInScreen'
 export { SignOutButton } from './components/SignOutButton'
-/* What to render for a session that is valid and still cannot use this app. Both cases it
-   covers would otherwise show a rider an empty list, which reads as a quiet morning. */
+/* What to render for a session that cannot be used on this surface right now — the wrong
+   role, an outstanding password change, or an API that could not be reached at all. Every
+   one of those would otherwise show a rider an empty list, which reads as a quiet morning. */
 export { AccessNotice } from './components/AccessNotice'
 
 /* ---- The session ---- */
-export { signInWithPassword, signOut, currentRider, isRider } from './api/session'
-export type { Rider, SignInResult } from './api/session'
+export { signInWithPassword, signOut, currentSession, isRider } from './api/session'
+export type { Rider, Session, SignInResult } from './api/session'
 
 /* ---- The way to the API, for the one other domain in this app ----
    `readClient()` is safe during render. `writeClient()` writes to the cookie jar and is

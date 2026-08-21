@@ -109,7 +109,8 @@ export async function AssignmentsScreen({
           <Notice tone="bad" title="Your assignments could not be loaded">
             {loaded.message ??
               'The clinic’s system could not be reached. Your deliveries are still '
-                + 'there — pull down to try again when you have signal.'}
+                + 'assigned to you, and this screen keeps asking every half minute — it '
+                + 'will fill in on its own once you have signal.'}
           </Notice>
         ) : loaded.value.data.length === 0 ? (
           <EmptyState title="Nothing to deliver" icon="truck">

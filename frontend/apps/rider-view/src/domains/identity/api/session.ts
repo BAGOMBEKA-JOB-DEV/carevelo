@@ -1,4 +1,5 @@
 import { cookies, headers } from 'next/headers'
+import { unstable_rethrow } from 'next/navigation'
 import { ApiError, humanise, type Problem, type components } from '@carevelo/api-client'
 import { forwardCookies, readClient } from './http'
 
@@ -73,19 +74,40 @@ export function isRider(rider: Rider): boolean {
 }
 
 /**
- * Who the API says is signed in, or null for a guest.
+ * What the API says about the person holding this handset.
+ *
+ * ==================================================================
+ * THREE STATES, NOT TWO, AND THE THIRD ONE IS THE POINT.
+ * ==================================================================
+ *
+ * The obvious signature is `Promise<Rider | null>`, and it is wrong here in a way that
+ * only shows up outdoors. `null` would have to mean both "the API said 401" and "the API
+ * could not be reached", and the correct response to those is opposite:
+ *
+ *  - A GUEST goes to the sign-in screen, which is where they can fix it.
+ *  - A RIDER WHOSE SIGNAL DROPPED must NOT. Bouncing them to sign in tells them their
+ *    session ended when it did not, and the screen they land on cannot work either —
+ *    signing in needs the same unreachable API. Worse, they may sign out to "fix" it,
+ *    and then they genuinely cannot get back in until they find signal. The honest
+ *    answer is "we cannot reach the clinic system", and to leave the session alone.
  *
  * ASKS THE API RATHER THAN READING THE COOKIE. A cookie is opaque and cannot know it has
  * been invalidated — sessions end on password change, role change, deactivation and
  * tenant suspension, and a rider whose role was revoked this morning must not be shown a
- * round. Returning null rather than redirecting leaves the decision with the route, which
- * is where it belongs.
+ * round.
  *
  * This is the one session call that goes through `@carevelo/api-client`, because it is an
  * ordinary read: no `Set-Cookie` to catch, a typed body, and RFC 9457 translation worth
  * having.
  */
-export async function currentRider(): Promise<Rider | null> {
+export type Session =
+  | { state: 'signed_in'; rider: Rider }
+  /** The API answered 401. There is no session, or it has ended. */
+  | { state: 'guest' }
+  /** The API could not be asked. Nothing is known, and nothing should be assumed. */
+  | { state: 'unreachable'; message: string | null }
+
+export async function currentSession(): Promise<Session> {
   try {
     const client = await readClient()
     const response = await client.get<{ data: Rider }>('/v1/me')
@@ -95,23 +117,42 @@ export async function currentRider(): Promise<Rider | null> {
      * body flat leaves every field undefined, which does not throw — it renders a
      * signed-in rider as a blank name and reports `roles` as undefined, so `isRider()`
      * would crash somewhere far from here. The portal shipped exactly that bug.
+     *
+     * A 200 with no `data` is not a session; it is a response we do not understand, and
+     * treating it as a guest would sign somebody out over a malformed body.
      */
-    return response.data ?? null
+    return response.data
+      ? { state: 'signed_in', rider: response.data }
+      : { state: 'unreachable', message: null }
   } catch (error) {
     /*
-     * A 401 is the ordinary answer for a guest and for an expired session alike, and both
-     * mean the same thing to every caller: send them to sign in. Anything else is our
-     * problem rather than the rider's, and must not be disguised as "signed out" — a
-     * rider bounced to the sign-in screen by a 500 would sign in successfully and be
-     * bounced again, forever, with nothing on screen to explain it.
+     * CONTROL FLOW FIRST, ALWAYS. `headers()` and `cookies()` throw a `DynamicServerError`
+     * while Next is deciding whether a route can be prerendered, and `redirect()` and
+     * `notFound()` signal by throwing too. A catch-all that swallows one of those does
+     * not fail loudly — it turns a redirect into a rendered page, or a dynamic route into
+     * a statically prerendered one, which on this app would mean serving every rider the
+     * same cached HTML. `unstable_rethrow` recognises them and re-throws; it is a no-op
+     * for anything else.
      */
+    unstable_rethrow(error)
+
+    // The ordinary answer for a guest and for an expired session alike.
     if (error instanceof ApiError && error.status === 401) {
-      return null
+      return { state: 'guest' }
     }
 
+    /*
+     * Everything else — a 500, a suspended clinic, a socket that never opened. None of it
+     * is the rider's fault and none of it may be disguised as "signed out": a rider
+     * bounced to the sign-in screen by a 500 would sign in successfully and be bounced
+     * again, forever, with nothing on screen to explain it.
+     */
     console.error('[rider] could not read the signed-in account', error)
 
-    return null
+    return {
+      state: 'unreachable',
+      message: error instanceof ApiError ? error.message : null,
+    }
   }
 }
 
@@ -174,6 +215,10 @@ export async function signOut(): Promise<void> {
 
     await forwardCookies(response.cookies)
   } catch (error) {
+    // Control flow first — see `currentSession()`. Then, and only then, tolerate a
+    // sign-out that could not reach the API: the local jar is cleared below regardless.
+    unstable_rethrow(error)
+
     console.error('[rider] sign-out did not reach the API', error)
   }
 

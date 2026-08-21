@@ -1,41 +1,44 @@
+import type { Metadata } from 'next'
+import { AccessNotice, authoriseOperator } from '@/domains/identity'
+import { OverviewScreen } from '@/domains/platform'
 import { ControlPlaneShell } from '@/components/ControlPlaneShell'
-import { SECTION_IDS, SECTIONS } from '@/components/sections'
+import { PLATFORM_PATHS } from './paths'
 
 /**
- * Thin by design: a route composes domains and holds no logic, which the boundary
- * rules enforce. Features arrive in src/domains/.
+ * The landing screen: platform health, and the break-glass count with the framing that
+ * makes it mean something.
  *
- * Until they do, this is the map. It used to say "Shell, tokens and structure. Features
- * land in the domains next." above three links that all 404'd. Naming the three screens
- * and what each is for is more useful to whoever opens this next, and it stays useful as
- * they are built one at a time.
+ * THIN BY DESIGN. A route resolves, authorises and hands off; it holds no logic, which
+ * `.dependency-cruiser.cjs` enforces. Everything this page knows about health, isolation or
+ * tenant counts is in the platform domain.
  *
- * `active={null}`: the landing page is not one of the nav sections, and it says so rather
- * than leaving the prop off.
+ * `active={null}`: this is not one of the nav sections and it says so out loud rather than
+ * leaving the prop off. `ControlPlaneShell` requires the prop for that reason — it was
+ * optional once, the layout rendered the shell and never passed it, and no nav item could
+ * ever be current.
+ *
+ * WHY HEALTH LIVES HERE AND NOT ON A `/health` ROUTE. The nav is generated from
+ * `src/components/sections.ts`, which lists three sections and is not this change's to edit.
+ * The landing page is where an operator arrives anyway, and a set of platform-wide counts is
+ * what a landing page is for. Adding a fourth nav entry is a one-line change to that file if
+ * it is ever wanted.
  */
-export default function HomePage() {
+export const metadata: Metadata = { title: 'Overview' }
+
+export default async function HomePage() {
+  const access = await authoriseOperator()
+
+  if (access.kind !== 'operator') {
+    return (
+      <ControlPlaneShell title="Platform admin" active={null}>
+        <AccessNotice access={access} />
+      </ControlPlaneShell>
+    )
+  }
+
   return (
     <ControlPlaneShell title="Platform admin" active={null}>
-      <div className="page-head">
-        <div className="grow">
-          <h1>Platform admin</h1>
-          <p>
-            Three screens, none of them built yet. Each one below has a route and a place in
-            the nav, and says what will live there.
-          </p>
-        </div>
-      </div>
-
-      <div className="grid g-3">
-        {SECTION_IDS.map((id) => (
-          <div className="card stack" key={id}>
-            <h3>
-              <a href={SECTIONS[id].href}>{SECTIONS[id].label}</a>
-            </h3>
-            <p className="muted">{SECTIONS[id].lede}</p>
-          </div>
-        ))}
-      </div>
+      <OverviewScreen paths={PLATFORM_PATHS} />
     </ControlPlaneShell>
   )
 }

@@ -166,6 +166,19 @@ export function view(status: string): StatusView {
 }
 
 /**
+ * Whether the API (or a query string) has handed us a status this table knows about.
+ *
+ * A SCREEN THAT ECHOES A STATUS BACK MUST CHECK THIS FIRST. `?done=` travels in a URL and
+ * a URL is typed, shared and truncated, so a confirmation banner reading "Recorded: status
+ * unknown" is one hand-edited address bar away. `view()` is deliberately total and returns
+ * a safe fallback for anything it does not recognise; this is how a caller asks whether the
+ * fallback is what it is about to render.
+ */
+export function isKnownStatus(status: string): status is DeliveryStatus {
+  return Object.hasOwn(STATUS, status)
+}
+
+/**
  * Has this delivery already reached the status a request was trying to set?
  *
  * ------------------------------------------------------------
