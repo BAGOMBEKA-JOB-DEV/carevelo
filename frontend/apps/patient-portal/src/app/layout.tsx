@@ -49,7 +49,24 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   const nonce = requestHeaders.get('x-nonce') ?? undefined
 
   return (
-    <html lang="en" style={{ ...brandStyle(tenant?.branding), ...fontStyle }}>
+    /*
+     * suppressHydrationWarning, and ONLY on this element.
+     *
+     * theme-init.js sets data-theme on <html> while the parser is stopped, which is the
+     * whole point of it — before the first paint. React then hydrates against server HTML
+     * that has no such attribute, sees a mismatch on the root element, and does not merely
+     * warn: it discards the tree and re-renders it. That is what was breaking navigation
+     * after a server action and what drove the render loop that exhausted the server's
+     * heap. The attribute is deliberately written by something outside React, so telling
+     * React not to police this one element is the correct answer rather than a silencer.
+     *
+     * It suppresses one level deep, on <html> only. Nothing inside it is exempted.
+     */
+    <html
+      lang="en"
+      suppressHydrationWarning
+      style={{ ...brandStyle(tenant?.branding), ...fontStyle }}
+    >
       <body>
         {/*
          * The theme, applied before the first paint. FIRST child of <body> and
