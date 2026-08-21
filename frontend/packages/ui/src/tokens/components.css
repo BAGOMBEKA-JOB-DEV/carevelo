@@ -204,6 +204,27 @@
 .table tr:last-child td { border-bottom: none; }
 .table .tnum { text-align: right; font-variant-numeric: tabular-nums; }
 
+/* ---- The cell that NAMES a row ----
+
+   A `<th scope="row">` is how a screen reader says "DX-4471, State, Awaiting payment"
+   instead of announcing a status with nothing attached to it, and DataTable renders one
+   for the column a caller marks `rowHeader`. But `.table th` above dresses every header
+   cell as a small uppercase column label, which is right in a <thead> and unreadable in a
+   <tbody>: it would set the reference — the most-read value in the table — in 11.5px grey
+   capitals, narrower and fainter than the cells beside it.
+
+   So the tbody's header cells are dressed as the cells they sit among, weighted slightly
+   up because they are the row's name. Scoped to `tbody` so nothing about the column
+   headings changes. This is the one rule the layout layer had to add: the class existed,
+   the element inside it did not. */
+.table tbody th {
+  font-size: inherit; font-weight: 550; letter-spacing: normal; text-transform: none;
+  color: var(--ink); white-space: normal;
+  padding: var(--space-4);
+  border-bottom: 1px solid var(--hairline-soft);
+}
+.table tbody tr:last-child th { border-bottom: none; }
+
 /* A table wider than its container scrolls inside itself. The page body must never
    scroll sideways — on a phone that hides the primary action. */
 .table-scroll { overflow-x: auto; }
