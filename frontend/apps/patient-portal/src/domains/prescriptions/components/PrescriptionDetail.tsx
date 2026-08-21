@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { getTranslations } from 'next-intl/server'
-import { Badge, Card, DateTime, Notice } from '@carevelo/ui'
+import { Badge, Card, DateTime, Inline, Notice, Stack } from '@carevelo/ui'
+import { SitePageHeader } from '@/components/SitePageHeader'
 import { PrescriptionDocument } from './PrescriptionDocument'
 import { statusTone, statusWord } from './status'
 import type { PrescriptionItem, PrescriptionResult } from '../api/prescriptions'
@@ -73,7 +74,7 @@ export async function PrescriptionDetail({
   }
 
   return (
-    <div className="stack" style={{ gap: 'var(--space-7)' }}>
+    <Stack gap="7">
       <div>
         {/* A left arrow as a character rather than an icon: it is decoration inside a
             link whose text already says where it goes, and the icon set's chevron only
@@ -83,18 +84,19 @@ export async function PrescriptionDetail({
         </Link>
       </div>
 
-      <div className="page-head">
-        <div className="grow">
-          <span className="site-eyebrow">{t('detailEyebrow')}</span>
-          <h1 style={{ marginTop: 'var(--space-4)' }}>{prescription.issued_by.name}</h1>
-          <p>
+      <SitePageHeader
+        eyebrow={t('detailEyebrow')}
+        title={prescription.issued_by.name}
+        description={
+          <>
             {t('issuedLabel')}{' '}
             {prescription.issued_at ? <DateTime value={prescription.issued_at} format="datetime" /> : '—'}
-          </p>
-        </div>
-
-        <Badge tone={statusTone(prescription.status)}>{t(statusWord(prescription.status))}</Badge>
-      </div>
+          </>
+        }
+        actions={
+          <Badge tone={statusTone(prescription.status)}>{t(statusWord(prescription.status))}</Badge>
+        }
+      />
 
       {/* The status warnings come FIRST, above the medicines. A patient who reads the
           directions and then discovers the prescription was cancelled has already been
@@ -119,8 +121,11 @@ export async function PrescriptionDetail({
         <p className="muted">{t('replacesNote')}</p>
       )}
 
-      <section aria-labelledby="prescription-items" className="stack" style={{ gap: 'var(--space-4)' }}>
-        <h2 id="prescription-items" className="stat__value" style={{ fontSize: 21 }}>
+      <Stack as="section" gap="4" aria-labelledby="prescription-items">
+        {/* `.title` rather than `.stat__value` forced down to 21px by hand: `.title` IS the
+            token layer's 21px heading step. A stat value is a FIGURE — display face,
+            tabular numerals, sized to be read across a room — and this is a heading. */}
+        <h2 id="prescription-items" className="title">
           {t('itemsHeading')}
         </h2>
 
@@ -134,13 +139,13 @@ export async function PrescriptionDetail({
             {t('itemsMissingBody', { clinic })}
           </Notice>
         ) : (
-          <ul className="stack" style={{ listStyle: 'none', padding: 0, gap: 'var(--space-4)' }}>
+          <Stack as="ul" gap="4">
             {items.map((item) => (
               <Item key={item.id} item={item} labels={labels} />
             ))}
-          </ul>
+          </Stack>
         )}
-      </section>
+      </Stack>
 
       <PrescriptionDocument
         prescriptionId={prescription.id}
@@ -150,14 +155,14 @@ export async function PrescriptionDetail({
       />
 
       <Card as="section" aria-labelledby="prescription-issuer" padding="tight">
-        <div className="stack" style={{ gap: 'var(--space-3)' }}>
+        <Stack gap="3">
           <h2 id="prescription-issuer" className="stat__label">
             {t('issuedByHeading')}
           </h2>
 
-          <span className="stat__value" style={{ fontSize: 19 }}>
-            {prescription.issued_by.name}
-          </span>
+          {/* `.title-sm` — the display face's 17.5px step — where a stat value was being
+              forced down to 19px. A clinician's name is a name, not a figure. */}
+          <span className="title-sm">{prescription.issued_by.name}</span>
 
           <span className="muted tnum">
             {t('registrationLine', {
@@ -169,7 +174,7 @@ export async function PrescriptionDetail({
           {/* The honest caveat, on the surface that shows the number rather than in a
               policy page nobody opens. */}
           <p className="fine">{t('attestation', { clinic })}</p>
-        </div>
+        </Stack>
       </Card>
 
       {/* Last on the page, and deliberately not a warning: it is the answer to the
@@ -177,7 +182,7 @@ export async function PrescriptionDetail({
       <Notice tone="neutral" icon="lock">
         {t('immutableNote', { clinic })}
       </Notice>
-    </div>
+    </Stack>
   )
 }
 
@@ -204,20 +209,27 @@ function Item({
 }) {
   return (
     <Card as="li" padding="tight">
-      <div className="stack" style={{ gap: 'var(--space-3)' }}>
-        <div className="row-wrap" style={{ gap: 'var(--space-3)' }}>
-          <span className="stat__value" style={{ fontSize: 19 }}>
-            {item.medicine_name}
-          </span>
+      <Stack gap="3">
+        <Inline gap="3">
+          <span className="title-sm">{item.medicine_name}</span>
 
           {item.is_controlled ? (
             <Badge tone="warn" icon="shield">
               {labels.controlledBadge}
             </Badge>
           ) : null}
-        </div>
+        </Inline>
 
-        <dl className="stack" style={{ gap: 'var(--space-2)', margin: 0 }}>
+        {/*
+         * A definition list stays a definition list: form, strength, quantity and
+         * directions are term/value pairs and a screen reader announces them as such.
+         * `Stack`'s element union is the set of things a column is legitimately made of and
+         * `dl` is not among them, so this keeps `.stack` — whose own gap is already
+         * `--space-2`, which is why the hand-set gap could simply go. The surviving
+         * `margin: 0` clears the user agent's `<dl>` margin: reset.css zeroes headings and
+         * paragraphs, and deliberately leaves lists alone.
+         */}
+        <dl className="stack" style={{ margin: 0 }}>
           {item.form === null ? null : <Detail label={labels.form} value={item.form} />}
           {item.strength === null ? null : <Detail label={labels.strength} value={item.strength} />}
           <Detail
@@ -228,20 +240,27 @@ function Item({
         </dl>
 
         {item.is_controlled ? <p className="fine">{labels.controlledNote}</p> : null}
-      </div>
+      </Stack>
     </Card>
   )
 }
 
 function Detail({ label, value }: { label: string; value: string }) {
   return (
-    <div className="row-wrap" style={{ gap: 'var(--space-3)', alignItems: 'baseline' }}>
+    <Inline gap="3" align="baseline">
+      {/* A 9-character floor on the term column, so Form, Strength, Quantity and Directions
+          line their values up down the card instead of stepping in and out. A CONTENT
+          measure in `ch`, not a distance between things — the space scale would be the
+          wrong vocabulary for it, the same distinction Skeleton draws for its block
+          heights. */}
       <dt className="stat__label" style={{ minWidth: '9ch' }}>
         {label}
       </dt>
+      {/* Clears the user agent's 40px `<dd>` indent, which the reset does not cover.
+          Without it every value sits inset from the term it belongs to. */}
       <dd className="grow" style={{ margin: 0 }}>
         {value}
       </dd>
-    </div>
+    </Inline>
   )
 }
