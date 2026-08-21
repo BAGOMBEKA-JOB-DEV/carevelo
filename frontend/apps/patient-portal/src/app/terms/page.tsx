@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { getTranslations } from 'next-intl/server'
 import { clinicMetadata } from '@/lib/metadata'
 import { resolveTenant } from '@/lib/tenant'
 import { currentUser } from '@/lib/session'
@@ -11,7 +12,7 @@ import { SiteShell } from '@/components/SiteShell'
  * on it — that this is not for an emergency — is worth a page of its own rather than a
  * line of small print somebody scrolls past.
  *
- * THE DIVISION OF RESPONSIBILITY IS THE WHOLE DOCUMENT. {clinic} provides the care and
+ * THE DIVISION OF RESPONSIBILITY IS THE WHOLE DOCUMENT. The clinic provides the care and
  * carries the licence; Carevelo provides the software and never touches either. Every
  * section below is a consequence of that one sentence, including the uncomfortable ones:
  * we cannot refund a consultation, because the money never came to us.
@@ -19,180 +20,135 @@ import { SiteShell } from '@/components/SiteShell'
  * NOTHING LEGAL IS INVENTED. No statute, no registration number, no governing-law clause
  * pulled out of the air — where a clinic must state something the text says so plainly,
  * in the text, where a patient reads it.
+ *
+ * THE EMERGENCY NOTICE IS THE FIRST STRING A TRANSLATOR SHOULD BE GIVEN. Everything else
+ * on this page is a matter of money or expectations; that one is the sentence that tells
+ * somebody holding a phone next to a person who cannot breathe to stop reading and go.
+ * It is at the top of messages/lg.needs-translation.json's list for that reason, and until
+ * it is cleared the Luganda catalogue holds the English text — which a Luganda reader can
+ * at least recognise as foreign and ask about, unlike a fluent guess at the word for
+ * "unconscious".
  */
 export default async function TermsPage() {
-  const [tenant, user] = await Promise.all([resolveTenant(), currentUser()])
-  const clinic = tenant.trading_name ?? 'this clinic'
+  const [tenant, user, t, common] = await Promise.all([
+    resolveTenant(),
+    currentUser(),
+    getTranslations('Terms'),
+    getTranslations('Common'),
+  ])
+  const clinic = tenant.trading_name ?? common('thisClinic')
   const contact = tenant.contact
+
+  // One finished address rather than a street and a district joined by a comma in the
+  // markup: the comma is English punctuation, and a translator cannot move it out of JSX.
+  const address = contact?.physical_address
+    ? contact.district
+      ? `${contact.physical_address}, ${contact.district}`
+      : contact.physical_address
+    : null
+
+  const hasContactDetails = Boolean(contact?.phone ?? contact?.email ?? address)
 
   return (
     <SiteShell tenant={tenant} signedIn={Boolean(user)}>
       <div className="site-pagehero">
-        <span className="site-eyebrow">Terms of use</span>
-        <h1 className="site-h1">Using {clinic}&apos;s patient portal.</h1>
-        <p className="site-lede">
-          What you can expect from the clinic, what the portal does, and what it is not for.
-        </p>
+        <span className="site-eyebrow">{t('eyebrow')}</span>
+        <h1 className="site-h1">{t('title', { clinic })}</h1>
+        <p className="site-lede">{t('lede')}</p>
       </div>
 
       <div className="site-doc">
-        <p className="updated">
-          {clinic} should record the date it adopted these terms, and the date of any change
-          to them.
-        </p>
+        <p className="updated">{t('updated', { clinic })}</p>
 
+        {/*
+         * TWO WHOLE SENTENCES, NOT ONE WITH A TAIL GLUED ON. The version with a phone
+         * number and the version without are separate messages, because "or call {clinic}
+         * on {phone}" handed to a translator on its own is a fragment with no visible
+         * subject — and this is the one paragraph on the site where an awkward join could
+         * cost somebody the seconds it takes to understand it.
+         */}
         <div className="notice notice-bad">
-          <b>This portal is not for an emergency.</b> If someone is seriously unwell,
-          bleeding heavily, struggling to breathe, or unconscious, do not wait for a
-          consultation to be booked. Go to the nearest health facility
-          {contact?.phone ? <>, or call {clinic} on {contact.phone}</> : null}.
+          {contact?.phone
+            ? t.rich('emergencyWithPhone', {
+                clinic,
+                phone: contact.phone,
+                b: (chunks) => <b>{chunks}</b>,
+              })
+            : t.rich('emergency', { b: (chunks) => <b>{chunks}</b> })}
         </div>
 
-        <p className="lead">
-          These terms cover the patient portal — the website you are reading this on. Using
-          it means you accept them. Your care itself is between you and {clinic}, on
-          whatever terms the clinic gives you.
+        <p className="lead">{t('lead', { clinic })}</p>
+
+        <h2>{t('whoHeading')}</h2>
+        <p>{t.rich('whoClinic', { clinic, b: (chunks) => <b>{chunks}</b> })}</p>
+        <p>{t.rich('whoCarevelo', { clinic, b: (chunks) => <b>{chunks}</b> })}</p>
+
+        <h2>{t('accountHeading')}</h2>
+        <p>{t('accountPassword', { clinic })}</p>
+        <p>{t('accountSharedPhone', { clinic })}</p>
+        <p>{t('accountOnBehalf')}</p>
+
+        <h2>{t('bookingHeading')}</h2>
+        <p>{t.rich('bookingBody', { clinic, b: (chunks) => <b>{chunks}</b> })}</p>
+
+        <h2>{t('payingHeading')}</h2>
+        <p>{t('payingBody', { clinic })}</p>
+        {/*
+         * The uncomfortable consequence, stated rather than buried. Carevelo is never in
+         * the payment path — the money moves from the patient to the clinic's own mobile
+         * money account — so we could not refund a consultation even if we wanted to, and
+         * a patient who asks us is a patient whose refund is delayed.
+         */}
+        <p>{t.rich('payingRefunds', { clinic, b: (chunks) => <b>{chunks}</b> })}</p>
+
+        <h2>{t('prescriptionsHeading')}</h2>
+        <p>{t('prescriptionsBody', { clinic })}</p>
+        <p>{t('prescriptionsControlled', { clinic })}</p>
+
+        <h2>{t('unavailableHeading')}</h2>
+        <p>{t('unavailableBody', { clinic })}</p>
+
+        <h2>{t('recordsHeading')}</h2>
+        {/* The link to the privacy notice sits INSIDE the sentence, so it travels as a
+            rich tag. A translator moves the linked words wherever the grammar puts them
+            and the href stays here, where it can be checked. */}
+        <p>
+          {t.rich('recordsBody', {
+            clinic,
+            privacy: (chunks) => <Link href="/privacy">{chunks}</Link>,
+          })}
         </p>
 
-        <h2>Who provides what</h2>
-        <p>
-          <b>{clinic} provides the care.</b> It is a licensed private clinic, its clinicians
-          are registered to practise, and every clinical decision — whether to consult, what
-          to prescribe, what to dispense — is theirs.
-        </p>
-        <p>
-          <b>Carevelo provides the software.</b> We build and run the portal for {clinic}.
-          We do not employ clinicians, we do not review a prescription, and we have no view
-          on your treatment. Nothing on this site is medical advice, and no part of it is a
-          substitute for seeing someone.
-        </p>
+        <h2>{t('endingHeading')}</h2>
+        <p>{t('endingBody', { clinic })}</p>
+        <p>{t('endingSuspension', { clinic })}</p>
 
-        <h2>Your account</h2>
-        <p>
-          You sign in with an email address and a password. The password is yours and should
-          be known to nobody else — including anyone at {clinic}. If the clinic created your
-          account and gave you a temporary password, the portal asks you to change it before
-          it lets you do anything else, and that is deliberate.
-        </p>
-        <p>
-          Handsets get shared in a household. Sign out when you have finished if the phone is
-          not only yours, and tell {clinic} if you think someone else has been in your
-          account.
-        </p>
-        <p>
-          Book only for yourself, or for someone you are entitled to act for — your child, or
-          an adult in your care. The portal records who booked and on whose behalf, because a
-          consultation attributed to the wrong person is a clinical risk, not a clerical one.
-        </p>
+        <h2>{t('changesHeading')}</h2>
+        <p>{t('changesBody', { clinic })}</p>
 
-        <h2>Booking, and not turning up</h2>
-        <p>
-          A booking is confirmed by {clinic}, not by Carevelo. Cancellation notice, lateness
-          and what happens to a fee if you miss an appointment are the clinic&apos;s own
-          policy — <b>{clinic} should state that policy here</b>. Ask at the clinic and it
-          will tell you.
-        </p>
+        <h2>{t('lawHeading')}</h2>
+        <p>{t.rich('lawBody', { clinic, b: (chunks) => <b>{chunks}</b> })}</p>
 
-        <h2>Paying</h2>
+        <h2>{t('contactHeading')}</h2>
         <p>
-          {clinic} sets every price. You see the amount before you approve anything, and you
-          approve it on your own phone with your mobile money provider. The money goes
-          directly to the clinic&apos;s own account: Carevelo never receives it and never
-          holds it.
-        </p>
-        <p>
-          That has a consequence worth stating plainly. <b>Carevelo cannot refund you.</b> A
-          refund is {clinic}&apos;s decision and {clinic}&apos;s payment to make, and asking
-          us would only delay it. Your mobile money provider may charge its own transaction
-          fee, which is between you and them.
-        </p>
-
-        <h2>Prescriptions, dispensing and delivery</h2>
-        <p>
-          A prescription is written by your clinician at {clinic} and dispensed by the
-          clinic. What the portal shows you is a copy of what they wrote, so you can read it
-          at your own pace rather than remember it.
-        </p>
-        <p>
-          Some medicines are controlled and must be collected in person, with identification.
-          Those are never sent out for delivery, by anyone, for any reason. Where delivery is
-          available, {clinic} decides the area it covers and the charge for it.
-        </p>
-
-        <h2>When the portal is unavailable</h2>
-        <p>
-          We aim to keep it running and we do not promise it never stops. Networks fail,
-          power fails, and software gets updated. If the portal is down, {clinic} is still
-          there — telephone the clinic, as you would have before any of this existed. Nothing
-          here replaces being able to ring your clinic, and it is not meant to.
-        </p>
-
-        <h2>Your records</h2>
-        <p>
-          Your consultation notes, prescriptions and receipts are held by {clinic} and are
-          visible to the staff there involved in your care. No other clinic using Carevelo
-          can reach them.{' '}
-          <Link href="/privacy">The privacy notice</Link> sets out what is held, for how
-          long, and how to ask for a copy.
-        </p>
-
-        <h2>Ending your use of the portal</h2>
-        <p>
-          You can stop using the portal at any time and ask {clinic} to close your account.
-          Closing the account does not delete your medical records: the clinic is obliged to
-          keep those for a set period, and it will tell you what that period is.
-        </p>
-        <p>
-          {clinic} may suspend an account that is being used to impersonate somebody, to
-          abuse its staff, or to interfere with the service. Losing access to the portal
-          never means losing your care — the clinic remains reachable by phone and in person.
-        </p>
-
-        <h2>Changes to these terms</h2>
-        <p>
-          If these terms change in a way that affects you, {clinic} will make the new version
-          available here and date it. Continuing to use the portal after that means the new
-          version applies.
-        </p>
-
-        <h2>Which law applies</h2>
-        <p>
-          {clinic} operates in Uganda and answers to the laws and professional regulators
-          that govern private clinics there. <b>{clinic} should state the governing law and
-          how a dispute is to be resolved here</b>; Carevelo cannot state it on the
-          clinic&apos;s behalf, and would rather leave a gap the clinic fills than print a
-          clause it never agreed to.
-        </p>
-
-        <h2>Contact</h2>
-        <p>
-          Questions about your care, a booking, a price or a refund go to {clinic}.
+          {t('contactIntro', { clinic })}
           {contact?.phone ? (
             <>
               {' '}
-              Call <b className="tnum">{contact.phone}</b>.
+              {t.rich('contactPhone', {
+                phone: contact.phone,
+                tnum: (chunks) => <b className="tnum">{chunks}</b>,
+              })}
             </>
           ) : null}
-          {contact?.email ? <> Write to {contact.email}.</> : null}
-          {contact?.physical_address ? (
-            <>
-              {' '}
-              Or visit {contact.physical_address}
-              {contact.district ? `, ${contact.district}` : ''}.
-            </>
-          ) : null}
-          {!contact?.phone && !contact?.email && !contact?.physical_address ? (
-            <>
-              {' '}
-              {clinic} has not published contact details in the portal yet — ask at the
-              clinic, and it can add them here.
-            </>
-          ) : null}
+          {contact?.email ? <> {t('contactEmail', { email: contact.email })}</> : null}
+          {address ? <> {t('contactAddress', { address })}</> : null}
+          {hasContactDetails ? null : <> {t('contactNone', { clinic })}</>}
         </p>
 
         <p>
           <Link className="site-textlink" href="/privacy">
-            Read the privacy notice →
+            {t('readPrivacy')}
           </Link>
         </p>
       </div>

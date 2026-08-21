@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { headers } from 'next/headers'
+import { getLocale, getTranslations } from 'next-intl/server'
 import '@carevelo/ui/tokens.css'
 import { fontStyle } from './fonts'
 
@@ -24,8 +25,13 @@ import { fontStyle } from './fonts'
  * as it did from <html>, and it is still in the first HTML byte, which is what acceptance
  * criterion 7 actually asks for — no flash of unbranded content.
  *
- * lang is the clinic's, not the browser's. Consent text must render in English and
- * Luganda, and a screen reader needs to know which it is reading.
+ * lang IS THE LANGUAGE THIS PAGE IS ACTUALLY IN, and until now that comment was a promise
+ * rather than a fact: it said a screen reader needs to know which language it is reading
+ * and then hard-coded `en`. It comes from src/i18n/locale.ts now — the same resolution
+ * that picks the message catalogue, so the attribute and the text cannot disagree. A page
+ * announcing English while rendering Luganda makes a screen reader apply English phonology
+ * to Luganda words, which for somebody listening rather than reading is the difference
+ * between a page and a noise.
  */
 export default async function RootLayout({ children }: { children: ReactNode }) {
   /*
@@ -36,6 +42,13 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
    */
   const nonce = (await headers()).get('x-nonce') ?? undefined
 
+  /*
+   * Reading a cookie and a header, not the network. The rule this layout exists to protect
+   * is "no fetch in the root layout" — see lib/metadata.ts for the 800MB it cost — and
+   * resolving a language touches neither the API nor disk.
+   */
+  const locale = await getLocale()
+
   return (
     /*
      * suppressHydrationWarning on this element alone. theme-init.js sets data-theme while
@@ -43,7 +56,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
      * would otherwise see an attribute the server never rendered and treat the root as a
      * mismatch. Nothing inside <html> is exempted.
      */
-    <html lang="en" suppressHydrationWarning style={fontStyle}>
+    <html lang={locale} suppressHydrationWarning style={fontStyle}>
       <body>
         {/*
          * The theme, applied before the first paint. FIRST child of <body> and deliberately
@@ -66,10 +79,22 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
 
 /**
  * A neutral fallback for anything that cannot export its own metadata — notably
- * not-found.tsx, which by design has no clinic to name. Static, because resolving a tenant
- * here would put a fetch back in the root layout; see lib/metadata.ts for what that costs.
+ * not-found.tsx, which by design has no clinic to name.
+ *
+ * A FUNCTION RATHER THAN A CONSTANT ONLY SO THE TITLE CAN BE TRANSLATED, and the
+ * distinction the layout's own comment draws still holds: the thing that must never happen
+ * here is a FETCH. Resolving a tenant would be one. Reading the language off the request is
+ * not — it is the cookie and header this render has already parsed — so the title follows
+ * the page it titles instead of being English above a Luganda 404.
+ *
+ * Still says nothing about clinics. An unknown host must not learn whether a given clinic
+ * is a customer, in either language.
  */
-export const metadata = {
-  title: 'Not available',
-  robots: { index: false, follow: false },
+export async function generateMetadata() {
+  const t = await getTranslations('Metadata')
+
+  return {
+    title: t('unavailable'),
+    robots: { index: false, follow: false },
+  }
 }

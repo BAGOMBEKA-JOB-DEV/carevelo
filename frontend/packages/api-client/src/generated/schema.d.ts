@@ -381,6 +381,36 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/tenant/users/{user}/clinician": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read back what the clinic recorded, registration number included
+         * @description Separate from GET /v1/clinicians and shaped differently on purpose. That
+         *     one is patient-facing and omits the registration number permanently; this
+         *     one is the administrator reading back a field they typed, on a route only
+         *     they can reach, so they can correct it.
+         */
+        get: operations["v1.staff.clinician.show"];
+        put?: never;
+        /** Record a colleague's registration details */
+        post: operations["v1.staff.clinician.store"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Correct or complete a clinical profile
+         * @description The PRD's exception path lands here: a clinician saved without a
+         *     registration number carries `can_prescribe = false` and is prompted to
+         *     complete it before prescribing. This is where that prompt leads.
+         */
+        patch: operations["v1.staff.clinician.update"];
+        trace?: never;
+    };
     "/v1/consent-policies/current": {
         parameters: {
             query?: never;
@@ -459,7 +489,15 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Past encounters, filtered
+         * @description The list a clinician opens to remember what they saw last week, and the
+         *     one an administrator opens to answer a question about a past encounter.
+         *     It carries no clinical content -- the resource never has -- so what is
+         *     returned is who, when, in which mode and with what outcome. Notes stay
+         *     behind their own endpoint, which audits every read of them separately.
+         */
+        get: operations["v1.consultations.index"];
         put?: never;
         /** Start a consultation: the clinician has joined */
         post: operations["v1.consultations.store"];
@@ -1991,6 +2029,25 @@ export interface components {
             supersedes_note_id: string | null;
             created_at: string | null;
         };
+        /** ClinicianProfileResource */
+        ClinicianProfileResource: {
+            id: string;
+            user_id: string;
+            name: string;
+            /**
+             * @description Recorded, never verified. A client rendering this must say so:
+             *     Carevelo has no access to the UMDPC, AHPC or Nurses & Midwives
+             *     registers, and showing an attestation as though it were a check
+             *     would be false and, if relied upon, harmful.
+             */
+            registration_body: string;
+            registration_number: string;
+            specialty: string | null;
+            practising_licence_expires_at: string | null;
+            can_prescribe: boolean;
+            may_prescribe: boolean;
+            has_expired_licence: boolean;
+        };
         /** ClinicianResource */
         ClinicianResource: {
             id: string;
@@ -2485,6 +2542,17 @@ export interface components {
             mode: "video" | "voice" | "chat";
         };
         /**
+         * RegistrationBody
+         * @description The three Ugandan registers a clinician can be on. CAPTURED, NEVER VERIFIED. Carevelo has no access to the UMDPC, AHPC or Nurses & Midwives registers and no API exists to check one against, so the value a clinic records is its own attestation and every surface showing it must say so. Automated licence verification is explicitly out of scope for H1, because implying a check we never performed would be worse than recording an attestation honestly.  The COLUMN is deliberately not cast to this enum. `registration_body` is snapshotted onto a prescription at the moment of issue, and that snapshot is part of a document a clinic may have to produce years later -- it has to reproduce exactly what was recorded, including rows written before this enum existed and rows written in a different case. So the enum guards the WAY IN, at validation, and reads stay plain strings.
+         *     | |
+         *     |---|
+         *     | `umdpc` <br/> Uganda Medical and Dental Practitioners Council. |
+         *     | `ahpc` <br/> Allied Health Professionals Council. |
+         *     | `nurses_midwives` <br/> Uganda Nurses and Midwives Council. |
+         * @enum {string}
+         */
+        RegistrationBody: "umdpc" | "ahpc" | "nurses_midwives";
+        /**
          * RejectDispenseOrderRequest
          * @description The pharmacy declining to fill an order.
          *
@@ -2691,6 +2759,47 @@ export interface components {
             body: string;
             /** @enum {string} */
             note_type?: "subjective" | "objective" | "assessment" | "plan";
+        };
+        /**
+         * StoreClinicianRequest
+         * @description Recording a colleague's CLINICAL profile.
+         *
+         *     The staff invitation created a person with a role. This is the other half:
+         *     the registration details without which that person cannot prescribe, and
+         *     without which -- because availability is generated per Clinician row -- the
+         *     clinic has nobody to book.
+         *
+         *     `user_id` is prohibited rather than absent. The clinician is named by the
+         *     path, resolved against the administrator's own tenant, and a body field would
+         *     be a second way to say the same thing that nothing then checks. `tenant_id`
+         *     is prohibited for the reason it is everywhere else: tenancy comes from the
+         *     host or the session and never from a payload.
+         */
+        StoreClinicianRequest: {
+            registration_body: components["schemas"]["RegistrationBody"];
+            /**
+             * @description `present`, not `required`: the empty value is legitimate here. The PRD names the case directly -- a clinician whose registration
+             *     number is not to hand is saved with prescribing off and prompted
+             *     to complete it later -- and a clinic that cannot record the
+             *     colleague at all until someone finds a certificate simply does not
+             *     finish onboarding.
+             *
+             *     But it must be SAID rather than omitted. Leaving the key out of
+             *     the payload is how a client discovers weeks later that a number it
+             *     thought it sent was never stored; sending it empty is a decision
+             *     the administrator made.
+             */
+            registration_number: string | null;
+            /** Format: date-time */
+            practising_licence_expires_at?: string | null;
+            specialty?: string | null;
+            /**
+             * @description Defaults to false, which is the safe direction. The single most
+             *     important flag in the system is not one to switch on by omission.
+             */
+            can_prescribe?: boolean;
+            tenant_id?: string;
+            user_id?: string;
         };
         /**
          * StoreConsentRequest
@@ -3003,6 +3112,30 @@ export interface components {
              *     a collection to a line on its own dashboard unaided.
              */
             merchant_reference?: string | null;
+        };
+        /**
+         * UpdateClinicianRequest
+         * @description Correcting a clinician's registration details, or completing them.
+         *
+         *     This endpoint exists because of one line in the PRD: a clinician whose
+         *     registration number is not to hand is saved with `can_prescribe = false` and
+         *     prompted to complete it before prescribing. Without a way back in, that
+         *     prompt has nowhere to lead and the clinic is stuck with a colleague who can
+         *     be booked but can never prescribe.
+         *
+         *     PATCH, so every field is `sometimes`: a partial update that blanked the
+         *     registration number because the client omitted it would silently strip a
+         *     clinician of the right to prescribe.
+         */
+        UpdateClinicianRequest: {
+            registration_body?: components["schemas"]["RegistrationBody"];
+            registration_number?: string | null;
+            /** Format: date-time */
+            practising_licence_expires_at?: string | null;
+            specialty?: string | null;
+            can_prescribe?: boolean;
+            tenant_id?: string;
+            user_id?: string;
         };
         /** UpdatePasswordRequest */
         UpdatePasswordRequest: {
@@ -3970,6 +4103,100 @@ export interface operations {
             403: components["responses"]["AuthorizationException"];
         };
     };
+    "v1.staff.clinician.show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The user ID */
+                user: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description `ClinicianProfileResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["ClinicianProfileResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            403: components["responses"]["AuthorizationException"];
+            404: components["responses"]["ModelNotFoundException"];
+        };
+    };
+    "v1.staff.clinician.store": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The user ID */
+                user: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StoreClinicianRequest"];
+            };
+        };
+        responses: {
+            /** @description `ClinicianProfileResource` */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["ClinicianProfileResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            403: components["responses"]["AuthorizationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "v1.staff.clinician.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The user ID */
+                user: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["UpdateClinicianRequest"];
+            };
+        };
+        responses: {
+            /** @description `ClinicianProfileResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["ClinicianProfileResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            403: components["responses"]["AuthorizationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
     "v1.consent.policy": {
         parameters: {
             query?: never;
@@ -4109,6 +4336,56 @@ export interface operations {
             401: components["responses"]["AuthenticationException"];
             403: components["responses"]["AuthorizationException"];
             404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "v1.consultations.index": {
+        parameters: {
+            query?: {
+                patient_id?: string;
+                clinician_id?: string;
+                outcome?: components["schemas"]["ConsultationOutcome"];
+                from?: string;
+                to?: string;
+                sort?: "started_at" | "-started_at";
+                per_page?: number;
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated set of `ConsultationResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["ConsultationResource"][];
+                        links: {
+                            first: string | null;
+                            last: string | null;
+                            prev: string | null;
+                            next: string | null;
+                        };
+                        meta: {
+                            /** @description Base path for paginator generated URLs. */
+                            path: string | null;
+                            /** @description Number of items shown per page. */
+                            per_page: number;
+                            /** @description The "cursor" that points to the next set of items. */
+                            next_cursor: string | null;
+                            /** @description The "cursor" that points to the previous set of items. */
+                            prev_cursor: string | null;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            403: components["responses"]["AuthorizationException"];
             422: components["responses"]["ValidationException"];
         };
     };

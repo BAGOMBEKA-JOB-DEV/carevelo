@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Icon, ThemeToggle } from '@carevelo/ui'
+import { Icon, ThemeToggle, type IconName } from '@carevelo/ui'
 import type { Tenant } from '@/lib/tenant'
 
 /**
@@ -30,14 +30,47 @@ const ENTER = 24
 const LEAVE = 8
 
 /* The header's own links point at sections of the landing page. Privacy and Terms are
-   deliberately not here — they belong in the footer, where a patient looks for them. */
+   deliberately not here — they belong in the footer, where a patient looks for them.
+   Structure only: the label and the blurb are language, and they arrive as props. */
 const SECTIONS = [
-  { href: '/#how', label: 'How it works', icon: 'clock', blurb: 'Book, consult, collect' },
-  { href: '/#care', label: 'Your care', icon: 'heart', blurb: 'Consultations, prescriptions, delivery' },
-  { href: '/#trust', label: 'Safety', icon: 'shield', blurb: 'Who can see your records' },
-] as const
+  { id: 'how', href: '/#how', icon: 'clock' },
+  { id: 'care', href: '/#care', icon: 'heart' },
+  { id: 'trust', href: '/#trust', icon: 'shield' },
+] as const satisfies ReadonlyArray<{ id: string; href: string; icon: IconName }>
 
-export function SiteHeader({ tenant, signedIn }: { tenant: Tenant; signedIn: boolean }) {
+type SectionId = (typeof SECTIONS)[number]['id']
+
+/**
+ * Every word this header renders, resolved on the server and handed over as data.
+ *
+ * WHY THE TRANSLATOR DOES NOT COME IN HERE. next-intl can translate inside a client
+ * component, but only behind NextIntlClientProvider, which serialises a slice of the
+ * message catalogue into the RSC payload and pulls the formatting runtime into the bundle
+ * — on the one surface with a hard 150KB budget on a throttled 3G profile, and for a
+ * dozen short labels that never change after the first byte. Resolving them in SiteShell,
+ * which is already a server component, costs nothing on the wire beyond the strings
+ * themselves and leaves this file shipping exactly the JavaScript it shipped before: the
+ * scroll listener and the drawer.
+ */
+export interface HeaderStrings {
+  tagline: string
+  sectionsLabel: string
+  menuLabel: string
+  yourAccount: string
+  signIn: string
+  myCare: string
+  sections: Readonly<Record<SectionId, { label: string; blurb: string }>>
+}
+
+export function SiteHeader({
+  tenant,
+  signedIn,
+  strings,
+}: {
+  tenant: Tenant
+  signedIn: boolean
+  strings: HeaderStrings
+}) {
   const pathname = usePathname()
   const [scrolled, setScrolled] = useState(false)
   const [hasHero, setHasHero] = useState(false)
@@ -118,7 +151,7 @@ export function SiteHeader({ tenant, signedIn }: { tenant: Tenant; signedIn: boo
   const name = tenant.trading_name
   const logo = tenant.branding.logo_url
   const accountHref = signedIn ? '/account' : '/sign-in'
-  const accountLabel = signedIn ? 'My care' : 'Sign in'
+  const accountLabel = signedIn ? strings.myCare : strings.signIn
 
   return (
     <header
@@ -146,18 +179,18 @@ export function SiteHeader({ tenant, signedIn }: { tenant: Tenant; signedIn: boo
           )}
           <span className="site-brand__text">
             <span>{name}</span>
-            <span className="site-brand__sub">Book · Consult · Collect</span>
+            <span className="site-brand__sub">{strings.tagline}</span>
           </span>
         </Link>
 
-        <nav className="site-navlinks" aria-label="Sections">
+        <nav className="site-navlinks" aria-label={strings.sectionsLabel}>
           {SECTIONS.map((section) => (
             <Link
               key={section.href}
               href={section.href}
               aria-current={isCurrentPage(section.href, pathname) ? 'page' : undefined}
             >
-              {section.label}
+              {strings.sections[section.id].label}
             </Link>
           ))}
         </nav>
@@ -179,7 +212,7 @@ export function SiteHeader({ tenant, signedIn }: { tenant: Tenant; signedIn: boo
           className={`site-burger${menuOpen ? ' open' : ''}`}
           aria-expanded={menuOpen}
           aria-controls="site-menu"
-          aria-label="Menu"
+          aria-label={strings.menuLabel}
           onClick={() => setMenuOpen((open) => !open)}
         >
           <span className="site-burger__box" aria-hidden="true">
@@ -203,8 +236,8 @@ export function SiteHeader({ tenant, signedIn }: { tenant: Tenant; signedIn: boo
                 <Icon name={section.icon} />
               </span>
               <span className="site-mobile__t">
-                <b>{section.label}</b>
-                <span>{section.blurb}</span>
+                <b>{strings.sections[section.id].label}</b>
+                <span>{strings.sections[section.id].blurb}</span>
               </span>
               <span className="site-mobile__chev" aria-hidden="true">
                 <Icon name="chev" />
@@ -215,7 +248,7 @@ export function SiteHeader({ tenant, signedIn }: { tenant: Tenant; signedIn: boo
 
         <div className="site-mobile__sep" />
 
-        <span className="site-mobile__label">Your account</span>
+        <span className="site-mobile__label">{strings.yourAccount}</span>
         <Link className="btn btn-brand btn-lg site-mobile__cta" href={accountHref}>
           {accountLabel}
         </Link>

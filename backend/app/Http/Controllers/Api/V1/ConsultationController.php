@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Audit\AuditLog;
 use App\Exceptions\StateMachine\IllegalTransition;
+use App\Http\Controllers\Api\V1\Concerns\AuthorisesPatientReads;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\V1\Consultations\EndConsultationRequest;
+use App\Http\Requests\V1\Consultations\IndexConsultationRequest;
 use App\Http\Requests\V1\Consultations\RecordModeRequest;
 use App\Http\Requests\V1\Consultations\StartConsultationRequest;
 use App\Http\Resources\V1\ConsultationResource;
@@ -17,6 +19,7 @@ use App\Models\ConsultationMode;
 use App\Models\ConsultationOutcome;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 
@@ -31,7 +34,73 @@ use Illuminate\Support\Facades\DB;
  */
 class ConsultationController extends Controller
 {
+    use AuthorisesPatientReads;
+
     public function __construct(private readonly AuditLog $audit) {}
+
+    /**
+     * Past encounters, filtered.
+     *
+     * The list a clinician opens to remember what they saw last week, and the
+     * one an administrator opens to answer a question about a past encounter.
+     * It carries no clinical content -- the resource never has -- so what is
+     * returned is who, when, in which mode and with what outcome. Notes stay
+     * behind their own endpoint, which audits every read of them separately.
+     */
+    public function index(IndexConsultationRequest $request): AnonymousResourceCollection
+    {
+        // Authorises AND narrows, in one call. A patient reaches their own
+        // consultations here; clinical staff reach the clinic's. The two are
+        // deliberately inseparable: `viewOwn` plus an unscoped query is how one
+        // patient receives another patient's encounters, and row-level security
+        // cannot catch it because both rows really do belong to this clinic.
+        $query = $this->authoriseListing(Consultation::query(), $request->user(), Consultation::class);
+
+        $patientId = $request->patientId();
+
+        // Intersects with the narrowing above rather than replacing it, so a
+        // patient passing someone else's id gets nothing back rather than their
+        // records.
+        if ($patientId !== null) {
+            $query->where('patient_id', $patientId);
+        }
+
+        if (($clinicianId = $request->clinicianId()) !== null) {
+            $query->where('clinician_id', $clinicianId);
+        }
+
+        if (($outcome = $request->outcome()) !== null) {
+            $query->where('outcome', $outcome->value);
+        }
+
+        if (($from = $request->from()) !== null) {
+            $query->where('started_at', '>=', $from);
+        }
+
+        if (($to = $request->to()) !== null) {
+            $query->where('started_at', '<=', $to);
+        }
+
+        // Cursor, not offset, as the conventions require. A list paged through
+        // while consultations are being held shifts under an offset, showing
+        // duplicates and skipping rows -- and a skipped row here is an encounter
+        // that appears never to have happened. The id tiebreak keeps the cursor
+        // stable when two consultations start in the same second.
+        $consultations = $query
+            ->orderBy('started_at', $request->sortsAscending() ? 'asc' : 'desc')
+            ->orderBy('id')
+            ->cursorPaginate($request->perPage());
+
+        // Reads of clinical records are audited as well as writes, and a listing
+        // is a read: "who looked at my records?" can only be answered by having
+        // recorded every look. Identifiers and a count, never a row.
+        $this->audit->record('consultation.list_read', metadata: [
+            'patient_id' => $patientId,
+            'returned' => $consultations->count(),
+        ]);
+
+        return ConsultationResource::collection($consultations);
+    }
 
     /**
      * Start a consultation: the clinician has joined.

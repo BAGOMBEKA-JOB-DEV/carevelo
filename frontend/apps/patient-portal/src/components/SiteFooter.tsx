@@ -1,13 +1,17 @@
 import Link from 'next/link'
+import { getTranslations } from 'next-intl/server'
 import type { Tenant } from '@/lib/tenant'
+import { LanguageSwitcher } from './LanguageSwitcher'
 
 /**
  * The clinic's footer.
  *
- * A SERVER COMPONENT, with nothing interactive in it. Four columns of links and the
- * clinic's own contact details cost nothing to render on the server and would cost a
- * hydration payload to render on the client, on the one surface with a hard first-paint
- * budget on a throttled 3G connection.
+ * A SERVER COMPONENT, and it stays one even now that it holds a control. Four columns of
+ * links and the clinic's own contact details cost nothing to render on the server and
+ * would cost a hydration payload to render on the client, on the one surface with a hard
+ * first-paint budget on a throttled 3G connection. The language switcher below is a plain
+ * form posting to a server action, so it is interactive without being a client component
+ * and this file still ships no JavaScript at all.
  *
  * WHOSE FOOTER THIS IS. The clinic's name, the clinic's address, the clinic's phone
  * number. The only Carevelo mark on the entire patient surface is the last line of the
@@ -22,9 +26,18 @@ import type { Tenant } from '@/lib/tenant'
  * otherwise would be wrong about who is treating them and wrong about who they paid,
  * and we have no access to the UMDPC or NDA registers to make any claim beyond it.
  *
+ * IT IS ALSO WHERE THE LANGUAGE LIVES. The landing page has promised "English & Luganda"
+ * since the first commit and there was no control anywhere to deliver it. It sits in the
+ * first column rather than the header because the header is a client component with no
+ * room left in its row, and because a footer is where people already look for a language
+ * control — but note the consequence, which is real: sign-in and set-password render
+ * without this frame, so those two screens follow the language already chosen and cannot
+ * change it. A patient arriving cold on /sign-in gets whatever their browser asked for.
+ *
  * @see docs/10-product/white-labeling-and-branding.md
  */
-export function SiteFooter({ tenant, signedIn }: { tenant: Tenant; signedIn: boolean }) {
+export async function SiteFooter({ tenant, signedIn }: { tenant: Tenant; signedIn: boolean }) {
+  const t = await getTranslations('Footer')
   const name = tenant.trading_name
   const contact = tenant.contact
 
@@ -42,14 +55,13 @@ export function SiteFooter({ tenant, signedIn }: { tenant: Tenant; signedIn: boo
               </span>
               <span>{name}</span>
             </Link>
-            <p>
-              {name} online. Book a consultation, speak to a clinician, and have your
-              medicine brought to you.
-            </p>
+            <p>{t('blurb', { clinic: name })}</p>
+
+            <LanguageSwitcher />
           </div>
 
           <div>
-            <h4>Get in touch</h4>
+            <h4>{t('getInTouch')}</h4>
             <ul>
               {contact.phone ? (
                 <li>
@@ -67,46 +79,45 @@ export function SiteFooter({ tenant, signedIn }: { tenant: Tenant; signedIn: boo
                 </li>
               ) : null}
               {contact.physical_address ? <li>{contact.physical_address}</li> : null}
-              {contact.district ? <li>{contact.district}, Uganda</li> : null}
+              {contact.district ? (
+                <li>{t('districtLine', { district: contact.district })}</li>
+              ) : null}
             </ul>
           </div>
 
           <div>
-            <h4>Your care</h4>
+            <h4>{t('yourCare')}</h4>
             <ul>
               <li>
                 <Link href={signedIn ? '/account' : '/sign-in'}>
-                  {signedIn ? 'My care' : 'Sign in'}
+                  {signedIn ? t('myCare') : t('signIn')}
                 </Link>
               </li>
               <li>
-                <Link href="/#how">How it works</Link>
+                <Link href="/#how">{t('howItWorks')}</Link>
               </li>
               <li>
-                <Link href="/#trust">Safety and privacy</Link>
+                <Link href="/#trust">{t('safetyAndPrivacy')}</Link>
               </li>
             </ul>
           </div>
 
           <div>
-            <h4>Legal</h4>
+            <h4>{t('legal')}</h4>
             <ul>
               <li>
-                <Link href="/privacy">Privacy</Link>
+                <Link href="/privacy">{t('privacy')}</Link>
               </li>
               <li>
-                <Link href="/terms">Terms</Link>
+                <Link href="/terms">{t('terms')}</Link>
               </li>
             </ul>
           </div>
         </div>
 
         <div className="site-footer__bottom">
-          <span>
-            Consultations, prescriptions and dispensing are provided by {name}, a licensed
-            private clinic, and payment is made to {name}.
-          </span>
-          <span className="site-footer__by">Powered by Carevelo</span>
+          <span>{t('licensing', { clinic: name })}</span>
+          <span className="site-footer__by">{t('poweredBy')}</span>
         </div>
       </div>
     </footer>

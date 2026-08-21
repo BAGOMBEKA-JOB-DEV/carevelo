@@ -1,8 +1,9 @@
 import type { ReactNode } from 'react'
+import { getTranslations } from 'next-intl/server'
 import { brandStyle } from '@carevelo/ui'
 import type { Tenant } from '@/lib/tenant'
 import { SiteFooter } from './SiteFooter'
-import { SiteHeader } from './SiteHeader'
+import { SiteHeader, type HeaderStrings } from './SiteHeader'
 
 /**
  * The patient-facing frame: a scroll-aware clinic header, the page, and the clinic's
@@ -21,9 +22,16 @@ import { SiteHeader } from './SiteHeader'
  * Applied by the PAGES that want it rather than by the root layout, because sign-in is a
  * full-bleed split screen with no room for site chrome.
  *
+ * IT RESOLVES THE HEADER'S WORDS TOO, which is why it is async. SiteHeader is the only
+ * client component on this surface, and a client component cannot read a message catalogue
+ * without NextIntlClientProvider — which would serialise part of the catalogue into the RSC
+ * payload and add the formatting runtime to a bundle that has 150KB to spend on a
+ * throttled 3G profile. Translating here and passing plain strings down keeps the header's
+ * JavaScript exactly what it was: a scroll listener and a drawer.
+ *
  * @see docs/10-product/white-labeling-and-branding.md
  */
-export function SiteShell({
+export async function SiteShell({
   tenant,
   signedIn,
   children,
@@ -32,6 +40,28 @@ export function SiteShell({
   signedIn: boolean
   children: ReactNode
 }) {
+  const [common, header] = await Promise.all([
+    getTranslations('Common'),
+    getTranslations('Header'),
+  ])
+
+  const headerStrings: HeaderStrings = {
+    tagline: header('tagline'),
+    sectionsLabel: header('sectionsLabel'),
+    menuLabel: header('menuLabel'),
+    yourAccount: header('yourAccount'),
+    signIn: header('signIn'),
+    myCare: header('myCare'),
+    sections: {
+      how: { label: header('sections.how.label'), blurb: header('sections.how.blurb') },
+      care: { label: header('sections.care.label'), blurb: header('sections.care.blurb') },
+      trust: {
+        label: header('sections.trust.label'),
+        blurb: header('sections.trust.blurb'),
+      },
+    },
+  }
+
   return (
     /*
      * THE CLINIC'S TOKENS, in the first HTML byte. They used to sit on <html>, which forced
@@ -46,10 +76,10 @@ export function SiteShell({
       {/* First focusable element. A patient using a keyboard or a screen reader should
           not have to pass the header to reach the page. */}
       <a className="skip-link" href="#main">
-        Skip to content
+        {common('skipToContent')}
       </a>
 
-      <SiteHeader tenant={tenant} signedIn={signedIn} />
+      <SiteHeader tenant={tenant} signedIn={signedIn} strings={headerStrings} />
 
       <main id="main">{children}</main>
 

@@ -125,8 +125,69 @@
   width: 100%;
 }
 .textarea { padding: var(--space-4); min-height: 120px; resize: vertical; line-height: 1.55; }
-.input[aria-invalid='true'], .textarea[aria-invalid='true'] { border-color: var(--bad); }
-.input:disabled, .textarea:disabled { background: var(--surface-sunken); cursor: not-allowed; }
+/* The select is named in both lists deliberately: it was in neither, so a <select> inside a
+   field that had failed validation carried aria-invalid and showed no red border, and a
+   disabled one looked editable. An omission with no symptom until a form comes back wrong. */
+.input[aria-invalid='true'], .select[aria-invalid='true'], .textarea[aria-invalid='true'] { border-color: var(--bad); }
+.input:disabled, .select:disabled, .textarea:disabled { background: var(--surface-sunken); cursor: not-allowed; }
+
+/* ---- Choice: a group of radios or checkboxes ----
+
+   The ROW is the target, not the 18px circle inside it. `--touch-min` on the row is what
+   makes that true, and it answers to the same floor as every other control here: a patient
+   picking a payment method is doing it one-handed, outdoors, possibly on a cracked screen.
+
+   The selected state reads --brand-primary, and that is correct on BOTH kinds of surface
+   rather than a patient-only decision that leaked into a shared class. colors.css defines
+   --brand-primary as var(--primary) until a tenant overrides it, and only the patient
+   portal ever calls brandStyle() -- so this resolves to the clinic's colour where the
+   clinic is speaking and to Carevelo's teal on a staff screen, which is the same split the
+   rest of this file spells with two separate classes.
+
+   The ground of a selected row is --brand-wash, NOT --brand-primary, which is why the text
+   on it inherits --ink and is left alone. --brand-primary-fg would be wrong here: it was
+   computed for AA against --brand-primary, and this is not that colour. */
+.choice__options { display: flex; flex-direction: column; gap: var(--space-3); }
+
+.choice__option {
+  display: flex; align-items: flex-start; gap: var(--space-4);
+  min-height: var(--touch-min);
+  padding: var(--space-4);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-md);
+  background: var(--canvas);
+  cursor: pointer;
+}
+.choice__option:hover { border-color: var(--ink-faint); }
+.choice__option:has(.choice__input:checked) { border-color: var(--brand-primary); background: var(--brand-wash); }
+.choice__option:has(.choice__input:disabled) { opacity: 0.45; cursor: not-allowed; }
+
+.choice__input {
+  width: 18px; height: 18px; flex: none;
+  /* Nudged onto the first line's optical centre rather than the top of its box. */
+  margin: 2px 0 0;
+  accent-color: var(--brand-primary);
+}
+
+.choice__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: 14.5px; font-weight: 550; }
+/* What choosing this will actually do. Weight reset, because it is the explanation rather
+   than the choice. */
+.choice__note { font-size: 12.5px; font-weight: 400; color: var(--ink-muted); }
+
+/* The focus ring belongs on the ROW, since the row is the target -- left to the reset it
+   lands on the 18px control and a keyboard user has to hunt for a dot. GUARDED, and that
+   is the point of the @supports: moving the ring means suppressing the inner one, and a
+   browser without :has() would apply the suppression, fail to match the row rule, and be
+   left with no visible focus at all. Everything above degrades to a plain bordered row
+   with a native radio in it, which is merely plainer; this one would degrade to a
+   keyboard trap you cannot see. */
+@supports selector(:has(*)) {
+  .choice__option:has(.choice__input:focus-visible) {
+    outline: 2px solid var(--primary-focus);
+    outline-offset: 2px;
+  }
+  .choice__option:has(.choice__input:focus-visible) .choice__input { outline: none; }
+}
 
 /* ============================================================
    TABLES
@@ -175,6 +236,27 @@
   animation: skeleton-pulse 1.4s ease-in-out infinite;
 }
 @keyframes skeleton-pulse { 50% { opacity: 0.55; } }
+
+/* A turning ring, for the one indeterminate wait this product actually has -- a
+   mobile-money collection resolving -- and never on its own; see Spinner.tsx for why the
+   words beside it carry the meaning.
+
+   currentColor on a single edge, so the ring takes the colour of whatever it sits inside:
+   the clinic's foreground within a .btn-brand, --ink in body text, no second class needed.
+
+   Under prefers-reduced-motion the reset caps every animation at one 0.01ms iteration, so
+   this renders as a static ring. That is the intended outcome rather than an accident of
+   the cascade -- nothing here is understood through the movement. */
+.spinner {
+  display: inline-block;
+  width: 18px; height: 18px;
+  flex: none;
+  border: 2px solid var(--hairline);
+  border-top-color: currentColor;
+  border-radius: var(--r-pill);
+  animation: spinner-turn 0.7s linear infinite;
+}
+@keyframes spinner-turn { to { transform: rotate(360deg); } }
 
 /* ============================================================
    NOTICES

@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { getTranslations } from 'next-intl/server'
 import { clinicMetadata } from '@/lib/metadata'
 import { Icon } from '@carevelo/ui'
 import { resolveTenant } from '@/lib/tenant'
@@ -37,16 +38,23 @@ export default async function AccountPage() {
     redirect('/set-password')
   }
 
-  const clinic = tenant.trading_name ?? 'this clinic'
+  const [t, common] = await Promise.all([
+    getTranslations('Account'),
+    getTranslations('Common'),
+  ])
+  const clinic = tenant.trading_name ?? common('thisClinic')
+  const phone = tenant.contact?.phone
 
   return (
     <SiteShell tenant={tenant} signedIn>
       <div className="site-wrap" style={{ paddingBlock: 'var(--space-8)' }}>
         <div className="page-head">
           <div style={{ flex: '1 1 auto' }}>
-            <span className="site-eyebrow">Your care</span>
-            <h1 style={{ marginTop: 'var(--space-4)' }}>Welcome back, {firstName(user.name)}.</h1>
-            <p>You are signed in to {clinic}.</p>
+            <span className="site-eyebrow">{t('eyebrow')}</span>
+            <h1 style={{ marginTop: 'var(--space-4)' }}>
+              {t('welcome', { firstName: firstName(user.name) })}
+            </h1>
+            <p>{t('signedInTo', { clinic })}</p>
           </div>
 
           {/*
@@ -57,7 +65,7 @@ export default async function AccountPage() {
            */}
           <form action={endSession}>
             <button className="btn btn-quiet" type="submit">
-              <Icon name="lock" /> Sign out
+              <Icon name="lock" /> {t('signOut')}
             </button>
           </form>
         </div>
@@ -65,17 +73,17 @@ export default async function AccountPage() {
         <div className="cellgrid cellgrid--3">
           <div className="cell">
             <div className="stat">
-              <span className="stat__label">Your clinic</span>
+              <span className="stat__label">{t('yourClinicLabel')}</span>
               <span className="stat__value" style={{ fontSize: 21 }}>
                 {clinic}
               </span>
-              <span className="stat__note tnum">{tenant.contact?.phone ?? ''}</span>
+              <span className="stat__note tnum">{phone ?? ''}</span>
             </div>
           </div>
 
           <div className="cell">
             <div className="stat">
-              <span className="stat__label">Signed in as</span>
+              <span className="stat__label">{t('signedInAsLabel')}</span>
               <span className="stat__value" style={{ fontSize: 21 }}>
                 {user.name}
               </span>
@@ -85,25 +93,25 @@ export default async function AccountPage() {
 
           <div className="cell">
             <div className="stat">
-              <span className="stat__label">Next step</span>
+              <span className="stat__label">{t('nextStepLabel')}</span>
               <span className="stat__value" style={{ fontSize: 21 }}>
-                Book a consultation
+                {t('nextStepValue')}
               </span>
-              <span className="stat__note">Arriving in the next release.</span>
+              <span className="stat__note">{t('nextStepNote')}</span>
             </div>
           </div>
         </div>
 
         <div className="notice notice-info" style={{ marginTop: 'var(--space-7)' }}>
-          Booking, your prescriptions and delivery tracking are being built, and there is
-          nothing here for them yet. The session above is real: it was issued by{' '}
-          {clinic}&apos;s API and every request this page makes carries it.
+          {t('notice', { clinic })}
         </div>
 
+        {/* Two whole sentences rather than one with a fragment glued on where the phone
+            number goes. A translator handed "on {phone}" in isolation has no way to know
+            what it attaches to, and in a language whose word order differs from English it
+            may not attach there at all. */}
         <p className="fine" style={{ marginTop: 'var(--space-6)' }}>
-          To change an appointment or ask about your care, contact {clinic} directly
-          {tenant.contact?.phone ? ` on ${tenant.contact.phone}` : ''}. Carevelo provides
-          the software and cannot answer a clinical question.
+          {phone ? t('contactWithPhone', { clinic, phone }) : t('contact', { clinic })}
         </p>
       </div>
     </SiteShell>

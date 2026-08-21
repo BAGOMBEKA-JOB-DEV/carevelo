@@ -1,3 +1,5 @@
+import { getTranslations } from 'next-intl/server'
+
 /**
  * Shown for a host that does not resolve to a clinic.
  *
@@ -28,13 +30,20 @@
  * whose binding constraint is a slow mobile network that is the wrong way round, so the
  * status is kept, the body is left to the client, and nothing leaks either way.
  *
+ * IN THE READER'S LANGUAGE, and this is the one page where that is not obvious: there is
+ * no clinic here and no session, so the only thing left to go on is the language the
+ * browser asked for — which is exactly what src/i18n/locales.ts falls back to when there is
+ * no cookie. Neutrality is unaffected: both catalogues say the same nothing about clinics.
+ *
  * @see docs/10-product/white-labeling-and-branding.md acceptance criterion 8
  */
-export default function NotFound() {
+export default async function NotFound() {
+  const t = await getTranslations('NotFound')
+
   return (
     <main className="site-pagehero">
-      <h1 className="site-h1">Page not found</h1>
-      <p className="site-lede">Check the address and try again.</p>
+      <h1 className="site-h1">{t('title')}</h1>
+      <p className="site-lede">{t('body')}</p>
     </main>
   )
 }

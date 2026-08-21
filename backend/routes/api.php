@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\Admin\AggregatorAccountController;
+use App\Http\Controllers\Api\Admin\ClinicianProfileController;
 use App\Http\Controllers\Api\Admin\ServiceController;
 use App\Http\Controllers\Api\Admin\StaffController;
 use App\Http\Controllers\Api\Admin\TenantAdminController;
@@ -147,6 +148,32 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         Route::post('tenant/users/invite', [StaffController::class, 'invite'])->name('staff.invite');
         Route::patch('tenant/users/{user}', [StaffController::class, 'update'])->name('staff.update');
 
+        /*
+         * The CLINICAL half of a staff record.
+         *
+         * An invitation produces an account in a role. A Clinician row is the
+         * registration body, registration number and prescribing capability
+         * that turn that account into a practitioner -- and until one exists
+         * the clinic has nothing to offer: availability is generated per
+         * Clinician, so no clinician means no slots, no booking, no
+         * consultation and no prescription.
+         *
+         * Nested under the colleague rather than a top-level collection,
+         * because it is one profile per person and the person is the thing
+         * being administered. Administrator only, exactly like the staff
+         * routes above it: setting `can_prescribe` and a registration number is
+         * granting the right to prescribe, which the matrix keeps in the
+         * `clinic_admin` column and nowhere else.
+         *
+         * There is no DELETE. A clinician who leaves is deactivated as staff.
+         */
+        Route::get('tenant/users/{user}/clinician', [ClinicianProfileController::class, 'show'])
+            ->name('staff.clinician.show');
+        Route::post('tenant/users/{user}/clinician', [ClinicianProfileController::class, 'store'])
+            ->name('staff.clinician.store');
+        Route::patch('tenant/users/{user}/clinician', [ClinicianProfileController::class, 'update'])
+            ->name('staff.clinician.update');
+
         Route::get('tenant/aggregator-account', [AggregatorAccountController::class, 'show'])
             ->name('aggregator.show');
         Route::put('tenant/aggregator-account', [AggregatorAccountController::class, 'update'])
@@ -183,7 +210,11 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         Route::post('join-tokens/redeem', [JoinTokenController::class, 'redeem'])
             ->name('consultations.join.redeem');
 
-        Route::apiResource('consultations', ConsultationController::class)->only(['store', 'show']);
+        // index as well as store and show: a clinician reviewing what they saw
+        // last week, and an administrator answering a question about a past
+        // encounter, both need the list. Cursor-paginated and audited like
+        // every other read of a clinical record.
+        Route::apiResource('consultations', ConsultationController::class)->only(['index', 'store', 'show']);
         Route::post('consultations/{consultation}/mode', [ConsultationController::class, 'recordMode'])
             ->name('consultations.mode');
         Route::post('consultations/{consultation}/end', [ConsultationController::class, 'end'])
