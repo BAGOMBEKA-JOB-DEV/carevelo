@@ -65,18 +65,23 @@
  * thread the way a parse-and-execute does. That is a deliberate scope, not an oversight.
  *
  *
- * WHY THE nomodule POLYFILL IS COUNTED
+ * WHY THE GATE MEASURES THE MODULE-CAPABLE FIGURE
  *
  * Next emits its core-js bundle as <script nomodule>, so any browser that understands ES
- * modules skips it — roughly 38KB gzipped that a current Chrome never fetches. It is counted
- * anyway, for two reasons. It is genuinely shipped, and "initial JavaScript" is the phrase the
- * budget uses. And a ceiling should be defended against the worse of the two paths, not the
- * better one, so that the gate cannot under-report.
+ * modules skips it — roughly 38KB gzipped that no current browser ever downloads. The gate
+ * originally counted it, on the reasoning that a ceiling should be defended against the worse
+ * of the two paths.
  *
- * The module-capable subtotal is printed next to the total regardless, so the distinction stays
- * visible in the log rather than buried in this comment. If this project later decides the
- * modern figure is the honest basis for the budget, the number to move the ceiling to is already
- * printed on every build.
+ * It is not counted now, and the reason is that it made the gate measure a browser this product
+ * does not have. The budget exists for a patient on a mid-range Android on variable mobile
+ * data; that phone runs a modern Chrome and fetches the module build. Counting bytes it never
+ * requests inflated the figure by 38KB and put the documented 150KB target permanently out of
+ * reach — which is how a budget stops being a target and becomes a ratchet that only ever moves
+ * up. Turbopack emits polyfillFiles unconditionally, so this cannot be configured away either;
+ * a browserslist targeting only modern engines changes nothing.
+ *
+ * Both numbers are printed on every run. The legacy total stays visible so that the day it
+ * matters — a market where those browsers are real — the figure is already there.
  *
  * @see docs/30-architecture/frontend-nextjs.md — the budget
  * @see docs/00-overview/personas-and-actors.md — the mid-range Android phone it is defended for
@@ -127,7 +132,18 @@ const TARGET_BYTES = 150 * 1024
  * a percent; nothing meaningful fits in it.
  */
 const CEILINGS = {
-  '/': 180_224,
+  /*
+   * THE DOCUMENTED NUMBER, not a ratchet above today's.
+   *
+   * 150KB gzipped for the booking path — docs/30-architecture/frontend-nextjs.md:112. Measured
+   * as the bytes a module-capable browser actually downloads, which is every browser this
+   * product targets. The portal sits around 137KB against it, so there is real headroom and
+   * this gate protects it rather than blessing whatever today happened to be.
+   *
+   * Raising this number means changing that document in the same commit. It is a product
+   * commitment about a patient on a slow connection, not a build detail.
+   */
+  '/': 150 * 1024,
 }
 
 const KIB = 1024
@@ -208,7 +224,7 @@ for (const { route, totalBytes, modernBytes } of measurements) {
   const ceiling = CEILINGS[route]
   const verdict = ceiling === undefined
     ? 'not gated'
-    : `${totalBytes <= ceiling ? 'within' : 'OVER'} ceiling ${kib(ceiling)}`
+    : `${modernBytes <= ceiling ? 'within' : 'OVER'} ceiling ${kib(ceiling)}`
 
   console.log(
     `  ${route.padEnd(16)} ${kib(totalBytes).padStart(10)}` +
@@ -226,11 +242,11 @@ for (const { route, files, legacyOnly } of measurements.filter((m) => CEILINGS[m
   }
 }
 
-const failures = measurements.filter(({ route, totalBytes }) => totalBytes > (CEILINGS[route] ?? Infinity))
+const failures = measurements.filter(({ route, modernBytes }) => modernBytes > (CEILINGS[route] ?? Infinity))
 
 console.log(`\n  Budget: ${kib(TARGET_BYTES)} — docs/30-architecture/frontend-nextjs.md:112`)
-for (const { route, totalBytes } of measurements.filter((m) => CEILINGS[m.route] !== undefined)) {
-  const gap = totalBytes - TARGET_BYTES
+for (const { route, modernBytes } of measurements.filter((m) => CEILINGS[m.route] !== undefined)) {
+  const gap = modernBytes - TARGET_BYTES
   console.log(
     gap > 0
       ? `  ${route} is ${kib(gap)} above that target. The ceiling below it is a ratchet, not the goal.`
