@@ -1,5 +1,17 @@
 import en from '../../messages/en.json'
 import lg from '../../messages/lg.json'
+import patientsEn from '../../messages/domains/Patients.en.json'
+import patientsLg from '../../messages/domains/Patients.lg.json'
+import schedulingEn from '../../messages/domains/Scheduling.en.json'
+import schedulingLg from '../../messages/domains/Scheduling.lg.json'
+import paymentsEn from '../../messages/domains/Payments.en.json'
+import paymentsLg from '../../messages/domains/Payments.lg.json'
+import consultationsEn from '../../messages/domains/Consultations.en.json'
+import consultationsLg from '../../messages/domains/Consultations.lg.json'
+import prescriptionsEn from '../../messages/domains/Prescriptions.en.json'
+import prescriptionsLg from '../../messages/domains/Prescriptions.lg.json'
+import deliveryEn from '../../messages/domains/Delivery.en.json'
+import deliveryLg from '../../messages/domains/Delivery.lg.json'
 import type { Locale } from './locales'
 
 /**
@@ -23,5 +35,37 @@ import type { Locale } from './locales'
  * locale — buys nothing on a server that holds both anyway and costs an await on every
  * render.
  */
-export const MESSAGES = { en, lg } satisfies Record<Locale, typeof en> &
-  Record<Locale, typeof lg>
+/*
+ * ONE FILE PER DOMAIN, merged here.
+ *
+ * The base catalogues hold the app-wide chrome; each domain owns its own namespace pair
+ * under messages/domains/. That split is not tidiness — it is what lets several people (or
+ * agents) add screens at once without every one of them editing the same two thousand-line
+ * JSON files and colliding on every save.
+ *
+ * The merge is a spread of STATIC imports, so `typeof EN` and `typeof LG` stay precise and
+ * the bidirectional `satisfies` below still proves the two catalogues have the same shape.
+ * A dynamic glob would have bought convenience and thrown that guarantee away.
+ */
+const EN = {
+  ...en,
+  ...patientsEn,
+  ...schedulingEn,
+  ...paymentsEn,
+  ...consultationsEn,
+  ...prescriptionsEn,
+  ...deliveryEn,
+}
+
+const LG = {
+  ...lg,
+  ...patientsLg,
+  ...schedulingLg,
+  ...paymentsLg,
+  ...consultationsLg,
+  ...prescriptionsLg,
+  ...deliveryLg,
+}
+
+export const MESSAGES = { en: EN, lg: LG } satisfies Record<Locale, typeof EN> &
+  Record<Locale, typeof LG>
