@@ -6,18 +6,6 @@ servers:
   -
     url: 'http://localhost/api'
 paths:
-  /v1/me:
-    get:
-      operationId: v1.me
-      responses:
-        200:
-          description: '`User`'
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/User'
-        401:
-          $ref: '#/components/responses/AuthenticationException'
   /v1/tenant/aggregator-account:
     get:
       operationId: v1.aggregator.show
@@ -487,15 +475,16 @@ paths:
               $ref: '#/components/schemas/SignInRequest'
       responses:
         200:
-          description: ''
+          description: "The same resource /v1/me returns, and for the same reason: handing back the raw\nEloquent model shipped tenant_id, is_active, both timestamps and — once the\nstaff-issued account path landed — password_change_required_at, to a browser that\nneeds none of them. A client that has just signed in wants exactly what it would\nask /v1/me for, so it gets exactly that.\n\n\n\n`MeResource`"
           content:
             application/json:
               schema:
-                anyOf:
-                  -
-                    $ref: '#/components/schemas/User'
-                  -
-                    type: 'null'
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/MeResource'
+                required:
+                  - data
         403:
           description: ''
           content:
@@ -558,6 +547,27 @@ paths:
                   - errors
         422:
           $ref: '#/components/responses/ValidationException'
+  /v1/me:
+    get:
+      operationId: v1.me
+      description: "A controller method rather than the route closure this used to be, so the\npublished contract can describe it: a closure returning an Eloquent model\nis the one endpoint Scramble had nothing to say about, which is why the\nfrontend kept a hand-written type for it.\n\nReachable while a password change is outstanding -- see\nRequirePasswordChange. It is how a client learns that it must show the\npassword form rather than finding out one refusal at a time."
+      summary: 'Who am I, and may I do anything yet'
+      tags:
+        - Auth
+      responses:
+        200:
+          description: '`MeResource`'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/MeResource'
+                required:
+                  - data
+        401:
+          $ref: '#/components/responses/AuthenticationException'
   /v1/auth/sign-out:
     post:
       operationId: v1.auth.sign-out
@@ -2063,7 +2073,6 @@ paths:
           schema:
             type: string
             enum:
-              - registration.otp
               - appointment.confirmed
               - appointment.reminder
               - appointment.cancelled
@@ -2217,149 +2226,6 @@ paths:
           $ref: '#/components/responses/AuthorizationException'
         401:
           $ref: '#/components/responses/AuthenticationException'
-  /v1/auth/otp/request:
-    post:
-      operationId: v1.auth.otp.request
-      description: "202 either way: the clinic accepted the request, and what happened next is\ndeliberately not reported."
-      summary: 'Send a code, if there is anybody to send it to'
-      tags:
-        - Otp
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RequestOtpRequest'
-      responses:
-        202:
-          description: ''
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    const: 'If that number is registered, a code has been sent by SMS.'
-                required:
-                  - message
-        429:
-          description: ''
-          content:
-            application/problem+json:
-              schema:
-                type: object
-                properties:
-                  type:
-                    type: string
-                  title:
-                    type: string
-                    const: 'Too many attempts'
-                  status:
-                    type: integer
-                    const: 429
-                  code:
-                    type: string
-                    const: too_many_attempts
-                  detail:
-                    type: string
-                    const: 'Wait a few minutes and try again.'
-                  errors:
-                    type: string
-                required:
-                  - type
-                  - title
-                  - status
-                  - code
-                  - detail
-                  - errors
-        422:
-          $ref: '#/components/responses/ValidationException'
-  /v1/auth/otp/verify:
-    post:
-      operationId: v1.auth.otp.verify
-      summary: 'Spend a code and open a session bound to this clinic'
-      tags:
-        - Otp
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/VerifyOtpRequest'
-      responses:
-        200:
-          description: ''
-          content:
-            application/json:
-              schema:
-                anyOf:
-                  -
-                    $ref: '#/components/schemas/User'
-                  -
-                    type: 'null'
-        403:
-          description: ''
-          content:
-            application/problem+json:
-              schema:
-                type: object
-                properties:
-                  type:
-                    type: string
-                  title:
-                    type: string
-                    const: 'This clinic account is suspended'
-                  status:
-                    type: integer
-                    const: 403
-                  code:
-                    type: string
-                    const: tenant_suspended
-                  detail:
-                    type: string
-                    const: 'Staff sign-in is unavailable until the clinic account is reactivated.'
-                  errors:
-                    type: string
-                required:
-                  - type
-                  - title
-                  - status
-                  - code
-                  - detail
-                  - errors
-        429:
-          description: ''
-          content:
-            application/problem+json:
-              schema:
-                type: object
-                properties:
-                  type:
-                    type: string
-                  title:
-                    type: string
-                    const: 'Too many attempts'
-                  status:
-                    type: integer
-                    const: 429
-                  code:
-                    type: string
-                    const: too_many_attempts
-                  detail:
-                    type: string
-                    const: 'Wait a few minutes and try again.'
-                  errors:
-                    type: string
-                required:
-                  - type
-                  - title
-                  - status
-                  - code
-                  - detail
-                  - errors
-        422:
-          $ref: '#/components/responses/ValidationException'
   /v1/patients:
     get:
       operationId: v1.patients.index
@@ -2552,6 +2418,98 @@ paths:
                     $ref: '#/components/schemas/PatientResource'
                 required:
                   - data
+        403:
+          $ref: '#/components/responses/AuthorizationException'
+        404:
+          $ref: '#/components/responses/ModelNotFoundException'
+        401:
+          $ref: '#/components/responses/AuthenticationException'
+        422:
+          $ref: '#/components/responses/ValidationException'
+  '/v1/patients/{patient}/account':
+    post:
+      operationId: v1.patients.account.store
+      summary: 'Create the account, link the record, and return the password once'
+      tags:
+        - PatientAccount
+      parameters:
+        -
+          name: patient
+          in: path
+          required: true
+          description: 'The patient ID'
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePatientAccountRequest'
+      responses:
+        201:
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      patient_id: { type: string }
+                      user_id: { type: string }
+                      email: { type: [string, 'null'] }
+                      initial_password: { type: string, description: "The only moment the plaintext exists outside the patient's own\nhead. It is stored as a hash, never audited, never logged, and\nnever sent by SMS." }
+                      records_linked: { type: integer, description: "Always one: the endpoint creates a fresh account and links the\nsingle record it was called on. It is here so the desk can see\nthat the link happened, because the link -- not the account --\nis what puts records in front of the patient.", const: 1 }
+                      note: { type: string }
+                    required:
+                      - patient_id
+                      - user_id
+                      - email
+                      - initial_password
+                      - records_linked
+                      - note
+                required:
+                  - data
+        409:
+          description: "The unique index on (tenant_id, email) settled the race, or the\naddress belongs to a DEACTIVATED account -- which activeForEmail()\ndeliberately does not see, because a \"your account is disabled\"\nanswer at sign-in would confirm the account exists.\n\nA 409 rather than a neutral 201 is right here and nowhere near\nsign-in: the caller is an authenticated member of staff who can\nalready read every patient record and every address at this clinic,\nso there is no enumeration surface to protect. What there is\ninstead is a person standing at a desk who needs to be told the\ntruth about why they cannot proceed."
+          content:
+            application/problem+json:
+              schema:
+                anyOf:
+                  -
+                    type: object
+                    properties:
+                      type: { type: string }
+                      title: { type: string, const: 'That address already has an account at this clinic' }
+                      status: { type: integer, const: 409 }
+                      code: { type: string, const: account_exists }
+                      detail: { type: string, const: 'Use a different address, or ask the patient to sign in with the one they have.' }
+                      errors: { type: string }
+                    required:
+                      - type
+                      - title
+                      - status
+                      - code
+                      - detail
+                      - errors
+                  -
+                    type: object
+                    properties:
+                      type: { type: string }
+                      title: { type: string, const: 'This patient already has an account' }
+                      status: { type: integer, const: 409 }
+                      code: { type: string, const: patient_already_has_account }
+                      detail: { type: string }
+                      errors: { type: string }
+                    required:
+                      - type
+                      - title
+                      - status
+                      - code
+                      - detail
+                      - errors
         403:
           $ref: '#/components/responses/AuthorizationException'
         404:
@@ -4407,6 +4365,21 @@ components:
         - started_at
         - ended_at
       title: ConsultationResource
+    CreatePatientAccountRequest:
+      type: object
+      description: "Creating a patient's own sign-in account, at the registration desk.\n\nOne field arrives from the desk: the address the patient wants to sign in\nwith. Everything else about the account is derived or generated, and the two\nfields that are conspicuously prohibited are the point of this class.\n\nPASSWORD IS PROHIBITED. UpdateStaffRequest makes exactly this prohibition for\nexactly this reason -- somebody who can write another person's password can\nread everything that person can reach -- and there is a second reason here\nthat is specific to a front desk. A staff member creating twenty accounts a\nday types the same password twenty times, and then every account at that\nclinic is guessable by anyone who was ever given one. The server generates a\nreadable passphrase and shows it once instead; see InitialPassword.\n\nNAME IS PROHIBITED. The account's name is taken from the patient record it is\ncreated against. A second spelling of a patient's name, typed separately and\nfree to drift from the clinical record, is a data-quality trap with nothing on\nthe other side of it: staff would then be reading two names for one person and\nno rule says which is right.\n\nThere is no `phone` field. `users` carries `unique(tenant_id, phone)` and\nwriting one here breaks on two ordinary cases -- a member of staff who is also\na patient of the clinic, and the documented \"patient has no phone, register\n * against a next-of-kin number\" exception -- either of which would turn a\nlegitimate desk action into a duplicate-key failure. Notifications are\nunaffected: ownership resolves through `patients.phone`, never `users.phone`."
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 255
+        password:
+          type: string
+        name:
+          type: string
+      required:
+        - email
+      title: CreatePatientAccountRequest
     Currency:
       type: string
       description: "Currencies the platform handles. Uganda only. Multi-country expansion is explicitly not planned — the regulatory model is baked deep into this system, deliberately.\n"
@@ -4658,6 +4631,36 @@ components:
         - phone
         - role
       title: InviteStaffRequest
+    MeResource:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        email:
+          type:
+            - string
+            - 'null'
+        phone:
+          type:
+            - string
+            - 'null'
+        password_change_required:
+          type: boolean
+          description: "Non-null means every endpoint but this one, the password change and\nsign-out is refused with `password_change_required`. Sending it\nhere is what lets a client explain that rather than discovering it\none 403 at a time."
+        roles:
+          type: array
+          items:
+            type: string
+      required:
+        - id
+        - name
+        - email
+        - phone
+        - password_change_required
+        - roles
+      title: MeResource
     MergePatientRequest:
       type: object
       description: "Folding a duplicate registration into the record that survives.\n\nThe route's {patient} is the SURVIVOR and the body names the duplicate. That\nway round because the survivor is the record the front desk already has open,\nand because it makes the URL the thing that is kept -- a caller who confuses\nthe two loses the wrong history in a way no validation could detect.\n\n`exists` is evaluated with row-level security bound, so an identifier from\nanother clinic does not resolve and the response is the same as for one that\nnever existed. The isolation boundary is not something this endpoint has to\nremember to check."
@@ -4791,6 +4794,9 @@ components:
           description: "Non-null means this registration was a duplicate and its history\nnow lives on the record named here. Staff who reach it by an old\nlink need somewhere to go, so the pointer is part of the record."
         phone_verified:
           type: boolean
+        has_account:
+          type: boolean
+          description: "Whether an account can already reach this record as its own.\nDerived, and never the account's identifier or address: front desk\nneeds to know whether to offer to create one, and nothing more. It is here rather than on an endpoint of its own because \"does this\n person have an account here\" is a question worth not being able to\nask directly. Reading it as part of a record you are already\nauthorised to read asks nothing new."
         created_at:
           type:
             - string
@@ -4810,6 +4816,7 @@ components:
         - status
         - merged_into_patient_id
         - phone_verified
+        - has_account
         - created_at
       title: PatientResource
     PatientStatus:
@@ -5177,15 +5184,6 @@ components:
       required:
         - reason
       title: RejectDispenseOrderRequest
-    RequestOtpRequest:
-      type: object
-      description: "\"Send a code to this number.\"\n\nPublic by necessity, and it takes nothing but the number. In particular it\ntakes no tenant: the clinic comes from the request host, because a\nclient-supplied tenant would be a client-controlled authorisation decision."
-      properties:
-        phone:
-          type: string
-      required:
-        - phone
-      title: RequestOtpRequest
     RiderDeliveryResource:
       type: object
       properties:
@@ -5276,7 +5274,7 @@ components:
       title: ServiceResource
     SignInRequest:
       type: object
-      description: "Password sign-in, by email address or by phone number.\n\nBOTH, because the two audiences are genuinely different. A clinic administrator sits at\na desk with an email address and expects to type it; a clinician between rooms has their\nphone in their hand and their number is the identifier the clinic already holds. The\nbusiness plan is blunt about the second case: most Ugandan clinic staff have a working\nphone and no reliably checked email address, so neither identifier can be the only way in.\n\nExactly one is required. Sending both is a confused client rather than a convenience,\nand picking one silently would mean two requests that look identical signing in as\ndifferent people.\n\nPatients may also use a code with no password at all, which is a different endpoint."
+      description: "Password sign-in, by email address or by phone number.\n\nBOTH, because the two audiences are genuinely different. A clinic administrator sits at\na desk with an email address and expects to type it; a clinician between rooms has their\nphone in their hand and their number is the identifier the clinic already holds. The\nbusiness plan is blunt about the second case: most Ugandan clinic staff have a working\nphone and no reliably checked email address, so neither identifier can be the only way in.\n\nExactly one is required. Sending both is a confused client rather than a convenience,\nand picking one silently would mean two requests that look identical signing in as\ndifferent people.\n\nThis is the ONLY way in, for everybody. Patients sign in here too, with the address\nand the password their clinic issued them at the registration desk -- there is no\nsecond, weaker endpoint that takes a code and no password."
       properties:
         email:
           type:
@@ -6179,7 +6177,7 @@ components:
       title: UpdateServiceRequest
     UpdateStaffRequest:
       type: object
-      description: "Correcting a staff member's details, role or access.\n\n`tenant_id` is prohibited rather than absent. Moving a person between clinics\nis never legitimate -- there is no cross-tenant staff identity, so someone\nworking at two clinics has two accounts -- and a prohibited field says that\nout loud instead of discarding the value in silence.\n\nPasswords are not set here. A person sets their own after verifying their\nphone; an administrator who could write another user's password could read\nevery clinical record that user can reach, which defeats the role boundary\nentirely."
+      description: "Correcting a staff member's details, role or access.\n\n`tenant_id` is prohibited rather than absent. Moving a person between clinics\nis never legitimate -- there is no cross-tenant staff identity, so someone\nworking at two clinics has two accounts -- and a prohibited field says that\nout loud instead of discarding the value in silence.\n\nPasswords are not set here. A person sets their own; an administrator who\ncould write another user's password could read every clinical record that user\ncan reach, which defeats the role boundary entirely.\n\nThe one place a password is issued rather than chosen is a patient account\ncreated at the registration desk, where there is no other way to hand somebody\ntheir first credential. Even there the staff member does not choose it: the\nserver generates it, shows it once, and the account can do nothing but replace\nit until it does."
       properties:
         name:
           type: string
@@ -6308,6 +6306,11 @@ components:
           format: date-time
         is_active:
           type: boolean
+        password_change_required_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
       required:
         - id
         - name
@@ -6319,18 +6322,8 @@ components:
         - phone
         - phone_verified_at
         - is_active
+        - password_change_required_at
       title: User
-    VerifyOtpRequest:
-      type: object
-      properties:
-        phone:
-          type: string
-        code:
-          type: string
-      required:
-        - phone
-        - code
-      title: VerifyOtpRequest
     WithdrawConsentRequest:
       type: object
       description: "Withdrawal of one previously granted consent.\n\nWithdrawal is per type for the same reason granting is: a patient who no\nlonger wants remote consultations has not necessarily withdrawn consent to be\ntreated at all, and collapsing the two would either over-read or under-read\nwhat they actually said.\n\nNo policy version is accepted here. A withdrawal inherits the version and\ntext hash of the grant it revokes -- that is the text the patient is walking\nback, and pinning the current wording instead would rewrite history."

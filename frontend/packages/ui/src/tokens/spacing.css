@@ -3,6 +3,11 @@
 
    Sharp corners. Small radii and hairline borders read as precise and clinical,
    which is the right register for a product that issues prescriptions.
+
+   TWO radius scales live here, --r-* and --sr-*, and the reason is written where the
+   second one is defined. Nothing in the console reaches for the marketing scale, and
+   nothing on the marketing surface reaches for the console's — a component that wants
+   both is a component that has not decided who it is talking to.
    ============================================================ */
 
 :root {
@@ -15,8 +20,40 @@
   --shadow-pop: 0 10px 34px rgba(20, 34, 30, 0.13);
   --shadow-product: rgba(20, 34, 30, 0.18) 2px 4px 24px 0;
 
+  /* ---- The marketing surface ----
+     A second, rounder shape scale, because the two surfaces are addressed to two people
+     in two states of mind. The console is sharp at 6px and stays that way: a clinician
+     is mid-consultation, issuing a prescription, and a playful corner radius on that
+     form is a claim about the seriousness of the thing being signed. A patient reading a
+     clinic's landing page on their phone is being introduced to a service they may not
+     yet trust, and 16px there reads as approachable rather than casual.
+
+     These are deliberately NOT overrides of --r-md and friends. Both scales exist at the
+     same time in the same product — a marketing page can contain a real form — so they
+     need separate names, not a redefinition that makes the console's radius depend on
+     which page it happens to be rendered on. */
+  --sr: 16px;
+  --sr-lg: 24px;
+  --sr-pill: 999px;
+
+  /* The lifted shadow the marketing cards sit on. Negative spread and a long, soft
+     y-offset, so it reads as height rather than as a border someone blurred. The console
+     has --shadow-sm and --shadow-pop and needs nothing between them; a landing page
+     does. */
+  --shadow-md: 0 10px 30px -12px rgba(20, 40, 34, 0.18);
+
   --nav-w: 250px;
   --top-h: 60px;
+  /* The public header, at rest and once scrolling has condensed it. Here rather than in
+     the marketing layer because it is a layout dimension like the two above it, and
+     because the offset that keeps content clear of a FIXED header is derived from it —
+     the two cannot be allowed to drift apart in separate files. */
+  --hh: 68px;
+  --hh-sm: 58px;
+  /* One content width for both surfaces, already defined for the console. The reference
+     narrows its marketing pages to 1180px; that is a per-surface choice belonging to the
+     layer that owns the marketing wrapper, and redefining --maxw here would silently
+     narrow every console screen along with it. */
   --maxw: 1280px;
 
   /* Touch targets sized for real thumbs, per the accessibility requirements. A
@@ -34,8 +71,12 @@
   --space-8: 30px;
 }
 
+/* Shadows only. Every other metric above is a dimension, and a dimension does not change
+   because the lights went out — but a shadow tuned for ink on paper disappears entirely
+   against a dark surface, so it is spread further and darkened until it reads again. */
 :root[data-theme='dark'] {
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
   --shadow-pop: 0 10px 34px rgba(0, 0, 0, 0.5);
   --shadow-product: rgba(0, 0, 0, 0.5) 2px 4px 24px 0;
+  --shadow-md: 0 12px 34px -14px rgba(0, 0, 0, 0.6);
 }

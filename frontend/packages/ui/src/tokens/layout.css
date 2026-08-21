@@ -134,15 +134,23 @@
 .tabbar a:hover { text-decoration: none; }
 
 /* ---- The rider frame ----
-   One column, no sidebar, nothing to get lost in. The rider is the least-trusted
-   actor and has the fewest things to do: see the next assignment, change its status. */
-.field {
+   The page frame the rider view wraps every route in. One column, no sidebar, nothing
+   to get lost in: the rider is the least-trusted actor and has the fewest things to
+   do -- see the next assignment, change its status.
+
+   Named .fieldview and not .field on purpose. `.field` is the form-row primitive in
+   components.css, and this layer is imported after that one, so a frame sharing the
+   name won on equal specificity and made every form field in the product a 100vh,
+   560px-wide centred column. That shipped: on the sign-in page it pushed the password
+   input and the submit button a full viewport below the fold. tokens.test.ts now
+   fails the build if any selector is claimed by two layers. */
+.fieldview {
   display: flex; flex-direction: column;
   min-height: 100vh;
   max-width: 560px; margin-inline: auto;
   background: var(--canvas);
 }
-.field__main { flex: 1; padding: var(--space-5) var(--space-4); }
+.fieldview__main { flex: 1; padding: var(--space-5) var(--space-4); }
 
 /* ---- The patient portal frame ----
    A document, centred, branded. Wider line length than a console because it is read

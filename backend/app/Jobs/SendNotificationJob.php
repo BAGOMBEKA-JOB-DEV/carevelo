@@ -40,8 +40,9 @@ class SendNotificationJob extends TenantAwareJob
     /**
      * Exponential backoff, in seconds.
      *
-     * Wide enough to outlast a brief operator wobble, short enough that an OTP
-     * still arrives while the patient is looking at the sign-in screen.
+     * Wide enough to outlast a brief operator wobble, short enough that a message
+     * somebody is waiting on -- a payment confirmed, an order ready to collect --
+     * still arrives while it is the thing they are waiting for.
      *
      * @return list<int>
      */

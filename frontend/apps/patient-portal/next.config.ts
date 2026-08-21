@@ -1,41 +1,19 @@
 import type { NextConfig } from 'next'
 
 /**
- * A strict Content Security Policy, with no `unsafe-inline` for scripts.
+ * Security headers that are the same for every response.
  *
- * Acceptance criterion 6, and it is a real control rather than a header to tick off.
- * This surface renders a patient's own health information and applies colours a
- * clinic chose; CSP is the layer that holds if validation somewhere ever does not.
+ * THE CONTENT SECURITY POLICY IS NOT HERE — it lives in `src/proxy.ts`, because it
+ * carries a per-request nonce and a header declared in this file is identical on every
+ * response. A nonce that repeats is not a nonce.
  *
- * `style-src` DOES allow 'unsafe-inline', and that is worth being honest about
- * rather than quietly omitting. React writes the brand tokens as an inline style
- * attribute on <html>, and Next emits inline style for its own CSS handling. The
- * exposure is far smaller than it looks: an attribute cannot open a new rule or
- * selector the way a <style> block can, every token is validated against
- * /^#[0-9A-Fa-f]{6}$/ before it is set, and the API refuses to store a non-hex value
- * in the first place. Scripts — the part that could exfiltrate — get no such
- * allowance.
- *
- * `connect-src 'self'` because the API shares the host. `frame-ancestors 'none'`
- * because a clinic's portal has no business inside someone else's frame, and
- * clickjacking a "confirm payment" button is the obvious attack.
+ * That move was not tidying. The policy used to say `script-src 'self'` from here, which
+ * reads as maximally strict and in practice switched the product off: Next boots React
+ * with an inline script, `'self'` does not cover inline, so hydration never ran and every
+ * interactive control on the surface was dead while the pages looked perfectly normal.
  *
  * @see docs/30-architecture/frontend-nextjs.md
  */
-const csp = [
-  "default-src 'self'",
-  "script-src 'self'",
-  "style-src 'self' 'unsafe-inline'",
-  // The clinic's logo is served from tenant-partitioned storage on our own origin.
-  "img-src 'self' data: blob:",
-  "font-src 'self'",
-  "connect-src 'self'",
-  "form-action 'self'",
-  "base-uri 'none'",
-  "object-src 'none'",
-  "frame-ancestors 'none'",
-  'upgrade-insecure-requests',
-].join('; ')
 
 const config: NextConfig = {
   reactStrictMode: true,
@@ -51,7 +29,6 @@ const config: NextConfig = {
       {
         source: '/:path*',
         headers: [
-          { key: 'Content-Security-Policy', value: csp },
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'Referrer-Policy', value: 'same-origin' },
           // No browser feature on this surface needs a camera or microphone at the

@@ -19,7 +19,9 @@ use Illuminate\Foundation\Http\FormRequest;
  * and picking one silently would mean two requests that look identical signing in as
  * different people.
  *
- * Patients may also use a code with no password at all, which is a different endpoint.
+ * This is the ONLY way in, for everybody. Patients sign in here too, with the address
+ * and the password their clinic issued them at the registration desk -- there is no
+ * second, weaker endpoint that takes a code and no password.
  *
  * @see docs/40-api/authentication-and-sessions.md
  */

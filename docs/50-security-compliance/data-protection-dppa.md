@@ -87,7 +87,7 @@ Requirements, each of which is a design constraint rather than a policy aspirati
 - **Withdrawable**, as easily as it was given.
 - **Demonstrable** — this is the operative word. An immutable `ConsentRecord` stores the policy version and a hash of the exact text shown, so we can reconstruct months later precisely what someone agreed to ([Domain Model](../20-domain/domain-model.md)).
 
-Minors require guardian consent, with the guardian's phone separately verified.
+Minors require guardian consent. The guardian is identified in person by the staff member taking the consent, who attests to it as an audited action — the platform proves nothing about a guardian's phone number and no longer claims to ([H2 §4](../10-product/prd-h2-patient-registration-consent.md), [ADR-0011](../70-decisions/0011-staff-issued-patient-accounts.md)).
 
 ## Data classification and where each class may go
 

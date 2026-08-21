@@ -4,10 +4,9 @@ namespace App\Http\Requests\Auth\Concerns;
 
 use App\Http\Requests\V1\Patients\Concerns\NormalisesPhoneNumbers;
 use App\Rules\UgandanPhone;
-use App\Support\PhoneNumber;
 
 /**
- * The `phone` field every authentication endpoint takes.
+ * The `phone` field an authentication request may take.
  *
  * Normalised to E.164 before the rules run, so "0772 123 456" and
  * "+256772123456" are one identity and not two -- which is what makes
@@ -24,27 +23,15 @@ trait ResolvesPhoneNumber
     }
 
     /**
-     * @return array<string, mixed>
-     */
-    protected function phoneRules(): array
-    {
-        return ['phone' => ['required', 'string', $this->phoneRule()]];
-    }
-
-    /**
-     * The format rule on its own.
+     * The format rule on its own, for a request to compose into its own set.
      *
-     * Separate from phoneRules() because SignInRequest composes its own set: there the
-     * number is one of two possible identifiers rather than a required field.
+     * A rule rather than a ready-made `phone => [...]` entry, because the number is
+     * not simply required: SignInRequest takes it as one of two possible identifiers,
+     * and a trait that decided the field was mandatory would be wrong about the only
+     * request that uses it.
      */
     protected function phoneRule(): UgandanPhone
     {
         return new UgandanPhone;
-    }
-
-    /** The validated number in E.164, ready to use as a lookup key. */
-    public function phone(): string
-    {
-        return PhoneNumber::parse((string) $this->validated('phone'))->e164;
     }
 }

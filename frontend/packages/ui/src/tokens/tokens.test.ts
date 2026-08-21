@@ -15,6 +15,11 @@ import { BRAND_PROPERTIES } from '../brand/types'
  * dependency — colours and metrics define the properties every later layer reads —
  * and getting it wrong produces a page that renders with half its variables unset,
  * which looks like a design problem rather than a build one.
+ *
+ * That order is also why each layer must own its selectors outright. Equal specificity
+ * across two layers is decided by import order alone, silently, in favour of whichever
+ * file happens to come later — so a name reused in a second layer is not an override
+ * anyone asked for, it is a rule quietly replacing one somewhere else in the product.
  */
 
 const DIR = fileURLToPath(new URL('.', import.meta.url))
@@ -35,6 +40,53 @@ function references(source: string): Set<string> {
   return new Set(
     [...source.matchAll(/var\(\s*(--[a-z0-9-]+)/g)].map((m) => m[1] as string),
   )
+}
+
+/* The eight layers, in the order the browser sees them. Read from index.css rather than
+   listed here, so a layer added tomorrow is checked without anyone remembering to. */
+function layers(): string[] {
+  return [...css('index.css').matchAll(/@import '\.\/([a-z]+\.css)'/g)].map((m) => m[1] as string)
+}
+
+type Rule = { selectors: string[]; body: string; depth: number }
+
+/* Enough of a CSS reader for our own eight files, and no dependency to pull in: strip
+   the comments, walk the braces, and hand back every rule's selector list, its
+   declarations, and how deep it sits — depth 0 meaning a plain rule rather than one
+   wrapped in an @media. */
+function rules(source: string): Rule[] {
+  const found: Rule[] = []
+  const open: (Rule | null)[] = []
+  let prelude = ''
+
+  for (const character of source.replace(/\/\*[\s\S]*?\*\//g, '')) {
+    if (character === '{') {
+      const head = prelude.trim().replace(/\s+/g, ' ')
+
+      if (head.startsWith('@') || head === '') {
+        open.push(null)
+      } else {
+        const rule: Rule = {
+          selectors: head.split(',').map((s) => s.trim()).filter(Boolean),
+          body: '',
+          depth: open.length,
+        }
+        found.push(rule)
+        open.push(rule)
+      }
+
+      prelude = ''
+    } else if (character === '}') {
+      open.pop()
+      prelude = ''
+    } else {
+      prelude += character
+      const current = open[open.length - 1]
+      if (current) current.body += character
+    }
+  }
+
+  return found
 }
 
 describe('the token layer', () => {
@@ -133,5 +185,64 @@ describe('the token layer', () => {
       expect(block, `${selector} not found`).toBeDefined()
       expect(block).toContain('min-height: var(--touch-min)')
     }
+  })
+
+  it('never lets two layers claim the same selector', () => {
+    // This one already bit us. components.css owned `.field` as the form row; layout.css
+    // reused the name for the rider's page frame. layout is imported later, the
+    // specificity is identical, so layout won -- and every form field in the product
+    // became a 100vh, 560px-wide centred column. On the sign-in page that put the
+    // password input and the submit button a full viewport below the fold, and it
+    // shipped, because nothing in CSS or the build has an opinion about two files
+    // spelling a class the same way. This does.
+    //
+    // :root is the one deliberate overlap: colours, typography and spacing each layer
+    // their own custom properties onto it, which is the point of having layers at all.
+    const layered = new Set([':root', ":root[data-theme='dark']"])
+    const owner = new Map<string, string>()
+    const collisions: string[] = []
+
+    for (const layer of layers()) {
+      const claimed = new Set(
+        rules(css(layer))
+          .filter((rule) => rule.depth === 0)
+          .flatMap((rule) => rule.selectors),
+      )
+
+      for (const selector of claimed) {
+        if (layered.has(selector)) continue
+
+        const held = owner.get(selector)
+
+        // Named on both sides, because the whole value of this test is that whoever
+        // trips it can see the collision without going looking for it.
+        if (held) collisions.push(`${selector} is claimed by both ${held} and ${layer}`)
+        else owner.set(selector, layer)
+      }
+    }
+
+    expect(collisions).toEqual([])
+  })
+
+  it('never sizes a form primitive to the viewport', () => {
+    // The same bug caught by its shape rather than by its name, in case the next one
+    // arrives under a different class. A form control or button that is a viewport tall
+    // pushes everything after it -- the next input, the submit button -- off the screen,
+    // and a form whose button cannot be seen reads to the user as a form with no button.
+    // Full-height belongs to page frames (.layout, .fieldview, .site), never to these.
+    const primitives = ['.field', '.input', '.textarea', '.select', '.btn']
+    const offenders: string[] = []
+
+    for (const layer of layers()) {
+      for (const rule of rules(css(layer))) {
+        if (!/min-height:\s*100(?:v|dv|sv)h/.test(rule.body)) continue
+
+        for (const primitive of rule.selectors.filter((s) => primitives.includes(s))) {
+          offenders.push(`${primitive} is full-viewport in ${layer} (${rule.selectors.join(', ')})`)
+        }
+      }
+    }
+
+    expect(offenders).toEqual([])
   })
 })

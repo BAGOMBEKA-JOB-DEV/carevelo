@@ -1,6 +1,6 @@
 # ADR-0010 — One account, many patient records
 
-> **Status:** Accepted
+> **Status:** Accepted — § *Claiming a record* superseded by [ADR-0011](0011-staff-issued-patient-accounts.md)
 > **Date:** 2026-08-17
 > **Derives from:** [H2 §Registration](../10-product/prd-h2-patient-registration-consent.md), [RBAC Matrix](../50-security-compliance/rbac-matrix.md), Business Plan §130
 

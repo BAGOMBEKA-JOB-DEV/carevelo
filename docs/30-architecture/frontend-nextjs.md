@@ -164,7 +164,28 @@ The client is untrusted. Rules that follow from that:
 
 1. **Tenant identity is never a client-supplied value.** It comes from the host or the session, and the API ignores any client attempt to assert it ([Multi-Tenancy](multi-tenancy.md)).
 2. **Branding tokens are validated server-side before reaching the client.** They arrive as a strict, typed set and are applied as CSS custom properties. No tenant-supplied string is ever interpolated into a `<style>` block or a `dangerouslySetInnerHTML`.
-3. **A strict Content Security Policy** with no `unsafe-inline` for scripts. Nonce-based where inline is unavoidable.
+3. **A strict Content Security Policy** with no `unsafe-inline` for scripts. It is
+   **nonce-based**, minted per request in `apps/patient-portal/src/proxy.ts` rather than
+   declared in `next.config.ts` — a header declared there is identical on every response,
+   and a nonce that repeats is not a nonce. `script-src` carries `'strict-dynamic'`, which
+   discards `'self'`, so even our own same-origin scripts must carry the nonce.
+
+   `style-src` **does** allow `'unsafe-inline'`, and that is a deliberate exception rather
+   than an omission: the clinic's colours reach the page as an inline style *attribute* on
+   `<html>`, and a nonce cannot authorise an attribute. The exposure is much smaller than
+   the keyword suggests — an attribute cannot open a new selector or rule the way a
+   `<style>` block can, and every token is validated against `/^#[0-9A-Fa-f]{6}$/` before
+   it is set. Scripts, the part that could exfiltrate a patient's records, get no such
+   allowance. The framework's own CSP example uses `style-src 'nonce-…'`; copying it
+   strips every clinic's branding.
+
+   > **A CSP failure is silent.** `script-src 'self'` was set statically for a period and
+   > read as maximally strict. It was not: the framework boots React with an inline
+   > script, `'self'` does not cover inline, so hydration never ran and every interactive
+   > control on the surface was inert — the theme toggle did nothing, the header never
+   > frosted on scroll, the mobile menu could not open — while every page looked entirely
+   > normal and every server-rendered test passed. Nothing catches this except opening the
+   > console or clicking the control and measuring the result.
 4. **Clinical data is never cached in the service worker or in local storage**, with the sole exception of the in-progress consultation note draft — which is cleared on submission and on sign-out.
 
 ## Sessions
@@ -197,7 +218,10 @@ Aggregator errors are shown **verbatim from the aggregator**, since only the agg
 3. Consultation notes survive a deliberate mid-session disconnection.
 4. The booking path meets the performance budget on a throttled 3G profile.
 5. No tenant-supplied value can inject markup, style or script. Covered by test with hostile inputs.
-6. CSP blocks inline script.
+6. CSP blocks inline script — **and the page still hydrates**. Both halves are the
+   criterion: a policy that blocks the framework's own bootstrap satisfies the first half
+   and turns the product off. Test by driving a client-side control (the theme toggle) and
+   asserting the DOM changed, not by reading the header.
 7. No clinical data persists in client storage beyond the active note draft.
 8. Patient consent text renders in English and Luganda.
 9. The revenue view excludes test data and never counts pending payments as earned.

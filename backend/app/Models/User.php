@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Carbon;
 use Spatie\Permission\Traits\HasRoles;
 
 /**
@@ -41,6 +42,7 @@ use Spatie\Permission\Traits\HasRoles;
  * @property ?string $email
  * @property ?PhoneNumber $phone
  * @property bool $is_active
+ * @property ?Carbon $password_change_required_at
  */
 class User extends Authenticatable
 {
@@ -92,6 +94,21 @@ class User extends Authenticatable
     ];
 
     /**
+     * password_change_required_at is timestamptz.
+     *
+     * Laravel's default format is naive ('Y-m-d H:i:s'), so PostgreSQL resolves
+     * the missing offset in the SESSION's timezone rather than the application's,
+     * and the instant stored depends on how the database server happens to be
+     * configured.
+     *
+     * Columns declared without a timezone ignore the offset, so email_verified_at,
+     * phone_verified_at, created_at and updated_at are unaffected.
+     *
+     * @var string
+     */
+    protected $dateFormat = 'Y-m-d H:i:sP';
+
+    /**
      * @return array<string, string>
      */
     protected function casts(): array
@@ -99,6 +116,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'phone_verified_at' => 'datetime',
+            'password_change_required_at' => 'datetime',
             'password' => 'hashed',
             'phone' => PhoneNumber::class,
             'is_active' => 'boolean',
@@ -155,6 +173,25 @@ class User extends Authenticatable
     public function owns(?string $patientId): bool
     {
         return $patientId !== null && in_array($patientId, $this->ownedPatientIds(), true);
+    }
+
+    /**
+     * Whether this account is still using a password somebody else chose.
+     *
+     * True only on the staff-issued patient path: clinic staff create the
+     * account at the registration desk and read the initial password aloud, so
+     * for as long as it stands a second person knows it. RequirePasswordChange
+     * refuses everything but the password change until this is discharged, which
+     * matters because consent is the patient role's alone -- a staff member
+     * signing in with the credential they issued could forge a consent decision
+     * that the audit trail would attribute to the patient.
+     *
+     * Invited staff choose their own password when they accept, so they never
+     * carry this.
+     */
+    public function mustChangePassword(): bool
+    {
+        return $this->password_change_required_at !== null;
     }
 
     public function isPlatformUser(): bool

@@ -1,23 +1,20 @@
-import { cookies, headers } from 'next/headers'
+import { cookies } from 'next/headers'
+import type { components } from '@carevelo/api-client'
+import { requestHost } from '@/lib/tenant'
 
 /**
  * Who is signed in.
  *
- * Declared here rather than taken from the generated client because GET /v1/me has NO
- * schema to take: the route is `fn (Request $request) => $request->user()`, returning the
- * Eloquent model raw. So the contract cannot describe it, and this is the one place in
- * the workspace with a hand-written response type.
+ * TAKEN FROM THE CONTRACT NOW. This used to be a hand-written interface — the one in the
+ * workspace — because GET /v1/me was a route closure returning the Eloquent model raw, so
+ * there was no schema to generate from. That endpoint is a controller method returning
+ * MeResource, so the type comes from the generated client like every other, and the raw
+ * model's tenant_id and timestamps no longer reach a patient's browser.
  *
- * That is a defect in the endpoint, not a licence to hand-write types. Returning the raw
- * model also ships tenant_id, email_verified_at and both timestamps to a patient's
- * browser, which is more than the caller needs to know about itself. It should return a
- * resource; when it does, this type comes from the generated client like every other.
+ * The alias is kept because every page imports `Me`; it is now an alias for the generated
+ * shape rather than a second, independent description of it that was free to drift.
  */
-export interface Me {
-  id: string
-  name: string
-  phone?: string | null
-}
+export type Me = components['schemas']['MeResource']
 
 /**
  * Who is signed in, according to the API.
@@ -30,7 +27,8 @@ export interface Me {
  * home page shows a sign-in prompt, and a records page redirects.
  */
 export async function currentUser(): Promise<Me | null> {
-  const host = (await headers()).get('host') ?? 'localhost'
+  // See requestHost(): `host` loses the clinic's subdomain on an action-redirect render.
+  const host = (await requestHost()) ?? 'localhost'
   const jar = await cookies()
 
   const configured = process.env.NEXT_PUBLIC_API_ORIGIN
@@ -57,5 +55,11 @@ export async function currentUser(): Promise<Me | null> {
     return null
   }
 
-  return (await response.json()) as Me
+  // UNWRAPPED. An Eloquent API resource nests its payload under `data`, and the previous
+  // version of this function read the body as the user itself — which is what a raw model
+  // used to be. Reading it flat once the endpoint returned a resource left every field
+  // undefined, so a signed-in patient rendered as a blank name rather than failing loudly.
+  const body = (await response.json()) as { data?: Me }
+
+  return body.data ?? null
 }

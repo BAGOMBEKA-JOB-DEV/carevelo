@@ -93,7 +93,7 @@ The MVP is five flows. Each has a full specification with its happy path, every 
 | Flow | What it covers |
 |---|---|
 | **[H1 — Clinic onboarding](docs/10-product/prd-h1-clinic-onboarding.md)** | Tenant creation and isolation, branding, staff invitations, services and prices, connecting the clinic's own payment credentials. Target: **under one day** |
-| **[H2 — Patient registration & consent](docs/10-product/prd-h2-patient-registration-consent.md)** | DPPA-compliant consent capture with an immutable record, OTP verification, guardian consent for minors, and a decline path that leaves no clinical footprint |
+| **[H2 — Patient registration & consent](docs/10-product/prd-h2-patient-registration-consent.md)** | DPPA-compliant consent capture with an immutable record, patient accounts issued by clinic staff, guardian consent for minors, and a decline path that leaves no clinical footprint |
 | **[H3 — Teleconsultation](docs/10-product/prd-h3-teleconsultation.md)** | Book → pay → consult by video/voice/chat → clinical notes → e-prescription issued under the clinician's own registration |
 | **[H4 — Prescription, dispensing & delivery](docs/10-product/prd-h4-prescription-dispensing-delivery.md)** | Routing to the clinic's own pharmacy, stock check and pricing, clinician-approved substitutions, dispatch and delivery tracking |
 | **[H5 — Payments](docs/10-product/prd-h5-payments-non-custodial.md)** | Non-custodial mobile-money and card collection settling directly to the clinic, with reconciliation of *records* rather than money |
@@ -235,16 +235,17 @@ tenancy is resolved from the host, and every clinic is a subdomain.
 | Clinic administrator | `0772 000 002` |
 | Clinician | `0772 000 003` |
 
-There is no SMS gateway locally, so read the code out of the message that would have
-been sent:
+All three use the password `demo-password`, and the seeder prints the exact identifiers it
+created when it runs.
 
-```bash
-cd backend
-php artisan dev:otp 0772000001
-```
+Sign-in takes an email address **or** a phone number, and a password. There are no
+one-time codes anywhere in the product: in production a patient's account is issued by
+clinic staff from the patient's record, with a generated password read out at the desk and
+replaced by the patient on first sign-in
+([ADR-0011](docs/70-decisions/0011-staff-issued-patient-accounts.md)).
 
-`dev:otp` and `DemoClinicSeeder` both refuse to run outside `local` — one prints a live
-credential and the other creates accounts with known numbers.
+`DemoClinicSeeder` refuses to run outside `local` — it creates accounts with known numbers
+and a known password.
 
 ### Why `composer setup` creates database roles
 

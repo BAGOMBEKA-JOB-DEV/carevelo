@@ -206,7 +206,7 @@ Horizon on Redis, with separate queues by urgency because an SMS backlog must ne
 
 ```mermaid
 flowchart LR
-    API["API"] --> C["critical<br/>OTP · payment webhooks"]
+    API["API"] --> C["critical<br/>payment webhooks · invitations"]
     API --> D["default<br/>notifications · PDF rendering"]
     SCH["Scheduler"] --> L["low<br/>reconciliation · retention · exports"]
 
@@ -221,11 +221,11 @@ flowchart LR
     style FAIL fill:#7a1f1f,stroke:#4a1010,color:#fff
 ```
 
-Separating the queues is not premature optimisation. A clinic sending a batch of appointment reminders must not delay an OTP that a patient is waiting on, or a payment webhook whose delay leaves a patient unsure whether they paid.
+Separating the queues is not premature optimisation. A clinic sending a batch of appointment reminders must not delay a payment webhook, whose delay leaves a patient unsure whether they paid, or a staff invitation that an administrator is sitting waiting for mid-onboarding.
 
 | Queue | Contents | Target |
 |---|---|---|
-| `critical` | OTP, payment webhooks | seconds |
+| `critical` | Payment webhooks, staff invitations | seconds |
 | `default` | Notifications, PDF rendering | under a minute |
 | `low` | Reconciliation sweeps, retention, exports | minutes |
 

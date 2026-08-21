@@ -29,7 +29,6 @@ All templates are clinic-branded and identify the clinic as sender ([White-Label
 
 | Event | Channel | Content |
 |---|---|---|
-| Registration OTP | SMS | Code, expiry. Never a link |
 | Appointment confirmed | SMS + optional WhatsApp | Clinic, date, time, join link |
 | Appointment reminder (24h, 1h) | SMS | Clinic, time, join link |
 | Appointment cancelled | SMS | Clinic, cancelled slot |
@@ -42,6 +41,8 @@ All templates are clinic-branded and identify the clinic as sender ([White-Label
 | Delivery completed | SMS | Confirmation |
 | Results available | SMS (Phase 2) | Sign-in link only |
 | Staff invitation | SMS | Clinic, set-up link |
+
+**No message carries a credential.** The platform sends no one-time codes at all, and a patient's initial password is read out at the desk rather than sent ([Auth](../40-api/authentication-and-sessions.md), [ADR-0011](../70-decisions/0011-staff-issued-patient-accounts.md)). The staff invitation is the single exception in spirit and not in fact: it carries a single-use, expiring, tenant-bound token that is spent on first use and grants only a role fixed in advance — not something anyone can sign in with twice.
 
 ## Channels
 
@@ -61,7 +62,7 @@ Notifications are queued jobs, not synchronous calls — an SMS gateway timeout 
 
 - Retry with exponential backoff, three attempts.
 - Delivery receipts recorded where the gateway provides them.
-- OTP messages are highest priority and never batched.
+- Staff invitations and payment outcomes are highest priority and never batched — somebody is sitting in front of a screen waiting for both.
 - Failure to send is surfaced to clinic staff for critical notifications rather than swallowed.
 - Rate-limited per tenant to contain both cost and the blast radius of a bug.
 
@@ -73,14 +74,14 @@ SMS is a metered pass-through billed at cost plus a small margin (§F). Each ten
 
 Transactional notifications flow from the care relationship and the consent captured at registration. **Marketing messages are not sent — by Carevelo, ever, to patients.** The patient belongs to the clinic ([Non-Goals](non-goals.md)). If a clinic wishes to market to its own patients, that is its decision under its own controller obligations, and it is not an MVP feature.
 
-Opt-out instructions appear where the channel requires them; opt-out never disables OTP or a message the patient explicitly requested.
+Opt-out instructions appear where the channel requires them; opt-out never disables a message the patient explicitly requested, nor one the clinic must send to finish something the patient started — an appointment change, a payment outcome, a prescription being ready.
 
 ## Acceptance criteria
 
 1. No notification template contains a diagnosis, medicine name, test result or appointment reason. Enforced by a template review test asserting against a prohibited-content list.
 2. All templates identify the clinic as sender.
 3. Notification sending is asynchronous and cannot fail the originating transaction.
-4. OTP messages contain no link.
+4. No template contains a password, a one-time code or any other credential. The staff invitation's single-use token is the only sign-in material any message carries, and it expires and is spent on first use. Enforced by the same template review test.
 5. WhatsApp is opt-in and never the sole channel.
 6. Per-tenant rate limits and SMS balance tracking are enforced.
 7. Every notification job restores tenant context before rendering.

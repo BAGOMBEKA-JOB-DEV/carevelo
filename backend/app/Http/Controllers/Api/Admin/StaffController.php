@@ -41,8 +41,17 @@ class StaffController extends Controller
         // BelongsToTenant -- authentication has to find a user before a tenant
         // is resolved -- so there is no global scope here to lean on, and no
         // row-level security on the users table either.
+        //
+        // And filtered on the role, which was not needed while patients had no
+        // accounts and became urgent the moment front desk could create them. A
+        // clinic has tens of staff and thousands of patients: without this, the
+        // staff list is a patient list, twenty-five at a time, with the people
+        // an administrator came to manage somewhere past the end of it. It is
+        // also a data-minimisation failure -- the staff surface is
+        // administrative, and a patient's presence on it is not administration.
         $staff = User::query()
             ->where('tenant_id', $tenant->id)
+            ->withoutRole(ClinicalRole::Patient->value)
             ->with('roles')
             ->orderBy('name')
             ->orderBy('id')
@@ -135,6 +144,15 @@ class StaffController extends Controller
         // account exists, which discloses that a given person works at some
         // other clinic on Carevelo.
         abort_unless($user->belongsToTenant($tenant->id), 404);
+
+        // A patient account is not staff, and this endpoint is the staff surface.
+        // 404 for the same reason another tenant's staff member gets one: the
+        // account is not part of the collection being addressed, so saying so is
+        // the honest answer rather than a permission problem. It also matters
+        // concretely -- `role` here would let an administrator promote a patient
+        // account into a clinical role, and `is_active` would let them lock a
+        // patient out of their own records from the staff screen.
+        abort_if($user->hasRole(ClinicalRole::Patient->value), 404);
 
         $changes = $request->validated();
 

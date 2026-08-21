@@ -1,0 +1,109 @@
+name: frontend
+
+on:
+  push:
+    paths: ['frontend/**', 'docs/40-api/openapi.yaml', '.github/workflows/frontend.yml']
+  pull_request:
+    paths: ['frontend/**', 'docs/40-api/openapi.yaml', '.github/workflows/frontend.yml']
+
+# Path-filtered, and the second entry is the one that matters.
+#
+# `frontend/**` alone would be a hole rather than an optimisation: the generated
+# client is checked against docs/40-api/openapi.yaml, which lives OUTSIDE this
+# tree. A commit that changes only the published contract would then touch no
+# path this workflow watches, skip the job entirely, and report a green tick for
+# a client it never revalidated — the exact failure this gate exists to catch.
+# So the contract is a trigger for BOTH trees, symmetrically with backend.yml.
+#
+# Filtered on the file, not `docs/40-api/**`, because openapi.yaml is a
+# single self-contained document — it carries no external $ref — so the prose
+# beside it (api-conventions.md, endpoint-catalogue.md) cannot change what the
+# generator emits. Should the spec ever be split across files, widen this.
+#
+# @see docs/30-architecture/environments-and-deployment.md
+# @see docs/70-decisions/0007-separate-backend-frontend-trees.md
+
+defaults:
+  run:
+    working-directory: frontend
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          # No version pin here on purpose. `package_json_file` makes the action
+          # read `packageManager: pnpm@11.20.0` out of frontend/package.json, so
+          # CI and every workstation resolve the same pnpm from one declaration
+          # instead of two that can drift. It has to be spelled out because this
+          # action is a JS action -- `defaults.run.working-directory` does not
+          # apply to it, and there is no package.json at the repository root.
+          package_json_file: frontend/package.json
+
+      - uses: actions/setup-node@v4
+        with:
+          # engines declares ">=22". Majors only, as with the backend's PHP pin:
+          # a patch release should not need a commit here.
+          node-version: '22'
+          cache: pnpm
+          # Also not subject to working-directory, and the lockfile is what the
+          # cache key must hash -- keyed on anything coarser, a dependency bump
+          # would restore a stale store.
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+
+      # --- Blocking gates. Each catches a class of defect we cannot ship. ---
+
+      - name: Check (typecheck, lint, boundaries, api client, tests, four builds)
+        # One composed script rather than six steps, so `pnpm check` locally and
+        # CI cannot disagree about what "checked" means -- the same reasoning that
+        # made TreeBoundaryTest and the backend's tree-boundary step share a
+        # command. Two controls giving different answers is worse than either
+        # being wrong alone.
+        #
+        # It covers: tsc across every workspace, ESLint at --max-warnings 0, the
+        # dependency-cruiser layer and cross-app boundary rules, api-client:check,
+        # the @carevelo/ui token tests under Vitest, and a production `next build`
+        # of all four apps.
+        #
+        # No NEXT_PUBLIC_API_ORIGIN. The patient portal reads it in three places
+        # (lib/tenant.ts, lib/session.ts, domains/identity/api/session.ts), but
+        # each reads it inside a request-time server function and each falls back
+        # to `https://${host}`, so no build depends on it. Setting it would be
+        # actively wrong rather than merely useless: NEXT_PUBLIC_* is inlined at
+        # build time, so a placeholder origin would be baked into the artefacts.
+        run: pnpm check
+
+      - name: The generator reproduces the committed client
+        # `pnpm check` already ran api-client:check, which regenerates to a temp
+        # file and compares -- so this step deliberately does NOT repeat that
+        # comparison. What it adds is the other half: proof that the generator
+        # itself, run the way a developer is told to run it, lands on exactly the
+        # bytes that are committed.
+        #
+        # They are two different invocations. api-client:check shells out to
+        # openapi-typescript from scripts/ with a resolved absolute path and
+        # writes to a scratch directory; api-client:generate runs from the package
+        # root with a relative path and writes into src/generated/. Nothing
+        # compares the second one's output to anything, and a generator whose
+        # output nobody compares is the same class of defect as a gate that runs
+        # nowhere -- it can drift from the checker for a whole release and the
+        # only symptom is that check-in-sync's remediation advice ("run
+        # `pnpm api-client:generate` and commit the result") stops fixing the
+        # failure it prints.
+        #
+        # Ordered after `pnpm check` and not before it, because this step MUTATES
+        # src/generated/. Run first, it would overwrite the committed client with
+        # fresh output and api-client:check would then cheerfully report that the
+        # client is in sync with a spec it had already fallen behind.
+        run: |
+          set -e
+          pnpm api-client:generate
+          git diff --exit-code -- packages/api-client/src/generated \
+            || { echo "api-client:generate does not reproduce the committed client. Commit its output."; exit 1; }
+          echo "generator output matches the committed client"

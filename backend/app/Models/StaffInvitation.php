@@ -72,9 +72,10 @@ class StaffInvitation extends Model
      *
      * expires_at is `timestamptz`, and PostgreSQL resolves an offset-less
      * literal against the SERVER's timezone, which is not guaranteed to be UTC.
-     * On a +03 server that silently shortened every invitation by three hours.
-     * See the same note on OtpCode, where it shortened a five-minute code to
-     * nothing at all.
+     * On a +03 server that silently shortened every invitation by three hours --
+     * and every short-lived credential in the system by the same amount, which is
+     * why SchemaConformanceTest now checks the format on every model rather than
+     * trusting each one to remember.
      */
     protected $dateFormat = 'Y-m-d H:i:sP';
 

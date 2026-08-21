@@ -1,46 +1,138 @@
 /* ============================================================
    Carevelo — typography tokens
 
-   SYSTEM FONTS ONLY. NO WEBFONTS.
+   TWO SELF-HOSTED FACES, LOADED BY next/font/local. NOTHING FETCHED AT RUNTIME.
 
-   This is the one place the reference design system is deliberately not followed.
-   impala loads Poppins and JetBrains Mono from Google Fonts; Carevelo cannot,
-   because frontend-nextjs.md sets the budget: "No web fonts on the critical path;
-   system font stack."
+   This file used to say "SYSTEM FONTS ONLY. NO WEBFONTS." That was the right call
+   against the thing it was actually arguing with — the reference design system pulls
+   Poppins off a font CDN with a stylesheet import, and that costs a DNS lookup, a TLS
+   handshake to a third party, and a render-blocking stylesheet before a patient on a
+   throttled 3G connection learns whether their appointment is confirmed. It also
+   punches a hole in the CSP, which is `font-src 'self'` on every surface here.
 
-   That budget is not an engineering nicety, it is a competitive advantage in this
-   market. The governing constraint is a mid-range Android phone on variable mobile
-   data, and the patient portal has to reach first paint in under two seconds on a
-   throttled 3G connection. A webfont on the critical path costs a round trip and a
-   render-blocking fetch before the patient can see whether their appointment is
-   confirmed.
+   None of that is true of a font we serve ourselves. The budget in frontend-nextjs.md
+   is about the critical path, and these fonts are not on it:
 
-   The stack below resolves to Roboto on Android, San Francisco on iOS and Segoe on
-   Windows. All three are good, and all three are already on the device.
+     - Same origin, so no extra connection. The bytes arrive over the connection the
+       document already opened.
+     - `display: swap`, so text paints IMMEDIATELY in the system stack below and swaps
+       when the font lands. First contentful paint is unchanged; nothing blocks.
+     - Subset and compressed. Body weight 400 is 7.8KB; the display face is 49KB and is
+       requested only when something on the page actually renders at weight 700 in it.
+     - Hashed, immutable filenames from next/font, so a returning patient re-fetches
+       nothing.
+
+   What it buys is the entire visual register of the product. Headings in a geometric
+   display face rather than the same system font at a heavier weight is the single
+   difference between a page that looks designed and a page that looks like a form. For
+   a white-label product sold to private clinics, where the patient's first impression
+   of their clinic IS this page, that is not decoration.
+
+   Tex Gyre Adventor (GUST Font License) is an Avant Garde-alike; Poppins (SIL OFL) is
+   the body face. Both are redistributable, both are in src/fonts/ with their licence
+   text, and neither is ever requested from anyone else's server.
+
+   ------------------------------------------------------------
+   THE CONTRACT WITH THE APP
+
+   No font is declared in this layer, on purpose. Declaring one here would hard-code a
+   path that no bundler fingerprints, so a font change would be served stale from every
+   cache that already holds it, and nothing would preload. next/font/local self-hosts,
+   fingerprints, emits the preload link and sets `display: swap` — so the app owns the
+   loading and this layer owns only the names.
+
+   The app must therefore SET `--font` and `--head` on <html> from the generated family
+   names. next/font mints a hashed family name (`__display_a1b2c3`), which is why the
+   literals below cannot be the whole story: on their own they match nothing and the
+   stack falls back to system-ui, which is a correct, unstyled, entirely usable page.
+
+   Set them as an INLINE STYLE, not through next/font's `variable` class. A class on
+   <html> and the `:root` rule here have identical specificity, so which one wins would
+   come down to the order Next happens to emit two CSS chunks in — a coin toss, decided
+   at build time, that would show up as the font silently reverting. An inline style has
+   no such argument to lose.
+
+   // apps/<app>/src/app/fonts.ts  — four levels up to frontend/, then into the package
+   import localFont from 'next/font/local'
+
+   const display = localFont({
+     src: [
+       { path: '../../../../packages/ui/src/fonts/texgyreadventor-regular.woff2', weight: '400', style: 'normal' },
+       { path: '../../../../packages/ui/src/fonts/texgyreadventor-bold.woff2', weight: '700', style: 'normal' },
+     ],
+     display: 'swap',
+   })
+
+   const body = localFont({
+     src: [
+       { path: '../../../../packages/ui/src/fonts/poppins-400.woff2', weight: '400', style: 'normal' },
+       { path: '../../../../packages/ui/src/fonts/poppins-500.woff2', weight: '500', style: 'normal' },
+       { path: '../../../../packages/ui/src/fonts/poppins-600.woff2', weight: '600', style: 'normal' },
+       { path: '../../../../packages/ui/src/fonts/poppins-700.woff2', weight: '700', style: 'normal' },
+     ],
+     display: 'swap',
+   })
+
+   export const fontStyle: Record<string, string> = {
+     '--font': `${body.style.fontFamily}, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif`,
+     '--head': `${display.style.fontFamily}, ${body.style.fontFamily}, system-ui, sans-serif`,
+   }
+
+   // apps/<app>/src/app/layout.tsx — merged with the clinic's tokens, which are also
+   // custom properties on the same element.
+   <html lang="en" style={{ ...brandStyle(tenant?.branding), ...fontStyle }}>
+
+   Those two properties are the whole contract. Everything else in the product reads
+   `var(--font)` or `var(--head)` and never names a family.
    ============================================================ */
 
 :root {
-  --font: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  /* Headings differ by weight and tracking, not by family — a second family would
-     be a second download. */
-  --head: var(--font);
+  --font: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  /* The display face, at 700 almost everywhere. Poppins sits behind it so a heading
+     still differs from body text during the swap, and while a weight is in flight. */
+  --head: 'Tex Gyre Adventor', 'Poppins', system-ui, sans-serif;
+  /* Still no webfont for code. Monospace appears on a handful of admin screens and is
+     not worth a third download to anyone. */
   --mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, Consolas, monospace;
 
-  --text-base-size: 15px;
+  /* 14.5px, matched to the reference. Half a pixel under the usual 15 because Poppins
+     runs large for its nominal size — the same measured x-height as the system stack
+     needs slightly less of it. */
+  --text-base-size: 14.5px;
   --text-base-line: 1.5;
   --text-tracking: -0.005em;
 }
 
-.display  { font-family: var(--head); font-size: 40px; font-weight: 700; letter-spacing: -0.022em; line-height: 1.06; }
-.title-lg { font-family: var(--head); font-size: 27px; font-weight: 700; letter-spacing: -0.016em; }
-.title    { font-size: 21px; font-weight: 600; letter-spacing: -0.015em; }
-.subtitle { font-size: 16px; font-weight: 400; color: var(--ink-muted); }
-.eyebrow  { font-size: 11.5px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-faint); }
-.lede     { font-size: 16px; color: var(--ink-2); }
-.fine     { font-size: 12px; color: var(--ink-faint); }
-.mono     { font-family: var(--mono); }
-.muted    { color: var(--ink-muted); }
+/* ---- The scale ----
+   Every step is a class rather than an element rule. Element rules for h1/h2/h3 would
+   put the heading's SIZE under the control of its DEPTH in the document, which is
+   backwards: the level is a structural fact a screen reader needs, and the size is a
+   visual one the page decides. A hero <h1> and a card <h1> are the same level and must
+   not be the same size.
+
+   The two largest steps clamp rather than take a media query. A phone gets 38px and a
+   desktop 62px with everything in between continuous, which is one declaration instead
+   of three breakpoints that each need remembering. */
+
+.display   { font-family: var(--head); font-size: clamp(38px, 5.4vw, 62px); font-weight: 700; letter-spacing: -0.03em; line-height: 1.04; }
+.title-lg  { font-family: var(--head); font-size: clamp(27px, 3.4vw, 40px); font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; }
+/* The console's card and panel heading. Between the h2 and h3 steps deliberately: it
+   labels a region of a working screen, where the display face at a display size would
+   shout over the data it is introducing. */
+.title     { font-size: 21px; font-weight: 600; letter-spacing: -0.015em; }
+.title-sm  { font-family: var(--head); font-size: 17.5px; font-weight: 700; letter-spacing: -0.01em; }
+.subtitle  { font-size: 16px; font-weight: 400; color: var(--ink-muted); }
+/* Tracked wide and set small: an eyebrow is a label for the thing under it, and it has
+   to be legible as a label without competing with the heading it introduces. */
+.eyebrow   { font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-faint); }
+.lede      { font-size: clamp(16px, 1.6vw, 18px); color: var(--ink-muted); }
+.fine      { font-size: 12px; color: var(--ink-faint); }
+.mono      { font-family: var(--mono); }
+.muted     { color: var(--ink-muted); }
+/* The display face without a size, for the places that set their own — a brand
+   wordmark, a numbered step, a figure in a stat block. */
+.head-font { font-family: var(--head); }
 
 /* Tabular figures. Not cosmetic: a column of prices or times that shifts width as
    digits change is hard to scan, and these screens are full of both. */
-.tnum     { font-variant-numeric: tabular-nums; }
+.tnum      { font-variant-numeric: tabular-nums; }

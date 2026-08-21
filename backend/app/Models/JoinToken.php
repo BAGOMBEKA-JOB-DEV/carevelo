@@ -86,9 +86,9 @@ class JoinToken extends Model
     /**
      * Issue a token for one participant, returning the record and the plaintext.
      *
-     * The plaintext is returned and never stored, exactly as OtpCode does it:
-     * this is the only moment it may exist, and the caller hands it straight to
-     * the participant.
+     * The plaintext is returned and never stored, exactly as StaffInvitation does
+     * it: this is the only moment it may exist, and the caller hands it straight
+     * to the participant.
      *
      * @return array{self, string}
      */

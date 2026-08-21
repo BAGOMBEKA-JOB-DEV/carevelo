@@ -214,7 +214,7 @@ stateDiagram-v2
 ```mermaid
 stateDiagram-v2
     [*] --> pending_consent: registration started
-    pending_consent --> active: consent granted + phone verified
+    pending_consent --> active: data_processing consent granted
     pending_consent --> discarded: consent declined
     active --> withdrawn: consent withdrawn
     withdrawn --> active: consent re-granted
@@ -224,5 +224,6 @@ stateDiagram-v2
 **Notes**
 
 - **No clinical data may attach to a patient in `pending_consent`** (§H2.4).
+- Consent alone activates the record. Nothing in the product proves control of the patient's handset any more, so a phone-verification step would be a checkbox rather than a check ([ADR-0011](../70-decisions/0011-staff-issued-patient-accounts.md)); the number is read back to the patient at the desk instead.
 - `discarded` retains only the minimal contact detail needed to explain why service could not proceed, and is purged on schedule.
 - `withdrawn` halts new processing. It does not erase records the clinic must retain as a medical record — the clinic is the controller and that obligation is theirs; see [Retention & Deletion](../50-security-compliance/data-retention-and-deletion.md).

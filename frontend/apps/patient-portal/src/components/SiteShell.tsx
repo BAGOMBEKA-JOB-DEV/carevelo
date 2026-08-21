@@ -1,21 +1,22 @@
 import type { ReactNode } from 'react'
-import Link from 'next/link'
+import { brandStyle } from '@carevelo/ui'
 import type { Tenant } from '@/lib/tenant'
+import { SiteFooter } from './SiteFooter'
 import { SiteHeader } from './SiteHeader'
 
 /**
- * The patient-facing frame: a scroll-aware clinic header, the page, and the footer.
+ * The patient-facing frame: a scroll-aware clinic header, the page, and the clinic's
+ * footer.
+ *
+ * A SERVER COMPONENT. Only the header is a client component, and only because the
+ * frosted-on-scroll state and the mobile drawer need an event listener; the frame
+ * itself, the skip link and the whole footer are rendered once on the server and ship
+ * no JavaScript.
  *
  * THE CLINIC'S BRAND, AND NOTHING OF CAREVELO'S. The header carries the clinic's logo,
  * name and colours; the patient's relationship is with the clinic, and this frame is the
- * whole of that impression.
- *
- * The only Carevelo mark on the surface is one line at the bottom of the footer, which
- * the white-labeling document permits as "a discreet 'powered by Carevelo'" and requires
- * to be removable on higher tiers. Worth knowing while looking at it: that line is the
- * product's best acquisition channel — another clinic owner seeing it is the referral
- * dynamic the business plan depends on — but it comes second to the clinic's confidence
- * in its own brand, which is why it is small and last.
+ * whole of that impression. The one Carevelo mark is the last line of the footer, which
+ * the white-labeling document permits as a discreet attribution.
  *
  * Applied by the PAGES that want it rather than by the root layout, because sign-in is a
  * full-bleed split screen with no room for site chrome.
@@ -31,11 +32,17 @@ export function SiteShell({
   signedIn: boolean
   children: ReactNode
 }) {
-  const name = tenant.trading_name ?? 'Clinic'
-  const contact = tenant.contact
-
   return (
-    <div className="site-root">
+    /*
+     * THE CLINIC'S TOKENS, in the first HTML byte. They used to sit on <html>, which forced
+     * the root layout to fetch the tenant — and a fetch in the root layout makes the render
+     * Next performs for a Server Action redirect allocate ~800MB and never finish. Custom
+     * properties inherit, so setting them here reaches every descendant exactly as before.
+     *
+     * A style OBJECT, so React sets these through the CSSOM. No tenant value is ever
+     * concatenated into markup, which is a stronger guarantee than validation alone.
+     */
+    <div className="site-root" style={brandStyle(tenant.branding)}>
       {/* First focusable element. A patient using a keyboard or a screen reader should
           not have to pass the header to reach the page. */}
       <a className="skip-link" href="#main">
@@ -46,47 +53,7 @@ export function SiteShell({
 
       <main id="main">{children}</main>
 
-      <footer className="site-footer">
-        <div className="site-wrap">
-          <div className="site-footer__grid">
-            <div className="site-footer__col">
-              <span className="site-footer__title">{name}</span>
-              {contact?.physical_address ? <span>{contact.physical_address}</span> : null}
-              {contact?.district ? <span>{contact.district}, Uganda</span> : null}
-            </div>
-
-            <div className="site-footer__col">
-              <span className="site-footer__title">Get in touch</span>
-              {contact?.phone ? <span className="tnum">{contact.phone}</span> : null}
-              {contact?.email ? <span>{contact.email}</span> : null}
-            </div>
-
-            <div className="site-footer__col">
-              <span className="site-footer__title">Your care</span>
-              <Link className="lnk" href="/sign-in">
-                Sign in
-              </Link>
-              <a className="lnk" href="#how">
-                How it works
-              </a>
-              <a className="lnk" href="#trust">
-                Safety and privacy
-              </a>
-            </div>
-          </div>
-
-          <p className="site-footer__note">
-            {/*
-             * The attribution, and the disclaimer that has to sit beside it. Carevelo
-             * carries the software; the clinic carries the care and the licence. Saying
-             * otherwise — or saying nothing — would imply we had checked a register we
-             * have no access to.
-             */}
-            Consultations, prescriptions and dispensing are provided by {name}, a licensed
-            private clinic, and payment is made to {name}. Powered by Carevelo.
-          </p>
-        </div>
-      </footer>
+      <SiteFooter tenant={tenant} signedIn={signedIn} />
     </div>
   )
 }

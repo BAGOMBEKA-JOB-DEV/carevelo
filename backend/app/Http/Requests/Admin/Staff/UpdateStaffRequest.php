@@ -16,10 +16,15 @@ use Illuminate\Validation\Rule;
  * working at two clinics has two accounts -- and a prohibited field says that
  * out loud instead of discarding the value in silence.
  *
- * Passwords are not set here. A person sets their own after verifying their
- * phone; an administrator who could write another user's password could read
- * every clinical record that user can reach, which defeats the role boundary
- * entirely.
+ * Passwords are not set here. A person sets their own; an administrator who
+ * could write another user's password could read every clinical record that user
+ * can reach, which defeats the role boundary entirely.
+ *
+ * The one place a password is issued rather than chosen is a patient account
+ * created at the registration desk, where there is no other way to hand somebody
+ * their first credential. Even there the staff member does not choose it: the
+ * server generates it, shows it once, and the account can do nothing but replace
+ * it until it does.
  *
  * @see docs/50-security-compliance/rbac-matrix.md
  */
@@ -65,8 +70,7 @@ class UpdateStaffRequest extends FormRequest
                 .implode(', ', InviteStaffRequest::assignableRoles()).'.',
             'tenant_id.prohibited' => 'Staff belong to exactly one clinic and cannot be moved between clinics. '
                 .'Someone working at two clinics has two accounts.',
-            'password.prohibited' => 'A person sets their own password after verifying their phone. '
-                .'Nobody sets it for them.',
+            'password.prohibited' => 'A person sets their own password. Nobody sets it for them.',
         ];
     }
 }

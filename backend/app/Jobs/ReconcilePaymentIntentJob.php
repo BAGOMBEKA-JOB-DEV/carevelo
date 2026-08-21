@@ -45,7 +45,8 @@ class ReconcilePaymentIntentJob extends TenantAwareJob
     {
         parent::__construct();
 
-        // Reconciliation must never delay an OTP or a payment webhook.
+        // Reconciliation must never delay a patient-facing notification or a
+        // payment webhook.
         $this->onQueue('low');
     }
 

@@ -73,7 +73,7 @@ When you have finished, you should be able to answer three questions without loo
 | Document | Purpose |
 |---|---|
 | [API Conventions](40-api/api-conventions.md) | Versioning, errors, pagination, idempotency. |
-| [Authentication & Sessions](40-api/authentication-and-sessions.md) | Sanctum, scopes, OTP, tenant resolution. |
+| [Authentication & Sessions](40-api/authentication-and-sessions.md) | Sanctum, scopes, staff-issued patient accounts, tenant resolution. |
 | [Endpoint Catalogue](40-api/endpoint-catalogue.md) | Endpoints grouped by bounded context. |
 | [Webhooks](40-api/webhooks.md) | Inbound aggregator callbacks, verification, replay. |
 | [openapi.yaml](40-api/openapi.yaml) | Machine-readable skeleton. |
@@ -115,6 +115,7 @@ When you have finished, you should be able to answer three questions without loo
 | [0008](70-decisions/0008-laravel-reverb-for-realtime.md) | Laravel Reverb for realtime. |
 | [0009](70-decisions/0009-standard-laravel-layout.md) | Standard Laravel layout, not `app/Modules/`. |
 | [0010](70-decisions/0010-patient-account-link.md) | One account, many patient records — and why the index path is the sharp edge. |
+| [0011](70-decisions/0011-staff-issued-patient-accounts.md) | Email and password for patients; accounts issued by clinic staff. |
 
 ### 80 — Quality
 

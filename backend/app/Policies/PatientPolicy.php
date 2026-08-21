@@ -83,6 +83,31 @@ class PatientPolicy
     }
 
     /**
+     * Create the patient's own sign-in account and link it to this record.
+     *
+     * Administrator and front desk only. NOT the clinician, for the reason
+     * merge() excludes them and it applies verbatim: this is a registration-desk
+     * act, and the desk is where the person and their ID document actually are.
+     * The entire trust basis of the account is "a member of staff verified the
+     * human being in front of them" -- a clinician mid-consultation in a back
+     * room is not positioned to do that, and a policy that let them would turn an
+     * attestation into a formality.
+     *
+     * NOT the patient either, even on their own record. Self-service account
+     * creation would mean anybody who knows a patient's name and a record
+     * identifier could mint a login onto a medical record, and the record is
+     * exactly what the account grants sight of.
+     */
+    public function createAccount(User $user, Patient $patient): bool
+    {
+        return $this->sameTenant($user, $patient->tenant_id)
+            && $this->hasAnyRole($user, [
+                ClinicalRole::ClinicAdmin,
+                ClinicalRole::FrontDesk,
+            ]);
+    }
+
+    /**
      * Nobody deletes a patient.
      *
      * Erasure is a controller decision handled through the retention process,

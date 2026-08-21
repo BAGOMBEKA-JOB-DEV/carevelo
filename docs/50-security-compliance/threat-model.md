@@ -43,7 +43,7 @@ flowchart TB
     OPR(["Carevelo<br/>operator"])
 
     EDGE["Edge<br/>TLS · WAF · rate limit"]
-    AUTH["Authentication<br/>Sanctum · OTP · 2FA"]
+    AUTH["Authentication<br/>Sanctum · password · TOTP"]
     AUTHZ["Authorisation<br/>abilities · policies"]
     RLS["Row-level security<br/><i>the control</i>"]
     ASSETS[("Clinical records<br/>Aggregator credentials<br/>Audit log")]
@@ -66,8 +66,9 @@ Two things to read from this. **The competing tenant enters at authentication as
 
 | Threat | Mitigation |
 |---|---|
-| Credential stuffing | Rate limiting per number and IP; OTP; second factor for admin and platform roles |
-| SIM swap defeating SMS OTP | TOTP required for platform operators; SMS OTP acknowledged as weak and compensated by short sessions and audit |
+| Credential stuffing | Rate limiting per identifier — phone number or email address — and per IP; identical response and timing for a wrong password and an unknown account; TOTP for admin and platform roles |
+| **Signing in as a patient using the initial password staff issued** | Generated per account, never chosen by staff, shown once and never stored in the clear. `password_change_required_at` refuses every request but the password change until the patient replaces it, and `patient.account_created` names the issuer and the record. **The window is bounded, not closed** — see Accepted risks |
+| Intercepting a credential in transit to the patient | There is nothing to intercept. No code, link or password is sent over SMS, WhatsApp or email; the initial password is read out in person ([ADR-0011](../70-decisions/0011-staff-issued-patient-accounts.md)) |
 | Session hijacking | HTTP-only, Secure, SameSite cookies; short idle timeouts; invalidation on role change |
 | **Forged payment webhook** | **Signature verification against the tenant's own secret, on the raw body, constant-time.** The tenant path segment is untrusted until it verifies ([Webhooks](../40-api/webhooks.md)) |
 | Impersonating a clinician to prescribe | Prescribing requires `can_prescribe` plus a registration number; the PDF snapshots the clinician's identity; issuance is audited |
@@ -93,6 +94,8 @@ Two things to read from this. **The competing tenant enters at authentication as
 | "The clinic never received my payment" | Aggregator reference stored against the payable; reconciliation view; the clinic can verify on its own dashboard |
 | "Carevelo read our patients" | Break-glass grants are audited **and the tenant is notified** |
 | "I never consented" | Immutable `ConsentRecord` with the policy version and the hash of the exact text shown |
+| **"I never consented" — and a record says the patient did** | The consent event names the *patient*, because the request was authenticated as them. If the account was still on its issued password, the hand at the keyboard may have been the staff member who issued it. `patient.account_created` bounds who could have done it and from when; the two are **not distinguishable after the fact**, and that is recorded as an accepted risk below |
+| "I never gave anyone access to my record" | `patient.account_created` names the staff member, the patient record and the time. Linking a record to an account is an explicit act, never an inference from a matching phone number ([ADR-0010](../70-decisions/0010-patient-account-link.md)) |
 
 ## Information disclosure
 
@@ -115,6 +118,7 @@ The largest category, and the one with the most specific mitigations.
 | Subscribing to another tenant's channel | Two checks at `/broadcasting/auth`: tenant prefix against the session tenant, then the same policy as the REST read. Mismatch is 403 plus an audit event |
 | Clinical data in a broadcast frame | Payloads carry identifiers and state only. Covered by test |
 | A revoked role retaining a live socket | Role change and deactivation terminate the connection, not only the next request |
+| Staff reading a patient's records through the account they issued | The issuing event is audited and the record names it. `front_desk` and `clinician` can already read those records at the desk, so this widens **convenience, not reach** — and it stops at the tenant boundary, which RLS still enforces |
 | Production data in staging | Prohibited. Debug from logs and synthetic reproduction |
 | Debug page in production | `APP_DEBUG=false` asserted at boot. A Laravel debug page renders request payloads — here, patient data |
 
@@ -135,6 +139,8 @@ The largest category, and the one with the most specific mitigations.
 |---|---|
 | Rider reaching clinical endpoints | Narrowest ability scope; separate namespace; policies |
 | Staff self-elevating a role | Roles are fixed at invitation; changes are admin-only and audited |
+| **Staff reaching a patient-only ability by signing in as the patient** | The [RBAC Matrix](rbac-matrix.md) gives consent grant and withdrawal to the `patient` role alone — every staff column is a dash. Somebody holding a patient's initial password gets exactly that ability, and the trail records the patient as the actor. Bounded by the forced password change and by `patient.account_created`; **not prevented.** Accepted risk below |
+| **An account issued to an address the staff member controls** | Creation is a named, audited act naming one record, and a record already linked to an account is not re-linked. The account **outlives the issuer's own** — so deactivating a staff account has to include reviewing the patient accounts it issued, which is an operational step and not a technical control |
 | Client-asserted tenant | **Tenant never comes from client input.** Host or session only |
 | Platform operator reading clinical data | Break-glass: time-boxed, reason-recorded, tenant-notified, audited |
 | **Application role bypassing RLS** | **The application role is not the table owner and holds `NOBYPASSRLS`.** Asserted at boot and in CI |
@@ -203,7 +209,10 @@ Stating these plainly is more useful than implying complete coverage.
 
 | Risk | Why accepted | Revisit |
 |---|---|---|
-| SMS OTP is vulnerable to SIM swap | The only universally available factor in this market. Requiring TOTP from patients would prevent care | If account-takeover incidents occur |
+| **A staff member knows a patient's password until the patient first signs in** | Somebody has to hand over a first credential, and this market gives us no channel to send one through: the SMS code is gone, and most patients have no reliably-checked email. Compensated by a generated password that is never reused across accounts, a forced change that refuses every other request, session invalidation on change, and `patient.account_created` naming the issuer | On the first reported patient-account takeover or disputed consent; or when enough patients hold email for an emailed set-password link ([ADR-0011](../70-decisions/0011-staff-issued-patient-accounts.md)) |
+| **A consent grant forged in that window is indistinguishable from a real one** | Consent grant and withdrawal belong to the `patient` role alone, so an impersonator gets them, and the audit event names the patient. Accepted because the window closes at first sign-in, because consent is normally taken at the desk before any account exists, and because the alternative is no patient portal at all | Same triggers. The cheapest real fix is a patient-visible screen — "your account was created by X on Y; here is every consent recorded under it" — which turns an invisible act into a detectable one |
+| **Patients have no second factor** | The only factor this market universally had was an SMS code, and it left with the flow that used it. Requiring TOTP from a patient who consults twice a year would prevent care | If patient-account takeover incidents occur |
+| **A patient with no email address has no portal at all** | The account requires an address, and issuing a placeholder would create a credential nobody can recover. Care is unaffected: the record, the notifications and in-person service all stand. Uncomfortable, because this codebase's own schema comments observe that many Ugandans have a phone and no checked email | When a patient-facing recovery path exists that does not depend on email ([ADR-0011](../70-decisions/0011-staff-issued-patient-accounts.md)) |
 | Self-approved break-glass early on | A solo founder cannot have a second approver. Compensated by audit, notification and review | At the first support hire (§K) |
 | No penetration test before revenue | Cost. §M makes willingness-to-pay the binding constraint | At UGX 10m/month MRR |
 | Single region | Data residency is a compliance requirement and a sales asset (§I, §E) | If a regional failure occurs |

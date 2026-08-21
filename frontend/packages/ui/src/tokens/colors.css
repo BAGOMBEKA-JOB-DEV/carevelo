@@ -18,8 +18,22 @@
    clinic's own funds, red for a forbidden or failure state." The product should look
    like its own documentation.
 
-   Dark theme via [data-theme="dark"] on the root element.
+   DARK THEME via [data-theme="dark"] on the root element, and light is the ABSENCE of
+   that attribute. Everything light therefore lives on bare :root, which is what makes
+   the default free: a browser that has never heard of the attribute, a page whose JS
+   never arrives, and a request that fails halfway all land on the light palette rather
+   than on nothing.
 
+   prefers-color-scheme IS DELIBERATELY NOT CONSULTED. The theme is the user's explicit,
+   persisted choice, applied before first paint by the patient portal's theme-init.js. A
+   patient outside a pharmacy at 7pm reading a dosage off their phone needs the LIGHT
+   theme, because that is the one that survives daylight — their phone deciding it is
+   evening says nothing about the glare on their screen. And the clinic's brand colour
+   was chosen, and contrast-checked server-side, against white; changing the ground
+   underneath it because of an OS setting the clinic never saw is not ours to do.
+
+   @see apps/patient-portal/public/theme-init.js — applies the stored choice pre-paint
+   @see packages/ui/src/theme/ThemeToggle.tsx — the control that changes it
    @see docs/10-product/white-labeling-and-branding.md
    ============================================================ */
 
@@ -87,6 +101,48 @@
   --c3: #7a5c1f;
   --c4: #6b5b95;
   --c5: #8c6239;
+
+  /* ---- The public, clinic-branded surface ----
+
+     Four things the marketing and sign-in layers need cannot be said with the tokens
+     above, because each one has to change with the theme in a way no existing token
+     tracks. They are defined HERE rather than in site.css or auth.css so that both
+     halves of each pair — light and dark — sit in one file and cannot drift apart, and
+     so those layers stay rules that consume tokens rather than files that invent them.
+
+     --brand-wash and --brand-ink exist because of a constraint that is easy to miss:
+     --brand-primary and --brand-surface arrive as an INLINE STYLE ATTRIBUTE on <html>,
+     written during the server render by brandStyle(). An inline style outranks every
+     stylesheet rule, including the [data-theme='dark'] block below, so the dark theme
+     CANNOT adjust them — and must not try. These two are the sanctioned way to ask for
+     "the clinic's colour, resolved for the ground it is actually landing on".
+
+     @see packages/ui/src/theme/ThemeToggle.tsx */
+
+  /* The fixed marketing header, once it has condensed on scroll. Separate from the
+     --shadow-* scale in spacing.css because a full-width bar needs a shadow that is
+     almost entirely vertical spread; the card shadows read as a smudge at that width. */
+  --shadow-header: 0 10px 30px -24px rgba(20, 34, 30, 0.4);
+  /* A marketing card raised under the pointer. */
+  --shadow-lift: 0 18px 44px -22px rgba(20, 34, 30, 0.22);
+
+  /* The vertical wash behind a hero. Two stops rather than one gradient token so a
+     layer can put a brand-tinted radial between them. */
+  --hero-wash-top: #ffffff;
+  --hero-wash-bottom: var(--parchment);
+
+  /* The clinic's tint for a large filled area — a hero panel, a tinted section band, a
+     chip. On light this IS the clinic's own --brand-surface, exactly as the API sent it.
+     Text on it takes --ink, never --brand-primary-fg: that foreground was computed for
+     AA against --brand-primary as a background, and this is not that colour. */
+  --brand-wash: var(--brand-surface);
+
+  /* The clinic's colour used as INK — a link, an active nav item, a small accent. On
+     light it is --brand-primary unchanged, already checked against white server-side.
+     NOT a contrast guarantee (see the dark block for why), and therefore not for
+     anything a patient must read to be safe: dosages, instructions and warnings take
+     --ink and --bad, which are ours and are known. */
+  --brand-ink: var(--brand-primary);
 
   /* ============================================================
      THE CLINIC'S BRAND — replaced at runtime, per tenant.
@@ -158,4 +214,55 @@
   --c3: #d3a552;
   --c4: #a294c9;
   --c5: #c08f66;
+
+  /* ---- The public, clinic-branded surface, on a dark ground ----
+
+     NOTE WHAT IS NOT HERE: --brand-primary, --brand-primary-fg, --brand-secondary,
+     --brand-secondary-fg and --brand-surface are absent from this block on purpose, and
+     the next person to "fix dark mode by lightening the clinic's colour" should read
+     this first. Two reasons, either sufficient:
+
+     1. It would not work. brandStyle() puts those five on <html> as an inline style
+        attribute during the server render, and an inline style beats a stylesheet rule
+        at any specificity. A declaration here would be dead code that looks alive.
+     2. It must not work. --brand-primary-fg was computed for WCAG AA against
+        --brand-primary by BrandPalette, server-side, once. Lightening one half of a
+        checked pair and leaving the other produces a combination nothing ever checked —
+        on a surface that carries dosage instructions.
+
+     A clinic's real dark-theme palette is the API's job, computed where the other
+     contrast decisions are made. Until it exists, the two tokens below are what this
+     layer can honestly offer, and they are scoped to accents and fills for that reason.
+
+     @see docs/10-product/white-labeling-and-branding.md */
+
+  /* Deeper and blacker than the light pair: on a dark ground, elevation is read almost
+     entirely from the shadow, because the surfaces themselves are only a few points
+     apart in lightness. The rest of the scale — --shadow-sm, --shadow-pop and
+     --shadow-product — already has its dark counterparts in spacing.css, and is
+     deliberately NOT restated here: two layers declaring the same property differ
+     silently by import order, which is the exact failure this token layer is tested
+     against. */
+  --shadow-header: 0 10px 30px -20px rgba(0, 0, 0, 0.95);
+  --shadow-lift: 0 18px 44px -18px rgba(0, 0, 0, 0.7);
+
+  /* The hero wash starts a touch above --canvas and settles onto --parchment, so the top
+     of the page lifts slightly instead of reading as one flat black rectangle. */
+  --hero-wash-top: #1b201d;
+  --hero-wash-bottom: var(--parchment);
+
+  /* The clinic's hue mixed INTO the dark surface rather than laid on top of it. The
+     clinic's own --brand-surface is a pale tint chosen against white; used unchanged
+     here it is a headlight in a dark room. Mixing keeps the hue theirs and lets the
+     ground decide the lightness. */
+  --brand-wash: color-mix(in srgb, var(--brand-primary) 14%, var(--surface));
+
+  /* The clinic's colour lightened toward white so it still reads as text on --canvas. A
+     clinic whose brand is a dark navy or a deep maroon — both chosen against white, both
+     entirely reasonable there — is invisible on #121513 otherwise, and an invisible link
+     is a patient who cannot find their appointment. This is a legibility floor, not an
+     AA guarantee: no ratio is checked here and none can be, because the input is a hex
+     value we see for the first time in the browser. That is why --brand-ink is for
+     accents and links only, and why nothing safety-bearing is allowed to use it. */
+  --brand-ink: color-mix(in srgb, var(--brand-primary) 52%, #ffffff);
 }
