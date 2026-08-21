@@ -5,7 +5,7 @@ import { listWorkingHours, replaceWorkingHours } from '../api/workingHours'
 import { WEEK, byDay, opensAtAll, toTimeInput, weekFromForm } from '../model/week'
 import type { TenantPaths } from '../model/types'
 import { AccessNotice } from './AccessNotice'
-import { samePath, text, withParams } from './screen'
+import { first, samePath, text, withParams, type SearchValue } from './screen'
 
 /**
  * When the clinic is open.
@@ -44,11 +44,15 @@ import { samePath, text, withParams } from './screen'
 
 export type WorkingHoursScreenProps = {
   paths: TenantPaths
-  saved?: string | undefined
-  problem?: string | undefined
+  saved?: SearchValue
+  problem?: SearchValue
 }
 
-export async function WorkingHoursScreen({ paths, saved, problem }: WorkingHoursScreenProps) {
+export async function WorkingHoursScreen(props: WorkingHoursScreenProps) {
+  const { paths } = props
+  const saved = first(props.saved)
+  const problem = first(props.problem)
+
   const result = await attempt(listWorkingHours())
 
   if (!result.ok) {

@@ -2,7 +2,7 @@
 
 import { useActionState } from 'react'
 import { Badge, Button, Card, Field, Input, Money, Notice } from '@carevelo/ui'
-import { IDLE, type BenchState } from '../api/actions'
+import { IDLE, type BenchState } from '../model/state'
 import { toWholeShillings } from '../model/money'
 import type { ItemView } from '../model/order'
 

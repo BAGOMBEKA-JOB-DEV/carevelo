@@ -31,7 +31,7 @@
  *   <ServicesScreen            paths saved problem />
  *   <WorkingHoursScreen        paths saved problem />
  *   <StaffScreen               paths cursor saved problem />
- *   <StaffMemberScreen         paths person saved problem />
+ *   <StaffMemberScreen         paths userId saved problem />
  *   <PaymentConnectionScreen   paths saved problem aggregatorMessage />
  *
  * `paths` is `TENANT_PATHS` — where the route layer has mounted these screens. This domain
@@ -44,11 +44,10 @@
  * and `aggregator` are how a Server Action reports back — a redirect cannot return a value,
  * and the alternative would make every form a client component. See `components/screen.ts`.
  *
- * `person` on `StaffMemberScreen` IS THE ONE THING A SCREEN CANNOT FETCH FOR ITSELF, because
- * there is no `GET /v1/tenant/users/{user}`. The route resolves it with `findStaff()` and
- * calls `notFound()` for a null — which is the correct answer for an id belonging to another
- * clinic as much as for one belonging to nobody, and the two being indistinguishable IS the
- * isolation boundary.
+ * `userId` on `StaffMemberScreen` is the route's `[user]` segment, handed over raw. The
+ * screen resolves it — there is no `GET /v1/tenant/users/{user}`, so it walks the clinic's
+ * own staff list — and raises the 404 itself, because the same call can end three ways and
+ * only one of them is "not found". See the note on that component.
  *
  * ==========================================================================
  * THE CONTRACT GAP EVERY SCREEN HERE WORKS AROUND
@@ -90,7 +89,6 @@ export { OnboardingChecklist, type OnboardingChecklistProps } from './components
    outside this domain is expected to decide what a failure means on its own surface, which
    is why these are not wrapped. */
 export { getClinic } from './api/clinic'
-export { findStaff } from './api/staff'
 
 /* ---- The one boolean the rest of the console needs from this domain ----
    `accepts_online_payment` decides whether a clinic can be offered an online collection at

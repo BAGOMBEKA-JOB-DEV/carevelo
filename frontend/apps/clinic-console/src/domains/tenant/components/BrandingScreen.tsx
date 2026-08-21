@@ -6,7 +6,16 @@ import { colourFromForm } from '../model/colour'
 import type { ClinicChanges, TenantPaths } from '../model/types'
 import { AccessNotice } from './AccessNotice'
 import { BrandingEditor } from './BrandingEditor'
-import { clinicName, samePath, text, trimmed, withParams } from './screen'
+import {
+  all,
+  clinicName,
+  first,
+  samePath,
+  text,
+  trimmed,
+  withParams,
+  type SearchValue,
+} from './screen'
 
 /**
  * The branding editor: trading name, two colours, a logo, and a live preview.
@@ -46,12 +55,17 @@ import { clinicName, samePath, text, trimmed, withParams } from './screen'
 export type BrandingScreenProps = {
   paths: TenantPaths
   /** From the URL: what a save had to say. See `components/screen.ts`. */
-  saved?: string | undefined
-  problem?: string | undefined
-  advice?: readonly string[] | undefined
+  saved?: SearchValue
+  problem?: SearchValue
+  advice?: SearchValue
 }
 
-export async function BrandingScreen({ paths, saved, problem, advice = [] }: BrandingScreenProps) {
+export async function BrandingScreen(props: BrandingScreenProps) {
+  const { paths } = props
+  const saved = first(props.saved)
+  const problem = first(props.problem)
+  const advice = all(props.advice)
+
   const result = await attempt(getClinic())
 
   if (!result.ok) {

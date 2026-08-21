@@ -4,7 +4,15 @@ import { attempt, writeFailure } from '../api/http'
 import { getClinic, omitBlank, saveClinic } from '../api/clinic'
 import type { ClinicChanges, TenantPaths } from '../model/types'
 import { AccessNotice } from './AccessNotice'
-import { NOT_VERIFIED_BY_CAREVELO, clinicName, samePath, trimmed, withParams } from './screen'
+import {
+  NOT_VERIFIED_BY_CAREVELO,
+  clinicName,
+  first,
+  samePath,
+  trimmed,
+  withParams,
+  type SearchValue,
+} from './screen'
 
 /**
  * Contact details, the legal identity, and the two compliance references.
@@ -44,11 +52,15 @@ import { NOT_VERIFIED_BY_CAREVELO, clinicName, samePath, trimmed, withParams } f
 
 export type ComplianceScreenProps = {
   paths: TenantPaths
-  saved?: string | undefined
-  problem?: string | undefined
+  saved?: SearchValue
+  problem?: SearchValue
 }
 
-export async function ComplianceScreen({ paths, saved, problem }: ComplianceScreenProps) {
+export async function ComplianceScreen(props: ComplianceScreenProps) {
+  const { paths } = props
+  const saved = first(props.saved)
+  const problem = first(props.problem)
+
   const result = await attempt(getClinic())
 
   if (!result.ok) {

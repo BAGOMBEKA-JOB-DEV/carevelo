@@ -2,7 +2,7 @@
 
 import { useActionState } from 'react'
 import { Button, Card, DateTime, Field, Input, Notice, Select, Textarea } from '@carevelo/ui'
-import { IDLE, type BenchState } from '../api/actions'
+import { IDLE, type BenchState } from '../model/state'
 import type { ItemView } from '../model/order'
 
 /**

@@ -5,6 +5,7 @@ import { writeClient, sentence } from './http'
 import { getOrder } from './queue'
 import { parseQuantity, parseWholeShillings } from '../model/money'
 import { itemViews, mayBeDelivered } from '../model/order'
+import type { BenchState } from '../model/state'
 import type { DispenseOrder, PriceRequestItem } from '../model/types'
 
 /**
@@ -40,13 +41,11 @@ import type { DispenseOrder, PriceRequestItem } from '../model/types'
  * a key for exactly the reason these do not.)
  */
 
-/** What a bench action did. `null` message means the request never reached the API. */
-export type BenchState =
-  | { status: 'idle' }
-  | { status: 'done'; order: DispenseOrder }
-  | { status: 'refused'; message: string | null; fields?: Record<string, string> }
-
-export const IDLE: BenchState = { status: 'idle' }
+/*
+ * `BenchState` and `IDLE` live in ../model/state.ts, not here. A `'use server'` module may
+ * export only async functions — every export becomes a callable endpoint — so a plain
+ * object export here is a build error, and one `tsc` does not catch.
+ */
 
 /**
  * Re-render every screen that shows this order.

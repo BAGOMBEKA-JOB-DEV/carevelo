@@ -2,7 +2,7 @@
 
 import { useActionState } from 'react'
 import { Button, Card, Field, Notice, Textarea } from '@carevelo/ui'
-import { IDLE, type BenchState } from '../api/actions'
+import { IDLE, type BenchState } from '../model/state'
 
 /**
  * The bench controls: open, dispense, hand over, decline.

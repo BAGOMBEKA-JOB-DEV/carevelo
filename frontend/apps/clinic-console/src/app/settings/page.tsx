@@ -1,9 +1,16 @@
 import type { Metadata } from 'next'
-import { PlannedSection } from '@/components/PlannedSection'
+import { SettingsHub } from '@/domains/tenant'
+import { TENANT_PATHS } from './paths'
 
-/** Not built yet. What will live here is the `settings` entry in src/components/sections.ts. */
+/**
+ * Where a clinic administrator lands.
+ *
+ * The route holds no logic: it names the section and hands off. What remains before the
+ * clinic is live, what this clinic is, and the way into everything else are all decisions
+ * belonging to the tenant domain, and the shell around them belongs to `layout.tsx`.
+ */
 export const metadata: Metadata = { title: 'Settings' }
 
 export default function SettingsPage() {
-  return <PlannedSection id="settings" />
+  return <SettingsHub paths={TENANT_PATHS} />
 }

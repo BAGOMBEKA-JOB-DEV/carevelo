@@ -7,11 +7,13 @@ import { AccessNotice } from './AccessNotice'
 import {
   ROLE_LABELS,
   ROLE_ORDER,
+  first,
   samePath,
   staffMemberPath,
   text,
   trimmed,
   withParams,
+  type SearchValue,
 } from './screen'
 
 /**
@@ -45,12 +47,17 @@ import {
 export type StaffScreenProps = {
   paths: TenantPaths
   /** The opaque cursor from `meta.next_cursor`. Never constructed here. */
-  cursor?: string | undefined
-  saved?: string | undefined
-  problem?: string | undefined
+  cursor?: SearchValue
+  saved?: SearchValue
+  problem?: SearchValue
 }
 
-export async function StaffScreen({ paths, cursor, saved, problem }: StaffScreenProps) {
+export async function StaffScreen(props: StaffScreenProps) {
+  const { paths } = props
+  const cursor = first(props.cursor)
+  const saved = first(props.saved)
+  const problem = first(props.problem)
+
   const result = await attempt(listStaff(cursor))
 
   if (!result.ok) {

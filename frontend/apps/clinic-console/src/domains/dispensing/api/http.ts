@@ -197,6 +197,35 @@ export async function writeClient(): Promise<ApiClient> {
 export type Attempt<T> = { ok: true; value: T } | { ok: false; message: string | null }
 
 /**
+ * Next's own control-flow signals, which travel as thrown errors and MUST NOT be caught.
+ *
+ * ------------------------------------------------------------
+ * THIS WAS FOUND BY BUILDING, NOT BY REASONING, AND IT IS WORTH THE PARAGRAPH.
+ *
+ * `redirect()`, `notFound()` and the dynamic-rendering bailout are all implemented as
+ * exceptions that the framework unwinds on. A `catch` that treats every throw as "the API
+ * did not answer" therefore turns a redirect into a rendered error notice, and — the case
+ * actually observed here — turns "this route reads headers, so it cannot be prerendered"
+ * into a lane that reports itself as failed.
+ *
+ * The build printed exactly that: `[delivery] a request to the API did not complete Error:
+ * Dynamic server usage: Route /dispatch couldn't be rendered statically because it used
+ * headers`. Harmless on this app, because the root layout awaits `headers()` and every route
+ * is dynamic regardless — but only by accident, and the same swallow would silently break a
+ * redirect the day one is added.
+ *
+ * Next marks all of them with a string `digest`. Anything carrying one is re-thrown
+ * untouched.
+ */
+function isFrameworkSignal(error: unknown): boolean {
+  return (
+    typeof error === 'object'
+    && error !== null
+    && typeof (error as { digest?: unknown }).digest === 'string'
+  )
+}
+
+/**
  * Run a read, and turn a failure into something renderable.
  *
  * `message` is the API's OWN SENTENCE where there is one — `ApiError` has already put RFC
@@ -209,6 +238,10 @@ export async function attempt<T>(work: Promise<T>): Promise<Attempt<T>> {
   try {
     return { ok: true, value: await work }
   } catch (error) {
+    if (isFrameworkSignal(error)) {
+      throw error
+    }
+
     if (error instanceof ApiError) {
       return { ok: false, message: error.message }
     }

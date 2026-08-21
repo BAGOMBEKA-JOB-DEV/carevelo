@@ -2,7 +2,7 @@
 
 import { useActionState } from 'react'
 import { Button, Card, Field, Input, Notice, Select } from '@carevelo/ui'
-import { IDLE, type DispatchState } from '../api/actions'
+import { IDLE, type DispatchState } from '../model/state'
 import type { Staff } from '../model/types'
 
 /**

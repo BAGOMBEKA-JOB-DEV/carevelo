@@ -15,10 +15,12 @@ import {
   MODE_LABELS,
   MODE_ORDER,
   every,
+  first,
   samePath,
   text,
   trimmed,
   withParams,
+  type SearchValue,
 } from './screen'
 
 /**
@@ -59,8 +61,8 @@ import {
 
 export type ServicesScreenProps = {
   paths: TenantPaths
-  saved?: string | undefined
-  problem?: string | undefined
+  saved?: SearchValue
+  problem?: SearchValue
 }
 
 /**
@@ -79,7 +81,11 @@ const SUGGESTED_NAMES = [
   'Laboratory results review',
 ]
 
-export async function ServicesScreen({ paths, saved, problem }: ServicesScreenProps) {
+export async function ServicesScreen(props: ServicesScreenProps) {
+  const { paths } = props
+  const saved = first(props.saved)
+  const problem = first(props.problem)
+
   const result = await attempt(listServices())
 
   if (!result.ok) {

@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { sentence, writeClient } from './http'
+import type { DispatchState } from '../model/state'
 import type { Delivery, StoreDeliveryRequest } from '../model/types'
 
 /**
@@ -34,12 +35,11 @@ import type { Delivery, StoreDeliveryRequest } from '../model/types'
  * typed as that generated request, so a field invented here would not compile.
  */
 
-export type DispatchState =
-  | { status: 'idle' }
-  | { status: 'done'; delivery: Delivery }
-  | { status: 'refused'; message: string | null; fields?: Record<string, string> }
-
-export const IDLE: DispatchState = { status: 'idle' }
+/*
+ * `DispatchState` and `IDLE` live in ../model/state.ts, not here. A `'use server'` module
+ * may export only async functions — every export becomes a callable endpoint — so a plain
+ * object export here is a build error, and one `tsc` does not catch.
+ */
 
 function refresh(paths: readonly string[]): void {
   for (const path of paths) {

@@ -16,10 +16,12 @@ import {
   NON_CUSTODIAL,
   aggregatorStatusLabel,
   aggregatorTone,
+  first,
   samePath,
   text,
   trimmed,
   withParams,
+  type SearchValue,
 } from './screen'
 
 /**
@@ -70,10 +72,10 @@ import {
 
 export type PaymentConnectionScreenProps = {
   paths: TenantPaths
-  saved?: string | undefined
-  problem?: string | undefined
+  saved?: SearchValue
+  problem?: SearchValue
   /** The aggregator's own words from a failed verification. Never paraphrased. */
-  aggregatorMessage?: string | undefined
+  aggregatorMessage?: SearchValue
 }
 
 /** Only Flutterwave is implemented; Pesapal is accepted so a clinic can record what it holds. */
@@ -103,12 +105,12 @@ const ENVIRONMENTS: readonly { value: AggregatorEnvironment; label: string; note
   },
 ]
 
-export async function PaymentConnectionScreen({
-  paths,
-  saved,
-  problem,
-  aggregatorMessage,
-}: PaymentConnectionScreenProps) {
+export async function PaymentConnectionScreen(props: PaymentConnectionScreenProps) {
+  const { paths } = props
+  const saved = first(props.saved)
+  const problem = first(props.problem)
+  const aggregatorMessage = first(props.aggregatorMessage)
+
   const result = await attempt(getAggregatorAccount())
 
   if (!result.ok) {

@@ -1,8 +1,8 @@
-import { redirect } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { Badge, Button, Card, Choice, Field, Input, Notice, Select } from '@carevelo/ui'
 import { attempt, writeFailure } from '../api/http'
 import { createClinicianProfile, getClinicianProfile, updateClinicianProfile } from '../api/clinicians'
-import { countActiveAdministrators, updateStaff } from '../api/staff'
+import { countActiveAdministrators, findStaff, updateStaff } from '../api/staff'
 import type { ClinicianProfile, RegistrationBody, Staff, StaffRole, TenantPaths } from '../model/types'
 import { AccessNotice } from './AccessNotice'
 import {
@@ -11,11 +11,13 @@ import {
   ROLE_LABELS,
   ROLE_ORDER,
   checked,
+  first,
   samePath,
   staffMemberPath,
   text,
   trimmed,
   withParams,
+  type SearchValue,
 } from './screen'
 
 /**
@@ -63,13 +65,44 @@ import {
 
 export type StaffMemberScreenProps = {
   paths: TenantPaths
-  /** Resolved by the route, which 404s when there is nobody with this id. */
-  person: Staff
-  saved?: string | undefined
-  problem?: string | undefined
+  /** Straight out of the route's `[user]` segment. Resolved below, never trusted. */
+  userId: string
+  saved?: SearchValue
+  problem?: SearchValue
 }
 
-export async function StaffMemberScreen({ paths, person, saved, problem }: StaffMemberScreenProps) {
+/**
+ * WHY THE 404 IS RAISED HERE AND NOT IN THE ROUTE.
+ *
+ * The route would have to hold the decision, and the decision is not one decision. Fetching
+ * this colleague can end three ways — the session expired, the caller is not an
+ * administrator, or there is nobody with this id — and only the last is a 404. A route that
+ * collapsed the first two into `notFound()` would tell a clinician who wandered in that
+ * their colleague does not exist; one that let them throw would replace the explanation
+ * with the framework's error boundary. Both belong to the screen that already renders those
+ * explanations everywhere else in this domain.
+ *
+ * The 404 itself is the same page for an id that never existed, an id belonging to another
+ * clinic's staff member, and an id belonging to a patient account. That indistinguishability
+ * is the isolation boundary: a 403 would confirm the account exists, which discloses that a
+ * named person works at some other clinic on Carevelo.
+ */
+export async function StaffMemberScreen(props: StaffMemberScreenProps) {
+  const { paths } = props
+  const saved = first(props.saved)
+  const problem = first(props.problem)
+
+  const found = await attempt(findStaff(props.userId))
+
+  if (!found.ok) {
+    return <AccessNotice failure={found} context="this colleague" />
+  }
+
+  if (found.value === null) {
+    notFound()
+  }
+
+  const person: Staff = found.value
   const isClinician = person.roles.includes('clinician')
 
   const [profileResult, administrators] = await Promise.all([

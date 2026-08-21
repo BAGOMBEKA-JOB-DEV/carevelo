@@ -2,7 +2,7 @@
 
 import { useActionState } from 'react'
 import { Button, Card, Field, Input, Notice, Textarea } from '@carevelo/ui'
-import { IDLE, type DispatchState } from '../api/actions'
+import { IDLE, type DispatchState } from '../model/state'
 
 /**
  * Creating the delivery record for a dispensed order.

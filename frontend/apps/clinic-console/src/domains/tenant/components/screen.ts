@@ -184,6 +184,16 @@ export function clinicName(clinic: Clinic | null | undefined): string {
  * Object]` the first time somebody repeats the key in the address bar.
  */
 
+/**
+ * A search parameter as Next actually hands it over.
+ *
+ * The screens take this shape rather than `string` so the routes stay genuinely thin: a
+ * route that narrowed it would be holding logic, and a route that TYPED it as `string`
+ * would be asserting something the runtime does not guarantee — `?saved=a&saved=b` is a
+ * perfectly legal URL and produces an array.
+ */
+export type SearchValue = string | string[] | undefined
+
 /** One value from a search parameter, whatever shape Next handed over. */
 export function first(value: string | string[] | undefined): string | undefined {
   if (Array.isArray(value)) {
