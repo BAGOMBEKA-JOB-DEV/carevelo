@@ -1,5 +1,21 @@
 import { redirect } from 'next/navigation'
-import { Button, Card, Choice, EmptyState, Field, Input, Notice, Select, Textarea } from '@carevelo/ui'
+import {
+  Button,
+  Card,
+  Choice,
+  EmptyState,
+  Field,
+  Grid,
+  Inline,
+  Input,
+  Notice,
+  PageHeader,
+  Pagination,
+  Select,
+  Stack,
+  Stat,
+  Textarea,
+} from '@carevelo/ui'
 import { attempt } from '@/domains/identity'
 import type { Tenant } from '@/domains/platform'
 import { listGrants, requestGrant } from '../api/grants'
@@ -171,49 +187,49 @@ export async function BreakGlassScreen({
 
   return (
     <>
-      <div className="page-head">
-        <div className="grow">
-          <h1>Break-glass</h1>
-          <p>
-            Time-boxed emergency access to a clinic&rsquo;s data — requested with a reason and
-            a scope, notified to the clinic, and never quiet.
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title="Break-glass"
+        description={
+          'Time-boxed emergency access to a clinic’s data — requested with a reason and a '
+          + 'scope, notified to the clinic, and never quiet.'
+        }
+      />
 
-      <div className="grid">
-        <div className="row-wrap">
+      <Stack gap="6">
+        <Inline gap="3">
           <a className="lnk" href={paths.overview}>
             Platform overview
           </a>
-        </div>
+        </Inline>
 
         {/* ---- The count, framed. See the note at the top of this file. ---- */}
-        <Card as="section" aria-labelledby="bg-count">
-          <div className="row-wrap" style={{ gap: 'var(--space-8)' }}>
-            <span className="stat">
-              <span className="stat__label" id="bg-count">
-                Grants live now
-              </span>
-              <span className="stat__value" style={{ fontSize: 44 }}>
-                {count}
-              </span>
-              {activeGrants === null ? (
-                <span className="stat__note">
-                  counted from the grants on this page — the platform figure could not be read
-                </span>
-              ) : null}
-            </span>
-            <div className="grow" style={{ minWidth: 260 }}>
-              <p className="muted">
+        <Card as="section" aria-label="Break-glass grants live now">
+          <Grid cols={2} gap="6">
+            {/*
+              A `Stat`, which decides the size from the type scale rather than from a number
+              typed here. It was `fontSize: 44` by hand, and so was the identical figure on
+              the overview screen — two hand-set sizes in two files for one number, either of
+              which could have been edited alone. The label precedes the value by
+              construction: "3" announced on its own is a dead end, and this is the figure
+              whose meaning is the least obvious in the whole app.
+            */}
+            <Stat
+              label="Grants live now"
+              value={count}
+              note={
+                activeGrants === null
+                  ? 'counted from the grants on this page — the platform figure could not be read'
+                  : undefined
+              }
+            />
+            <p className="muted">
                 This is a measure of the SUPPORT TOOLING, not of access control. A rising
                 count means ordinary metadata-based diagnosis is inadequate, and the correct
                 response is to build better diagnosis — not to conclude that break-glass is
                 working well. Grants are reviewed periodically, by someone who was not in the
-                room.
-              </p>
-            </div>
-          </div>
+              room.
+            </p>
+          </Grid>
         </Card>
 
         <Notice tone="warn" icon="shield" title="Everything here is recorded and the clinic is told">
@@ -228,7 +244,7 @@ export async function BreakGlassScreen({
         <Outcome problem={problem} message={message} requested={requested} />
 
         {/* ---- What is open right now ---- */}
-        <section aria-labelledby="bg-live" className="stack" style={{ gap: 'var(--space-5)' }}>
+        <Stack as="section" gap="5" aria-labelledby="bg-live">
           <h2 id="bg-live">Open right now</h2>
 
           {!live.ok ? (
@@ -244,11 +260,11 @@ export async function BreakGlassScreen({
               records. This is the state to be in.
             </EmptyState>
           ) : (
-            <div className="grid">
+            <Stack gap="4">
               {liveGrants.map((grant) => (
                 <GrantCard key={grant.id} grant={grant} clinic={nameById.get(grant.tenant_id)} />
               ))}
-            </div>
+            </Stack>
           )}
 
           {/*
@@ -263,13 +279,14 @@ export async function BreakGlassScreen({
             cheap. What this screen offers instead is the whole of what is open, its scope,
             its stated reason and the instant it lapses.
           </Notice>
-        </section>
+        </Stack>
 
         {/* ---- Asking for one ---- */}
         {canRequest ? (
           <Card as="section" aria-labelledby="bg-request">
-            <form action={request} className="stack" style={{ gap: 'var(--space-7)' }}>
-              <div className="stack">
+            <form action={request}>
+              <Stack gap="7">
+              <Stack gap="2">
                 <h2 id="bg-request">Request a grant</h2>
                 <p className="muted">
                   A named operator, a named clinic, a stated reason and an expiry. Approval by
@@ -277,7 +294,7 @@ export async function BreakGlassScreen({
                   not, the grant is self-approved and flagged for later review — which is a
                   weaker control and is named as one rather than dressed up.
                 </p>
-              </div>
+              </Stack>
 
               {clinics === null ? (
                 <>
@@ -352,6 +369,17 @@ export async function BreakGlassScreen({
                   + 'The API enforces a minimum length; this form does not restate the number, '
                   + 'because a guess here would refuse legitimate requests during an incident.'
                 }
+                /*
+                  THE REFUSAL IS ATTACHED TO THE FIELD IT IS ABOUT, not only announced above
+                  the form. `?problem=invalid` on this form is, in practice, always the
+                  reason: it is the only field the API applies a content rule to, and that
+                  rule is a minimum length this screen deliberately does not restate. The
+                  message travels as the API's own sentence. Without `error` the control
+                  itself claimed to be fine — no `aria-invalid`, no `aria-describedby` — so a
+                  screen-reader user arriving at the textarea after the redirect was told
+                  nothing was wrong with the one thing that was.
+                */
+                {...(problem === 'invalid' ? { error: message ?? 'The API refused this reason.' } : {})}
               >
                 {(control) => <Textarea {...control} required rows={4} />}
               </Field>
@@ -384,11 +412,12 @@ export async function BreakGlassScreen({
                 that can be undone from here, and the grant cannot be ended early.
               </Notice>
 
-              <div className="row-wrap">
+              <Inline gap="4">
                 <Button type="submit" variant="primary" size="lg">
                   Request this grant
                 </Button>
-              </div>
+              </Inline>
+              </Stack>
             </form>
           </Card>
         ) : (
@@ -399,7 +428,7 @@ export async function BreakGlassScreen({
         )}
 
         {/* ---- The register ---- */}
-        <section aria-labelledby="bg-register" className="stack" style={{ gap: 'var(--space-5)' }}>
+        <Stack as="section" gap="5" aria-labelledby="bg-register">
           <h2 id="bg-register">The register</h2>
           <p className="muted">
             Kept permanently, and worth reading as a metric rather than as a log: the count
@@ -418,36 +447,37 @@ export async function BreakGlassScreen({
             </EmptyState>
           ) : (
             <>
-              <div className="grid">
+              <Stack gap="4">
                 {register.value.data.map((grant) => (
                   <GrantCard key={grant.id} grant={grant} clinic={nameById.get(grant.tenant_id)} />
                 ))}
-              </div>
+              </Stack>
 
-              {register.value.meta.prev_cursor || register.value.meta.next_cursor ? (
-                <div className="row-wrap">
-                  {register.value.meta.prev_cursor ? (
-                    <Button
-                      variant="quiet"
-                      href={`${paths.register}?cursor=${encodeURIComponent(register.value.meta.prev_cursor)}`}
-                    >
-                      Previous
-                    </Button>
-                  ) : null}
-                  {register.value.meta.next_cursor ? (
-                    <Button
-                      variant="quiet"
-                      href={`${paths.register}?cursor=${encodeURIComponent(register.value.meta.next_cursor)}`}
-                    >
-                      Next
-                    </Button>
-                  ) : null}
-                </div>
-              ) : null}
+              {/*
+                `Pagination` rather than two hand-built buttons, and the property that
+                matters is what it CANNOT do: it has no `page` prop and nothing that would
+                accept an offset. Grants are issued while somebody reads this register, which
+                is exactly the traffic under which an offset duplicates and skips rows — and
+                a skipped row in an audit register is a grant nobody reviewed.
+              */}
+              <Pagination
+                label="Break-glass register pages"
+                summary={`${register.value.data.length} grants on this page`}
+                {...(register.value.meta.prev_cursor
+                  ? {
+                      previousHref: `${paths.register}?cursor=${encodeURIComponent(register.value.meta.prev_cursor)}`,
+                    }
+                  : {})}
+                {...(register.value.meta.next_cursor
+                  ? {
+                      nextHref: `${paths.register}?cursor=${encodeURIComponent(register.value.meta.next_cursor)}`,
+                    }
+                  : {})}
+              />
             </>
           )}
-        </section>
-      </div>
+        </Stack>
+      </Stack>
     </>
   )
 }

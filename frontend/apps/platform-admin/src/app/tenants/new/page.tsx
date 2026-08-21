@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Notice } from '@carevelo/ui'
+import { Badge, Notice, PageHeader } from '@carevelo/ui'
 import { AccessNotice, authoriseOperator } from '@/domains/identity'
 import { ProvisionScreen } from '@/domains/platform'
 import { ControlPlaneShell } from '@/components/ControlPlaneShell'
@@ -37,13 +37,14 @@ export default async function ProvisionPage({
   if (!access.can.provision) {
     return (
       <ControlPlaneShell title="Provision a clinic" active="tenants">
-        <div className="page-head">
-          <div className="grow">
-            <h1>Provision a clinic</h1>
-            <p>Not available to this account.</p>
-          </div>
-          <span className="badge badge-warn">Refused</span>
-        </div>
+        {/* The `<h1>` for this branch. It and `ProvisionScreen`'s are mutually exclusive —
+            the page returns one or the other and never both — so there is exactly one on
+            whichever version of this route renders. */}
+        <PageHeader
+          title="Provision a clinic"
+          description="Not available to this account."
+          actions={<Badge tone="warn">Refused</Badge>}
+        />
         <Notice tone="info" icon="lock" title="This needs platform_admin">
           Provisioning, suspension, resumption and export belong to{' '}
           <code>platform_admin</code>. <code>platform_support</code> reads the register and

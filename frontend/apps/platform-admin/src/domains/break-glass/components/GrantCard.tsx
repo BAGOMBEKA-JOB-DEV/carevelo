@@ -1,4 +1,4 @@
-import { Badge, Card, DateTime, Notice } from '@carevelo/ui'
+import { Badge, Card, DateTime, Inline, Notice, Stack } from '@carevelo/ui'
 import { scopeLabel } from '../model/scopes'
 import type { Grant } from '../model/types'
 
@@ -40,6 +40,23 @@ import type { Grant } from '../model/types'
  * The published API has no revoke endpoint. Grants expire; the time box is the control. See
  * api/grants.ts for the whole of it. This card renders `revoked_at` when the API reports it,
  * because the field exists in the model, and offers nothing that would set it.
+ *
+ * ============================================================
+ * THE CLINIC NAME IS A HEADING NOW, AND IT WAS A `<strong>`
+ * ============================================================
+ *
+ * These cards come in runs — every live grant, then every grant ever issued — and a run of
+ * `<article>` elements with no heading in any of them is a run a screen-reader user cannot
+ * navigate. There is nothing to jump between, so the only way through the register is to
+ * read all of it in order. `<h3>` sits correctly under each list's own `<h2>` ("Open right
+ * now", "The register"), and `aria-labelledby` on the article points at it so the region is
+ * announced with the clinic's name rather than as an anonymous article.
+ *
+ * The label/value pairs are NOT `<Stat>`, though they wear its label class. A `Stat` sets
+ * its value in the display face at 28px; these values are a scope name and three instants,
+ * and rendering an expiry at 28px would make the least urgent thing on the card the
+ * largest. The component is right for a count somebody reads across a room, which is what
+ * the live-grant figure on the screen above this one is.
  */
 export function GrantCard({
   grant,
@@ -49,20 +66,27 @@ export function GrantCard({
   /** The clinic's trading name, where the register could supply one. */
   clinic?: string | undefined
 }) {
+  /* Keyed on the GRANT, not on the clinic: the same clinic can hold several grants in one
+     register, and two cards sharing a heading id would point every `aria-labelledby` at
+     whichever happened to render first. */
+  const headingId = `grant-${grant.id}-clinic`
+
   return (
-    <Card as="article" padding="tight">
-      <div className="stack" style={{ gap: 'var(--space-4)' }}>
-        <div className="row-wrap">
+    <Card as="article" padding="tight" aria-labelledby={headingId}>
+      <Stack gap="4">
+        <Inline gap="3" justify="between">
           <div className="grow">
-            <strong>{clinic ?? 'Clinic not on the loaded register'}</strong>
-            <p className="fine">
+            <h3 id={headingId}>{clinic ?? 'Clinic not on the loaded register'}</h3>
+            {/* `.muted` (5.09:1), not `.fine` (--ink-faint, 3.02:1 — see admin.css). These
+                two identifiers are what an operator reads out during an incident. */}
+            <p className="muted">
               tenant <code>{grant.tenant_id}</code> · operator <code>{grant.operator_id}</code>
             </p>
           </div>
           <State grant={grant} />
-        </div>
+        </Inline>
 
-        <div className="row-wrap" style={{ gap: 'var(--space-7)' }}>
+        <Inline gap="7" align="start">
           <span className="stat">
             <span className="stat__label">Scope</span>
             <span className="stat__note">{scopeLabel(grant.scope)}</span>
@@ -87,7 +111,7 @@ export function GrantCard({
               </span>
             </span>
           ) : null}
-        </div>
+        </Inline>
 
         {/*
           THE REASON IS SHOWN VERBATIM AND IS NEVER SUMMARISED. It is the whole of what a
@@ -95,15 +119,17 @@ export function GrantCard({
           be read. Truncating it here would make the register look tidy and make the review
           impossible.
         */}
-        <div className="stack">
+        <Stack gap="2">
           <span className="stat__label">Reason given</span>
-          <p className="muted" style={{ whiteSpace: 'pre-wrap' }}>
-            {grant.reason}
-          </p>
-        </div>
+          {/* `.admin-verbatim` is `white-space: pre-wrap`. An operator writes this knowing a
+              reviewer will read it as evidence, in paragraphs and lists; reflowing it into
+              one block loses structure they deliberately put there. Same argument as the
+              refusal to truncate it, one size smaller. */}
+          <p className="muted admin-verbatim">{grant.reason}</p>
+        </Stack>
 
         {grant.tenant_notified_at ? (
-          <p className="fine">
+          <p className="muted">
             Clinic notified <DateTime value={grant.tenant_notified_at} format="datetime" />. The
             clinic is the data controller and has a right to know when its processor reads its
             records; that notification is not a setting anyone can switch off.
@@ -122,7 +148,7 @@ export function GrantCard({
             than retrying: a second request would notify the clinic twice about one incident.
           </Notice>
         )}
-      </div>
+      </Stack>
     </Card>
   )
 }

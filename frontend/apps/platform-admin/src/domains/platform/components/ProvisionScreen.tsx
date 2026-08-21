@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { Button, Card, Field, Input, Notice, Select } from '@carevelo/ui'
+import { Button, Card, Field, Grid, Inline, Input, Notice, PageHeader, Select, Stack } from '@carevelo/ui'
 import { provisionTenant } from '../api/tenants'
 import { decodeFieldErrors, encodeFieldErrors } from '../model/formErrors'
 import { href } from '../model/links'
@@ -147,20 +147,22 @@ export function ProvisionScreen({ paths, problem, message, fields }: ProvisionSc
 
   return (
     <>
-      <div className="page-head">
-        <div className="grow">
-          <h1>Provision a clinic</h1>
-          <p>
+      <PageHeader
+        title="Provision a clinic"
+        description={
+          <>
             Creates the clinic in <code>provisioning</code>. It does not open it — the clinic
             completes its own checklist and becomes active that way.
-          </p>
-        </div>
-        <Button variant="quiet" href={paths.register}>
-          Back to the register
-        </Button>
-      </div>
+          </>
+        }
+        actions={
+          <Button variant="quiet" href={paths.register}>
+            Back to the register
+          </Button>
+        }
+      />
 
-      <div className="grid">
+      <Stack gap="6">
         {problem === 'incomplete' ? (
           <Notice tone="warn" title="Two fields are required">
             A clinic needs a legal name and a subdomain. Nothing was created.
@@ -196,143 +198,149 @@ export function ProvisionScreen({ paths, problem, message, fields }: ProvisionSc
         </Notice>
 
         <Card as="section">
-          <form action={provision} className="stack" style={{ gap: 'var(--space-7)' }}>
-            {problem !== undefined && problem !== '' ? (
-              <p className="fine">
-                This form does not keep what you typed when the API refuses it. That is
-                deliberate: this surface ships no JavaScript, and carrying a clinic&rsquo;s
-                contact details back through a URL would write them into every log between
-                here and your browser.
-              </p>
-            ) : null}
+          <form action={provision}>
+            <Stack gap="7">
+              {problem !== undefined && problem !== '' ? (
+                <p className="muted">
+                  This form does not keep what you typed when the API refuses it. That is
+                  deliberate: this surface ships no JavaScript, and carrying a clinic&rsquo;s
+                  contact details back through a URL would write them into every log between
+                  here and your browser.
+                </p>
+              ) : null}
 
-            <Field
-              name="legal_name"
-              label="Registered legal name"
-              hint="Exactly as it appears on the clinic's registration. Required."
-              error={errors['legal_name']}
-            >
-              {(control) => <Input {...control} type="text" required autoComplete="off" />}
-            </Field>
-
-            <Field
-              name="trading_name"
-              label="Trading name"
-              hint="What patients call it, if that differs from the legal name."
-              error={errors['trading_name']}
-            >
-              {(control) => <Input {...control} type="text" autoComplete="off" />}
-            </Field>
-
-            <Field
-              name="subdomain"
-              label="Subdomain"
-              hint={
-                'Required, and IMMUTABLE once created. It goes into patient-facing URLs, '
-                + "into the aggregator's webhook configuration and onto printed materials — "
-                + 'and a name like "api" or "admin" would shadow a platform host. Which '
-                + 'names are refused is the API’s decision, not this form’s.'
-              }
-              error={errors['subdomain']}
-            >
-              {(control) => (
-                <Input
-                  {...control}
-                  type="text"
-                  required
-                  autoComplete="off"
-                  inputMode="url"
-                  spellCheck={false}
-                />
-              )}
-            </Field>
-
-            <div className="grid g-2">
               <Field
-                name="contact_phone"
-                label="Contact telephone"
-                hint="Normalised to +256… on write."
-                error={errors['contact_phone']}
+                name="legal_name"
+                label="Registered legal name"
+                hint="Exactly as it appears on the clinic's registration. Required."
+                error={errors['legal_name']}
               >
-                {(control) => <Input {...control} type="tel" inputMode="tel" autoComplete="off" />}
+                {(control) => <Input {...control} type="text" required autoComplete="off" />}
               </Field>
-
-              <Field name="contact_email" label="Contact email" error={errors['contact_email']}>
-                {(control) => <Input {...control} type="email" autoComplete="off" />}
-              </Field>
-            </div>
-
-            <div className="grid g-2">
-              <Field
-                name="physical_address"
-                label="Physical address"
-                error={errors['physical_address']}
-              >
-                {(control) => <Input {...control} type="text" autoComplete="off" />}
-              </Field>
-
-              <Field name="district" label="District" error={errors['district']}>
-                {(control) => <Input {...control} type="text" autoComplete="off" />}
-              </Field>
-            </div>
-
-            <fieldset className="stack" style={{ gap: 'var(--space-5)' }}>
-              <legend className="field__label">Compliance references</legend>
-
-              <Notice tone="warn" icon="shield" title="Recorded, never verified">
-                Carevelo has no access to the UMDPC or NDA registers and never presents these
-                as checked. Typing one here records the clinic&rsquo;s own claim and
-                validates nothing. Every screen that shows them says the same.
-              </Notice>
 
               <Field
-                name="umdpc_facility_reference"
-                label="UMDPC facility reference"
-                error={errors['umdpc_facility_reference']}
+                name="trading_name"
+                label="Trading name"
+                hint="What patients call it, if that differs from the legal name."
+                error={errors['trading_name']}
               >
                 {(control) => <Input {...control} type="text" autoComplete="off" />}
               </Field>
 
               <Field
-                name="nda_licence_reference"
-                label="NDA pharmacy licence reference"
-                error={errors['nda_licence_reference']}
+                name="subdomain"
+                label="Subdomain"
+                hint={
+                  'Required, and IMMUTABLE once created. It goes into patient-facing URLs, '
+                  + "into the aggregator's webhook configuration and onto printed materials — "
+                  + 'and a name like "api" or "admin" would shadow a platform host. Which '
+                  + 'names are refused is the API’s decision, not this form’s.'
+                }
+                error={errors['subdomain']}
               >
-                {(control) => <Input {...control} type="text" autoComplete="off" />}
+                {(control) => (
+                  <Input
+                    {...control}
+                    type="text"
+                    required
+                    autoComplete="off"
+                    inputMode="url"
+                    spellCheck={false}
+                  />
+                )}
               </Field>
-            </fieldset>
 
-            <Field
-              name="trial"
-              label="Trial"
-              hint={
-                'The trial date and the lifecycle state are the whole commercial model on '
-                + 'this platform. There is no plan, no price and no invoice on any endpoint.'
-              }
-              error={errors['trial_ends_at']}
-            >
-              {(control) => (
-                <Select {...control} defaultValue="none">
-                  {NEW_TRIAL_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </Select>
-              )}
-            </Field>
+              <Grid cols={2} gap="5">
+                <Field
+                  name="contact_phone"
+                  label="Contact telephone"
+                  hint="Normalised to +256… on write."
+                  error={errors['contact_phone']}
+                >
+                  {(control) => <Input {...control} type="tel" inputMode="tel" autoComplete="off" />}
+                </Field>
 
-            <div className="row-wrap">
-              <Button type="submit" variant="primary" size="lg">
-                Provision this clinic
-              </Button>
-              <a className="lnk" href={paths.register}>
-                Cancel
-              </a>
-            </div>
+                <Field name="contact_email" label="Contact email" error={errors['contact_email']}>
+                  {(control) => <Input {...control} type="email" autoComplete="off" />}
+                </Field>
+              </Grid>
+
+              <Grid cols={2} gap="5">
+                <Field
+                  name="physical_address"
+                  label="Physical address"
+                  error={errors['physical_address']}
+                >
+                  {(control) => <Input {...control} type="text" autoComplete="off" />}
+                </Field>
+
+                <Field name="district" label="District" error={errors['district']}>
+                  {(control) => <Input {...control} type="text" autoComplete="off" />}
+                </Field>
+              </Grid>
+
+              {/* The <legend> must be the fieldset's FIRST child for a browser to associate it
+                  with the group, so the Stack wraps what follows it rather than the whole
+                  fieldset. A legend nested inside another element is a group with no name. */}
+              <fieldset>
+                <legend className="field__label">Compliance references</legend>
+                <Stack gap="5">
+                <Notice tone="warn" icon="shield" title="Recorded, never verified">
+                  Carevelo has no access to the UMDPC or NDA registers and never presents these
+                  as checked. Typing one here records the clinic&rsquo;s own claim and
+                  validates nothing. Every screen that shows them says the same.
+                </Notice>
+
+                <Field
+                  name="umdpc_facility_reference"
+                  label="UMDPC facility reference"
+                  error={errors['umdpc_facility_reference']}
+                >
+                  {(control) => <Input {...control} type="text" autoComplete="off" />}
+                </Field>
+
+                <Field
+                  name="nda_licence_reference"
+                  label="NDA pharmacy licence reference"
+                  error={errors['nda_licence_reference']}
+                >
+                  {(control) => <Input {...control} type="text" autoComplete="off" />}
+                </Field>
+                </Stack>
+              </fieldset>
+
+              <Field
+                name="trial"
+                label="Trial"
+                hint={
+                  'The trial date and the lifecycle state are the whole commercial model on '
+                  + 'this platform. There is no plan, no price and no invoice on any endpoint.'
+                }
+                error={errors['trial_ends_at']}
+              >
+                {(control) => (
+                  <Select {...control} defaultValue="none">
+                    {NEW_TRIAL_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </Select>
+                )}
+              </Field>
+
+              <Inline gap="4">
+                <Button type="submit" variant="primary" size="lg">
+                  Provision this clinic
+                </Button>
+                <a className="lnk" href={paths.register}>
+                  Cancel
+                </a>
+              </Inline>
+            </Stack>
           </form>
         </Card>
-      </div>
+      </Stack>
     </>
   )
 }

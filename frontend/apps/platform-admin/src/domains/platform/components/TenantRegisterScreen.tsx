@@ -257,118 +257,153 @@ export async function TenantRegisterScreen({
               ?? 'The request to /v1/platform/tenants did not complete. Nothing follows from '
                 + 'that about any clinic — only that this screen could not ask.'}
           </Notice>
-        ) : rows.length === 0 ? (
-          <EmptyState
-            icon="users"
-            title={filter ? `No clinic is in ${filter}` : 'No clinics on the register'}
-            action={
-              filter ? (
-                <Button variant="quiet" href={paths.register}>
-                  Show every state
-                </Button>
-              ) : undefined
-            }
-          >
-            {filter
-              ? 'That is a statement about this filter, not about Carevelo. Clear it to see '
-                + 'every clinic.'
-              : 'Nothing has been provisioned yet.'}
-          </EmptyState>
         ) : (
           <Card as="section" padding="tight">
-            <div className="table-scroll">
-              <table className="table">
-                <caption className="field__hint" style={{ captionSide: 'top', textAlign: 'left' }}>
-                  {rows.length} clinic{rows.length === 1 ? '' : 's'} on this page
-                  {filter ? `, in ${filter}` : ''}. Paged by cursor, so the list stays
-                  consistent while clinics are being provisioned beside it.
-                </caption>
-                <thead>
-                  <tr>
-                    <th scope="col">Clinic</th>
-                    <th scope="col">Subdomain</th>
-                    <th scope="col">State</th>
-                    <th scope="col">Trial ends</th>
-                    <th scope="col">District</th>
-                    <th scope="col">
-                      <span className="sr-only">Open</span>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((row) => (
-                    <tr key={row.id}>
-                      <td>
-                        <div className="stack">
-                          <strong>{row.trading_name ?? row.legal_name}</strong>
-                          {row.trading_name ? (
-                            <span className="muted" style={{ fontSize: 12.5 }}>
-                              {row.legal_name}
-                            </span>
-                          ) : null}
-                        </div>
-                      </td>
-                      <td>
-                        <code>{row.subdomain}</code>
-                      </td>
-                      <td>
-                        <StatusBadge status={row.status} />
-                      </td>
-                      <td>
-                        {row.trial_ends_at ? (
-                          <DateTime value={row.trial_ends_at} />
-                        ) : (
-                          <span className="muted">—</span>
-                        )}
-                      </td>
-                      <td>{row.district ?? <span className="muted">—</span>}</td>
-                      <td>
-                        <a
-                          className="lnk"
-                          href={href(paths.register, {
-                            status: filter,
-                            cursor,
-                            tenant: row.id,
-                          })}
-                        >
-                          Open
-                        </a>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <DataTable
+              caption={
+                `${rows.length} clinic${rows.length === 1 ? '' : 's'} on this page`
+                + `${filter ? `, in ${filter}` : ''}. Paged by cursor, so the list stays `
+                + 'consistent while clinics are being provisioned beside it.'
+              }
+              rows={rows}
+              rowKey={(row) => row.id}
+              /*
+                RENDERED INSIDE THE TABLE, so the headings and the caption stay put and the
+                page does not change shape between a full register and an empty one. It also
+                keeps the distinction the screen has always drawn and must keep drawing:
+                "no clinic is in `suspended`" is a statement about the FILTER, and "no
+                clinics on the register" is a statement about Carevelo. A bare "No results"
+                would be ambiguous between them, and only one of the two needs anybody to do
+                anything.
+              */
+              empty={
+                <EmptyState
+                  icon="users"
+                  title={filter ? `No clinic is in ${filter}` : 'No clinics on the register'}
+                  action={
+                    filter ? (
+                      <Button variant="quiet" href={paths.register}>
+                        Show every state
+                      </Button>
+                    ) : undefined
+                  }
+                >
+                  {filter
+                    ? 'That is a statement about this filter, not about Carevelo. Clear it '
+                      + 'to see every clinic.'
+                    : 'Nothing has been provisioned yet.'}
+                </EmptyState>
+              }
+              columns={[
+                {
+                  key: 'clinic',
+                  header: 'Clinic',
+                  /* The value that NAMES the row — see the note at the top of this file. */
+                  rowHeader: true,
+                  cell: (row) => (
+                    <Stack gap="1">
+                      <strong>{row.trading_name ?? row.legal_name}</strong>
+                      {/*
+                        `.muted` alone, where this was `.muted` plus a hand-set 12.5px. The
+                        size was the only thing separating it from the name above it, and
+                        `.table tbody th` already sets that name at weight 550 — so the
+                        weight does the separating and the second line stays at reading
+                        size. --ink-muted on --canvas is 5.09:1; the 12.5px version was the
+                        same colour two steps smaller, which is how a legal name becomes
+                        unreadable rather than merely secondary.
+                      */}
+                      {row.trading_name ? (
+                        <span className="muted">{row.legal_name}</span>
+                      ) : null}
+                    </Stack>
+                  ),
+                },
+                {
+                  key: 'subdomain',
+                  header: 'Subdomain',
+                  cell: (row) => <code>{row.subdomain}</code>,
+                },
+                {
+                  key: 'state',
+                  header: 'State',
+                  cell: (row) => <StatusBadge status={row.status} />,
+                },
+                {
+                  key: 'trial',
+                  header: 'Trial ends',
+                  cell: (row) =>
+                    row.trial_ends_at ? (
+                      <DateTime value={row.trial_ends_at} />
+                    ) : (
+                      <span className="muted">—</span>
+                    ),
+                },
+                {
+                  key: 'district',
+                  header: 'District',
+                  cell: (row) => row.district ?? <span className="muted">—</span>,
+                },
+                {
+                  key: 'open',
+                  /*
+                    The heading is real and hidden, not absent. An empty `<th>` announces as
+                    silence, so a keyboard user landing in this column has no name for where
+                    they are. The link's own name carries the clinic for the same reason a
+                    row of identical "Open" links is no use read out of context.
+                  */
+                  header: 'Open this clinic',
+                  headerHidden: true,
+                  cell: (row) => (
+                    <a
+                      className="lnk"
+                      href={href(paths.register, {
+                        status: filter,
+                        cursor,
+                        tenant: row.id,
+                      })}
+                      aria-label={`Open ${row.trading_name ?? row.legal_name}`}
+                    >
+                      Open
+                    </a>
+                  ),
+                },
+              ]}
+            />
           </Card>
         )}
 
-        {page.ok && (page.value.meta.prev_cursor || page.value.meta.next_cursor) ? (
-          <div className="row-wrap">
-            {page.value.meta.prev_cursor ? (
-              <Button
-                variant="quiet"
-                href={href(paths.register, {
-                  status: filter,
-                  cursor: page.value.meta.prev_cursor,
-                })}
-              >
-                Previous
-              </Button>
-            ) : null}
-            {page.value.meta.next_cursor ? (
-              <Button
-                variant="quiet"
-                href={href(paths.register, {
-                  status: filter,
-                  cursor: page.value.meta.next_cursor,
-                })}
-              >
-                Next
-              </Button>
-            ) : null}
-          </div>
+        {/*
+          BOTH CURSORS EXIST HERE, which is why this screen gets the real pager and the
+          rider's assignment list does not: `meta.prev_cursor` and `meta.next_cursor` both
+          come off the response, so neither control renders as a dead disabled button.
+          Pagination cannot render "page 3 of 12" and has no prop that would accept an
+          offset — which is the property that matters, because clinics are provisioned and
+          suspended while somebody reads this, and an offset under that traffic duplicates
+          and skips rows.
+        */}
+        {page.ok ? (
+          <Pagination
+            label="Clinic register pages"
+            summary={`${rows.length} clinic${rows.length === 1 ? '' : 's'} on this page`}
+            {...(page.value.meta.prev_cursor
+              ? {
+                  previousHref: href(paths.register, {
+                    status: filter,
+                    cursor: page.value.meta.prev_cursor,
+                  }),
+                }
+              : {})}
+            {...(page.value.meta.next_cursor
+              ? {
+                  nextHref: href(paths.register, {
+                    status: filter,
+                    cursor: page.value.meta.next_cursor,
+                  }),
+                }
+              : {})}
+          />
         ) : null}
-      </div>
+      </Stack>
     </>
   )
 }

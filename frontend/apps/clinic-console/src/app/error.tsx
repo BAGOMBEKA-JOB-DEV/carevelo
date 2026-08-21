@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, type ReactElement } from 'react'
+import { useEffect, useRef, type ReactElement, type ReactNode } from 'react'
 import { Button, Card, Inline, Stack } from '@carevelo/ui'
 
 /**
@@ -46,13 +46,32 @@ import { Button, Card, Inline, Stack } from '@carevelo/ui'
  * route that actually exists here — `components/sections.ts` records what a link that goes
  * nowhere honest does to a console's credibility.
  */
-export default function ConsoleError({
-  error,
-  reset,
-}: {
+export type ConsoleErrorScreenProps = {
+  /** One sentence, in the past tense, about the SCREEN. Never about the record. */
+  title: string
+  /** Next's error object. Only `digest` is ever read from it — see above. */
   error: Error & { digest?: string | undefined }
   reset: () => void
-}): ReactElement {
+  /** The retry is added here; these are the ways out beside it. */
+  actions: ReactNode
+  /** What happened and what is safe to do next. */
+  children: ReactNode
+}
+
+/**
+ * The screen, exported so a section whose recovery genuinely differs reuses it rather than
+ * copying the focus handling and the digest rule. `payments/error.tsx` is the one caller.
+ *
+ * There is no separate module for it because a route file is the only kind of file this
+ * layer owns, and this is the console's canonical failure screen.
+ */
+export function ConsoleErrorScreen({
+  title,
+  error,
+  reset,
+  actions,
+  children,
+}: ConsoleErrorScreenProps): ReactElement {
   /*
    * Focus moves to the heading once, on mount.
    *
@@ -60,10 +79,10 @@ export default function ConsoleError({
    * nothing is announced and focus stays on a control that no longer exists — leaving
    * somebody on a screen reader tabbing around a page they were never told they had
    * arrived at. Moving focus to the <h1> is what a real navigation would have done, and it
-   * is deterministic in a way a live region is not: an `role="alert"` here would announce
-   * when the boundary swaps in the browser and stay silent if the same markup were ever
-   * present in the document at parse time. `tabIndex={-1}` makes the heading focusable
-   * programmatically without ever putting it in the tab order.
+   * is deterministic in a way a live region is not: `role="alert"` would announce when the
+   * boundary swaps in the browser and stay silent if this markup were ever present in the
+   * document at parse time. `tabIndex={-1}` makes the heading focusable programmatically
+   * without ever putting it in the tab order.
    */
   const heading = useRef<HTMLHeadingElement>(null)
 
@@ -80,15 +99,10 @@ export default function ConsoleError({
               heading sizes and `.page-head h1` only dresses a heading inside a page head,
               which this is not. */}
           <h1 className="title" ref={heading} tabIndex={-1}>
-            This page did not load
+            {title}
           </h1>
 
-          <p className="muted">
-            Something failed while this screen was being put together. Nothing you were
-            looking at has been changed, and nothing has been sent to a patient or a rider.
-            Try once more — a read that did not come back is the ordinary cause, and it
-            often succeeds on the second attempt.
-          </p>
+          <p className="muted">{children}</p>
 
           <Inline gap="4">
             {/* `type="button"`: not in a form today, and must not become a submit if it
@@ -96,12 +110,7 @@ export default function ConsoleError({
             <Button variant="primary" size="lg" type="button" onClick={reset}>
               Try again
             </Button>
-            <Button variant="quiet" size="lg" href="/schedule">
-              Go to the schedule
-            </Button>
-            <Button variant="ghost" size="lg" href="/sign-in">
-              Sign in again
-            </Button>
+            {actions}
           </Inline>
 
           {/* Only the digest, only when the server produced one. It is absent for an error
@@ -117,5 +126,39 @@ export default function ConsoleError({
         </Stack>
       </Card>
     </main>
+  )
+}
+
+export default function ConsoleError({
+  error,
+  reset,
+}: {
+  error: Error & { digest?: string | undefined }
+  reset: () => void
+}): ReactElement {
+  return (
+    <ConsoleErrorScreen
+      title="This page did not load"
+      error={error}
+      reset={reset}
+      actions={
+        <>
+          <Button variant="quiet" size="lg" href="/schedule">
+            Go to the schedule
+          </Button>
+          {/* Offered because a failed read is very often an expired session, and because
+              this route exists — components/sections.ts records what a link that goes
+              nowhere honest does to a console's credibility. */}
+          <Button variant="ghost" size="lg" href="/sign-in">
+            Sign in again
+          </Button>
+        </>
+      }
+    >
+      Something failed while this screen was being put together. Nothing you were looking at
+      has been changed, and nothing has been sent to a patient or a rider. Try once more — a
+      read that did not come back is the ordinary cause, and it often succeeds on the second
+      attempt.
+    </ConsoleErrorScreen>
   )
 }

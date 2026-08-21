@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { Button, Card, Choice, DateTime, Field, Notice, Select } from '@carevelo/ui'
+import { Button, Card, Choice, DateTime, Field, Grid, Inline, Notice, Select, Stack } from '@carevelo/ui'
 import type { Capabilities } from '@/domains/identity'
 import { updateTenant } from '../api/tenants'
 import { href } from '../model/links'
@@ -123,8 +123,8 @@ export function TenantPanel({ tenant, can, paths, status, cursor }: TenantPanelP
 
   return (
     <Card as="section" aria-labelledby="panel-heading">
-      <div className="stack" style={{ gap: 'var(--space-7)' }}>
-        <div className="row-wrap">
+      <Stack gap="7">
+        <Inline gap="4" justify="between">
           <div className="grow">
             <h2 id="panel-heading">{tenant.trading_name ?? tenant.legal_name}</h2>
             <p className="muted">
@@ -133,13 +133,21 @@ export function TenantPanel({ tenant, can, paths, status, cursor }: TenantPanelP
             </p>
           </div>
           <StatusBadge status={tenant.status} />
-        </div>
+        </Inline>
 
         {current ? <p className="muted">{STATUS_MEANING[current]}</p> : null}
 
-        {/* ---- What Carevelo holds, and what it deliberately does not ---- */}
-        <div className="grid g-2">
-          <div className="stack">
+        {/* ---- What Carevelo holds, and what it deliberately does not ----
+
+            DELIBERATELY NOT `<Stat>`, though the label class is the same one. A `Stat` sets
+            its value in the display face at 28px with tabular figures, which is right for a
+            count somebody reads across a room and wrong for a three-line address or an
+            instant. These are definition-list items whose label happens to be dressed as a
+            stat label; forcing them through the component would make a telephone number the
+            largest thing in the panel. The spacing is still a `Stack` gap rather than a
+            margin, which was the actual problem here. */}
+        <Grid cols={2} gap="5">
+          <Stack gap="2">
             <span className="stat__label">Contact</span>
             <p className="muted">
               {tenant.contact.phone ?? 'No phone recorded'}
@@ -148,9 +156,9 @@ export function TenantPanel({ tenant, can, paths, status, cursor }: TenantPanelP
               <br />
               {tenant.district ?? 'No district recorded'}
             </p>
-          </div>
+      </Stack>
 
-          <div className="stack">
+          <Stack gap="2">
             <span className="stat__label">Trial</span>
             <p className="muted">
               {tenant.trial_ends_at ? (
@@ -165,8 +173,8 @@ export function TenantPanel({ tenant, can, paths, status, cursor }: TenantPanelP
             <p className="muted">
               {tenant.created_at ? <DateTime value={tenant.created_at} /> : 'Not recorded'}
             </p>
-          </div>
-        </div>
+          </Stack>
+        </Grid>
 
         {/*
           RECORDED, NEVER VERIFIED, and this notice is not optional politeness. Carevelo has
@@ -202,121 +210,122 @@ export function TenantPanel({ tenant, can, paths, status, cursor }: TenantPanelP
         ) : (
           <>
             {/* ---- Lifecycle ---- */}
-            <form action={changeLifecycle} className="stack" style={{ gap: 'var(--space-5)' }}>
-              <Choice
-                name="status"
-                legend="Move this clinic to"
-                hint={
-                  'Which moves are legal is the API’s decision, not this screen’s. '
-                  + 'An unreachable move is refused in the API’s own words rather than '
-                  + 'hidden by a copy of the state machine that would be free to drift.'
-                }
-                options={STATUSES.filter((state) => state !== current).map((state) => ({
-                  value: state,
-                  label: state,
-                  note: STATUS_MEANING[state],
-                }))}
-                required
-              />
+            <form action={changeLifecycle}>
+              <Stack gap="5">
+                <Choice
+                  name="status"
+                  legend="Move this clinic to"
+                  hint={
+                    'Which moves are legal is the API’s decision, not this screen’s. '
+                    + 'An unreachable move is refused in the API’s own words rather than '
+                    + 'hidden by a copy of the state machine that would be free to drift.'
+                  }
+                  options={STATUSES.filter((state) => state !== current).map((state) => ({
+                    value: state,
+                    label: state,
+                    note: STATUS_MEANING[state],
+                  }))}
+                  required
+                />
 
-              {/*
-                Read this before pressing anything. Every clause is a thing that has been
-                got wrong, in this product's own documents, at least once.
-              */}
-              <Notice tone="warn" icon="lock" title="What suspension does and does not do">
-                It blocks staff sign-in. It does NOT stop a patient reading their own
-                records, it does NOT abandon a delivery already in flight, and it can NEVER
-                withhold the data export — the clinic is the data controller and leaves with
-                its data regardless of any commercial dispute. A commercial dispute must not
-                become a clinical incident.
-              </Notice>
+                {/*
+                  Read this before pressing anything. Every clause is a thing that has been
+                  got wrong, in this product's own documents, at least once.
+                */}
+                <Notice tone="warn" icon="lock" title="What suspension does and does not do">
+                  It blocks staff sign-in. It does NOT stop a patient reading their own
+                  records, it does NOT abandon a delivery already in flight, and it can NEVER
+                  withhold the data export — the clinic is the data controller and leaves with
+                  its data regardless of any commercial dispute. A commercial dispute must not
+                  become a clinical incident.
+                </Notice>
 
-              <div className="row-wrap">
-                <Button type="submit" variant="primary">
-                  Apply this change
-                </Button>
-              </div>
+                <Inline gap="3">
+                  <Button type="submit" variant="primary">
+                    Apply this change
+                  </Button>
+                </Inline>
+              </Stack>
             </form>
 
             {/* ---- The trial. The other half of the entire commercial surface. ---- */}
-            <form action={changeTrial} className="stack" style={{ gap: 'var(--space-5)' }}>
-              <Field
-                name="trial"
-                label="Trial"
-                hint={
-                  'The trial date and the lifecycle state are the whole commercial model. '
-                  + 'There is no plan, no price and no invoice on any platform endpoint.'
-                }
-              >
-                {(control) => (
-                  <Select {...control} defaultValue="keep">
-                    {TRIAL_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </Select>
-                )}
-              </Field>
+            <form action={changeTrial}>
+              <Stack gap="5">
+                <Field
+                  name="trial"
+                  label="Trial"
+                  hint={
+                    'The trial date and the lifecycle state are the whole commercial model. '
+                    + 'There is no plan, no price and no invoice on any platform endpoint.'
+                  }
+                >
+                  {(control) => (
+                    <Select {...control} defaultValue="keep">
+                      {TRIAL_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </Select>
+                  )}
+                </Field>
 
-              <div className="row-wrap">
-                <Button type="submit" variant="quiet">
-                  Set the trial
-                </Button>
-              </div>
+                <Inline gap="3">
+                  <Button type="submit" variant="quiet">
+                    Set the trial
+                  </Button>
+                </Inline>
+              </Stack>
             </form>
           </>
         )}
 
         {/* ---- The controller-obligation export ---- */}
         {can.exportTenantData ? (
-          <form
-            method="post"
-            action={paths.export}
-            className="stack"
-            style={{ gap: 'var(--space-4)' }}
-          >
-            {/*
-              A NATIVE POST TO A ROUTE HANDLER, NOT A SERVER ACTION, AND NOT A LINK.
+          <form method="post" action={paths.export}>
+            <Stack gap="4">
+              {/*
+                A NATIVE POST TO A ROUTE HANDLER, NOT A SERVER ACTION, AND NOT A LINK.
 
-              Not a link, because this endpoint is audited twice — once in the platform trail
-              and once in the CLINIC's own — so a GET that a browser prefetched or a crawler
-              followed would write entries into a clinic's audit trail that nobody asked for.
+                Not a link, because this endpoint is audited twice — once in the platform trail
+                and once in the CLINIC's own — so a GET that a browser prefetched or a crawler
+                followed would write entries into a clinic's audit trail that nobody asked for.
 
-              Not a Server Action, because an action cannot hand a file back to a browser
-              that posted natively, and this surface ships no client JavaScript. The route
-              handler answers with the export document as an attachment, which a plain form
-              POST downloads without a line of script.
-            */}
-            <input type="hidden" name="tenant" value={tenant.id} />
+                Not a Server Action, because an action cannot hand a file back to a browser
+                that posted natively, and this surface ships no client JavaScript. The route
+                handler answers with the export document as an attachment, which a plain form
+                POST downloads without a line of script.
+              */}
+              <input type="hidden" name="tenant" value={tenant.id} />
 
-            <h3>Controller-obligation export</h3>
-            <p className="muted">
-              The clinic&rsquo;s own data, as a file, for the clinic. Deliberately available
-              in every state including suspended and offboarding — withholding it to secure
-              payment would be unlawful and would harm patients. Aggregator credentials are
-              not in it and the document says so: they are unreadable by every role including
-              this one, and the clinic already holds them.
-            </p>
-            <p className="muted">
-              Producing it writes to the platform audit trail and to this clinic&rsquo;s own,
-              so the clinic can see that it happened even when somebody else asked for it.
-            </p>
+              <h3>Controller-obligation export</h3>
+              <p className="muted">
+                The clinic&rsquo;s own data, as a file, for the clinic. Deliberately available
+                in every state including suspended and offboarding — withholding it to secure
+                payment would be unlawful and would harm patients. Aggregator credentials are
+                not in it and the document says so: they are unreadable by every role including
+                this one, and the clinic already holds them.
+              </p>
+              <p className="muted">
+                Producing it writes to the platform audit trail and to this clinic&rsquo;s own,
+                so the clinic can see that it happened even when somebody else asked for it.
+              </p>
 
-            <div className="row-wrap">
-              <Button type="submit" variant="quiet">
-                Produce the export
-              </Button>
-            </div>
+              <Inline gap="3">
+                <Button type="submit" variant="quiet">
+                  Produce the export
+                </Button>
+              </Inline>
+            </Stack>
           </form>
         ) : null}
 
-        <div className="row-wrap">
+        <Inline gap="3">
           <a className="lnk" href={href(paths.register, { status, cursor })}>
             Close this clinic
           </a>
-        </div>
-      </div>
+        </Inline>
+      </Stack>
     </Card>
   )
 }
