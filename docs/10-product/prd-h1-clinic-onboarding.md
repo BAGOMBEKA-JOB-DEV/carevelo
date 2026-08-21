@@ -43,9 +43,9 @@ sequenceDiagram
 
     A->>P: Sign up: clinic name, phone, subdomain
     P->>P: Create isolated tenant<br/>RLS active from this moment
-    P->>S: OTP
-    A->>P: Verify
-    Note over P: Tenant status: provisioning
+    P->>S: Single-use activation link
+    A->>P: Follow the link, set a password
+    Note over P: Holding the link is the proof —<br/>it arrived at that number.<br/>Tenant status: provisioning
 
     A->>P: Logo, colours, trading name
     P-->>A: Live preview of patient surface
@@ -81,7 +81,7 @@ The administrator supplies clinic name, their own name, phone and email, and a d
 
 The platform creates an **isolated tenant**: a `Tenant` row, a `TenantUser` with the `clinic_admin` role, and the subdomain reservation. Every subsequent row created by this clinic carries its `tenant_id`, and isolation is enforced by PostgreSQL row-level security rather than by application code alone — see [Multi-Tenancy](../30-architecture/multi-tenancy.md).
 
-Phone is verified by OTP before the tenant leaves `provisioning`.
+The administrator's number is proved before the tenant leaves `provisioning`, by a single-use activation link sent to it. **Possession of the link is the proof** — it arrived at that handset — which is the same mechanism as a staff invitation and the only one the platform has: no one-time codes are sent anywhere in the product ([Auth](../40-api/authentication-and-sessions.md), [ADR-0011](../70-decisions/0011-staff-issued-patient-accounts.md)). The administrator sets their own password when they follow it.
 
 - Subdomain is validated against the reserved list and is **immutable afterwards** ([Identifiers](../20-domain/identifiers-and-numbering.md)).
 - A 14-day trial starts. No card, no payment details — this market does not have them and demanding them ends the conversation.
@@ -123,7 +123,7 @@ This is the step where the non-custodial architecture becomes concrete, and the 
 
 ### 6. Staff invitations
 
-The administrator invites clinicians, pharmacist, dispatcher, front-desk and riders by phone number. Each receives an SMS invitation and sets a password after OTP verification.
+The administrator invites clinicians, pharmacist, dispatcher, front-desk and riders by phone number. Each receives a single-use, expiring SMS invitation link and **chooses their own password** when they accept it. Holding the token is what proves the number, so acceptance is what marks the account phone-verified — and no colleague ever knows the password.
 
 Roles are assigned at invitation and are role-scoped from first sign-in ([RBAC Matrix](../50-security-compliance/rbac-matrix.md)). Clinical roles additionally capture registration body, registration number and prescribing capability — a clinician cannot issue a prescription without them ([Domain Model](../20-domain/domain-model.md)).
 
@@ -142,7 +142,7 @@ The administrator is then prompted to run a **test consultation** against a seed
 | Exception | Handling |
 |---|---|
 | Desired subdomain taken or reserved | Suggest alternatives; block reserved values |
-| OTP not received | Resend with backoff; fall back to voice call; support escalation after three failures |
+| Activation or invitation SMS not received | Resend with backoff; correct the number and re-issue, since a single-use link to a wrong number is a link nobody can use; support escalation after three failures |
 | No aggregator account (§H1.6) | Guided sign-up link; continue with `unconfigured`; all bookings `pay_at_clinic` |
 | Aggregator credentials rejected | Show the aggregator's own error verbatim; keep `pending_verification`; do not block other onboarding |
 | Logo upload fails validation | Explain the constraint (format, size, dimensions); offer to proceed with a text wordmark |
@@ -157,7 +157,7 @@ The administrator is then prompted to run a **test consultation** against a seed
 3. Aggregator credentials never appear in any API response, log line or exception trace. Covered by an automated test.
 4. Compliance references are stored and displayed as *unverified attestations*, with wording to that effect on screen.
 5. A tenant without an aggregator account can complete onboarding and hold a consultation.
-6. Invited staff receive an SMS, verify by OTP, and land with exactly the permissions of their role — no more.
+6. Invited staff receive a single-use, expiring SMS link, set their own password on accepting it, and land with exactly the permissions of their role — no more. A spent or expired token grants nothing.
 7. The data processing agreement acceptance is recorded with timestamp and policy version, and appears in the audit log.
 8. A test consultation can be completed end to end, including a rendered prescription PDF, and its data is excluded from reports.
 9. The full path, exercised by a first-time user, completes in under 4 hours elapsed.

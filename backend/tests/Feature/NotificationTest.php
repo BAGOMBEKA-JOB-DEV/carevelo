@@ -32,8 +32,9 @@ use Illuminate\Support\Facades\Queue;
 |
 | So the acceptance criteria in the notifications document are tested here as
 | invariants of the catalogue rather than of any one message: no template may
-| carry clinical content, every template must identify the clinic, an OTP may
-| never carry a link, and sending may never fail the work that triggered it.
+| carry clinical content, every template must identify the clinic, a template
+| declared link-free may never carry a link, and sending may never fail the work
+| that triggered it.
 |
 | See docs/10-product/notifications-sms-whatsapp.md
 |
@@ -55,8 +56,6 @@ function benignParameters(NotificationTemplate $template): array
         $values[$name] = match (true) {
             $name === 'clinic' => 'Kira Family Clinic',
             $name === 'clinic_phone' => '0772 123 456',
-            $name === 'code' => '482913',
-            $name === 'expires_in_minutes' => 5,
             $name === 'starts_at' => 'Monday 17 August at 10:00',
             $name === 'amount', $name === 'total' => 'UGX 45,000',
             $name === 'reference' => 'RX-2608-0042',
@@ -164,21 +163,16 @@ it('takes the clinic name from the tenant and not from the caller', function () 
 
 /*
 |--------------------------------------------------------------------------
-| Acceptance criterion 4 -- an OTP carries no link
+| Acceptance criterion 4 -- a link-free template carries no link
 |--------------------------------------------------------------------------
+|
+| No template in the catalogue is declared link-free today. The one that was --
+| the sign-in code -- went with phone one-time codes, and the guard outlived it
+| deliberately: it is what stops the next message carrying a code from being
+| written with a link beside it, at the moment it is authored rather than after
+| it has reached a handset.
+|
 */
-
-it('never puts a link in an OTP', function () {
-    $template = app(TemplateRegistry::class)->get(TemplateRegistry::REGISTRATION_OTP);
-
-    $body = $template->render(benignParameters($template));
-
-    expect($template->permitsLink)->toBeFalse()
-        ->and($body)->not->toContain('http')
-        ->and($body)->not->toContain('www.')
-        ->and($body)->not->toContain('://')
-        ->and($body)->toContain('482913');
-});
 
 it('cannot register a link-free template that contains a link', function () {
     // A code and a link in one SMS is the shape of every mobile-money phishing
@@ -286,20 +280,6 @@ it('cannot fail the transaction that triggered it', function () {
         expect(Patient::query()->whereKey($patient->id)->exists())->toBeTrue()
             ->and(OutboundNotification::query()->count())->toBe(1);
     });
-});
-
-it('puts the OTP on the high priority queue', function () {
-    Queue::fake();
-
-    $tenant = Tenant::factory()->create();
-
-    app(Tenancy::class)->run($tenant->id, fn () => app(Notifier::class)->send(
-        TemplateRegistry::REGISTRATION_OTP,
-        '0772123456',
-        ['code' => '482913', 'expires_in_minutes' => 5],
-    ));
-
-    Queue::assertPushedOn('high', SendNotificationJob::class);
 });
 
 /*
@@ -421,31 +401,6 @@ it('suppresses ordinary messages once a tenant exceeds its minute allowance', fu
     Queue::assertNothingPushed();
 });
 
-it('never suppresses an OTP', function () {
-    // Someone is looking at a sign-in screen. A tenant-wide reminder loop must
-    // not lock a patient out of their own records.
-    Queue::fake();
-
-    $tenant = Tenant::factory()->create();
-    $limiter = app(RateLimiter::class);
-
-    for ($i = 0; $i < Notifier::MAX_PER_TENANT_PER_MINUTE; $i++) {
-        $limiter->hit(Notifier::rateLimitKey($tenant->id), 60);
-    }
-
-    app(Tenancy::class)->run($tenant->id, function () {
-        $notification = app(Notifier::class)->send(
-            TemplateRegistry::REGISTRATION_OTP,
-            '0772123456',
-            ['code' => '482913', 'expires_in_minutes' => 5],
-        );
-
-        expect($notification->status)->toBe(NotificationStatus::Queued);
-    });
-
-    Queue::assertPushed(SendNotificationJob::class);
-});
-
 /*
 |--------------------------------------------------------------------------
 | Isolation
@@ -475,7 +430,6 @@ it('has a template for every event in the notifications catalogue', function () 
     $registry = app(TemplateRegistry::class);
 
     $expected = [
-        TemplateRegistry::REGISTRATION_OTP,
         TemplateRegistry::APPOINTMENT_CONFIRMED,
         TemplateRegistry::APPOINTMENT_REMINDER,
         TemplateRegistry::APPOINTMENT_CANCELLED,

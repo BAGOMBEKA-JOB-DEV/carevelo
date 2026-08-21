@@ -81,7 +81,7 @@ it('signs a member of staff in with a phone number and a password', function () 
         'password' => 'the-right-password',
     ])
         ->assertOk()
-        ->assertJsonPath('id', $user->id)
+        ->assertJsonPath('data.id', $user->id)
         // A response carrying a password digest is a digest in a browser cache,
         // a proxy log and a screenshot.
         ->assertJsonMissing(['password']);

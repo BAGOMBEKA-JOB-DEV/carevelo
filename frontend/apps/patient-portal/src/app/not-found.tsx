@@ -7,6 +7,10 @@
  * carries no branding — there is no tenant to brand it with — and reads the same for
  * a host that never existed and one offboarded last week.
  *
+ * That is also why it is the one page on the surface with no SiteShell: the frame carries
+ * the clinic's header, footer and name, and there is no clinic here to carry. The layout's
+ * tokens still apply, so it renders in the default palette and the product's own type.
+ *
  * Rendered INSIDE the root layout, which is why it no longer carries an <html> of its own.
  * It used to, because the layout called notFound() itself and so could never wrap this
  * page — Next answered with a global error shell containing no readable text at all. With
@@ -29,10 +33,8 @@
 export default function NotFound() {
   return (
     <main className="site-pagehero">
-      <div className="empty">
-        <p className="empty__title">Page not found</p>
-        <p>Check the address and try again.</p>
-      </div>
+      <h1 className="site-h1">Page not found</h1>
+      <p className="site-lede">Check the address and try again.</p>
     </main>
   )
 }

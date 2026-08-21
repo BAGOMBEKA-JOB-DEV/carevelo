@@ -1,47 +1,41 @@
 import Link from 'next/link'
-import { requestCode, verifyCode, signInWithPassword } from '../api/session'
+import { signInWithPassword } from '../api/session'
 import type { Tenant } from '@/lib/tenant'
 
 /**
- * Sign in: the clinic's proposition on one side, the form on the other.
+ * Sign in: the clinic's proposition on one side, one form on the other.
  *
- * TWO WAYS IN, ONE DOOR. Email and password is the default, because that is what a
- * clinic administrator at a desk expects and because a password is the credential a
- * member of staff signing in daily should have. A phone code is the second tab, because
- * the business plan is blunt that "most Ugandan clinic staff have a working phone and no
- * reliably checked email address" — and the same is far truer of patients, who consult
- * twice a year and would otherwise arrive at a password they have forgotten.
+ * ONE WAY IN. An email address and a password, and nothing else. The phone one-time-code
+ * flow that used to share this screen is gone from the product — its endpoints are gone
+ * from the API — so there is no method switch, no radio group and no second panel to
+ * choose between. A sign-in screen that opens with a decision is a sign-in screen that
+ * asks the patient to understand our architecture before they can reach their records.
  *
- * The tab is chosen by a real radio group in CSS, so switching costs no JavaScript and
- * announces itself to a screen reader as what it is.
- *
- * PLAIN FORM POSTS throughout. `<form action={serverAction}>` submits natively before the
- * bundle arrives or with JavaScript switched off, which the performance budget requires:
- * the patient this is built for is on a mid-range Android phone on variable mobile data.
+ * A PLAIN FORM POST. `<form action={serverAction}>` submits natively before the bundle
+ * arrives or with JavaScript switched off, which the performance budget requires: the
+ * patient this is built for is on a mid-range Android phone on variable mobile data. That
+ * is also why there is no 'use client', no useState and no onSubmit anywhere in this file
+ * — every one of them would make the form depend on JavaScript having loaded.
  *
  * @see docs/40-api/authentication-and-sessions.md
+ * @see docs/30-architecture/frontend-nextjs.md — the performance budget that rules out
+ *      a client-side auth flow
  */
 export function SignInForm({
   tenant,
-  phone,
-  method,
   error,
 }: {
   tenant: Tenant
   // `| undefined` explicitly: a search parameter is genuinely absent or a string, and
   // exactOptionalPropertyTypes keeps those cases distinct rather than letting an
   // accidental undefined pass as "not provided".
-  phone?: string | undefined
-  method?: string | undefined
   error?: string | undefined
 }) {
   const clinic = tenant.trading_name ?? 'this clinic'
+  // Optional-chained though the schema marks both required: this renders whatever the API
+  // sent, and a panel that throws because a field arrived null is a worse failure than a
+  // panel with a letter tile.
   const logo = tenant.branding?.logo_url
-
-  // A pending code wins over the tab: somebody who has just been sent a code is in the
-  // middle of that journey and must not be dropped back to the start.
-  const awaitingCode = Boolean(phone)
-  const codeFirst = awaitingCode || method === 'code'
 
   return (
     <div className="auth-page">
@@ -72,31 +66,33 @@ export function SignInForm({
           <span>{clinic}</span>
         </div>
 
+        {/* Anchored to the bottom of the panel by the stylesheet, which is what gives the
+            column its weight — the mark up top, the argument down here. */}
         <div className="auth__lead">
           <h2>Your clinic, on your phone.</h2>
           <p>
             Book a consultation, speak to a clinician by video, voice or chat, read your own
             prescription and follow your medicine to your door — all with {clinic}.
           </p>
-        </div>
 
-        {/*
-         * Statistics about the JOURNEY, not about Carevelo's scale, and every one of them
-         * a fact of how the product is built rather than a claim we would have to stand
-         * behind with numbers we do not have.
-         */}
-        <div className="auth__stats">
-          <div className="auth__stat">
-            <span className="v">4</span>
-            <span className="k">Steps to care</span>
-          </div>
-          <div className="auth__stat">
-            <span className="v">24/7</span>
-            <span className="k">Book any time</span>
-          </div>
-          <div className="auth__stat">
-            <span className="v">100%</span>
-            <span className="k">Paid to the clinic</span>
+          {/*
+           * Statistics about the JOURNEY, not about Carevelo's scale, and every one of
+           * them a fact of how the product is built rather than a claim we would have to
+           * stand behind with numbers we do not have.
+           */}
+          <div className="auth__stats">
+            <div className="auth__stat">
+              <span className="v">4</span>
+              <span className="k">Steps to care</span>
+            </div>
+            <div className="auth__stat">
+              <span className="v">24/7</span>
+              <span className="k">Book any time</span>
+            </div>
+            <div className="auth__stat">
+              <span className="v">100%</span>
+              <span className="k">Paid to the clinic</span>
+            </div>
           </div>
         </div>
       </aside>
@@ -104,50 +100,55 @@ export function SignInForm({
       {/* The form's side. */}
       <main className="auth__form" id="signin">
         <div className="auth__card">
+          <p className="eyebrow">Patient portal</p>
           <h1>Sign in</h1>
           <p className="subtitle">Welcome back. Use the details {clinic} holds for you.</p>
 
           {error ? (
-            <div className="notice notice-bad" style={{ marginTop: 'var(--space-5)' }} role="alert">
+            /* role="alert" because this arrives after a navigation the patient started,
+               and a screen reader should hear why they are back here. */
+            <div className="notice notice-bad" role="alert">
               {error}
             </div>
           ) : null}
 
-          {awaitingCode ? (
-            <CodeStep phone={phone ?? ''} />
-          ) : (
-            <>
-              {/*
-               * The radios sit OUTSIDE both forms, and each method has its own form. One
-               * form carrying every field would send an email and a phone together, which
-               * the API rejects outright rather than silently preferring one.
-               *
-               * Both panels render and CSS hides the unchosen one, which is what makes
-               * switching work before any JavaScript arrives.
-               */}
-              <div className="segmented-group" style={{ marginTop: 'var(--space-6)' }}>
-                <div className="segmented" role="radiogroup" aria-label="How to sign in">
-                  <input
-                    type="radio"
-                    name="signin-method"
-                    value="password"
-                    id="m-password"
-                    defaultChecked={!codeFirst}
-                  />
-                  <label htmlFor="m-password">Email &amp; password</label>
-                  <input type="radio" name="signin-method" value="code" id="m-code" defaultChecked={codeFirst} />
-                  <label htmlFor="m-code">Phone code</label>
-                </div>
+          <form action={submitSignIn} className="auth__fields">
+            <div className="field">
+              <label className="field__label" htmlFor="email">
+                Email address
+              </label>
+              <input
+                className="input"
+                id="email"
+                name="email"
+                type="email"
+                inputMode="email"
+                autoComplete="email"
+                required
+                autoFocus
+              />
+            </div>
 
-                <div className="segmented-panel" data-method="password">
-                  <PasswordStep autoFocus={!codeFirst} />
-                </div>
-                <div className="segmented-panel" data-method="code">
-                  <PhoneStep clinic={clinic} autoFocus={codeFirst} />
-                </div>
-              </div>
-            </>
-          )}
+            <div className="field">
+              <label className="field__label" htmlFor="password">
+                Password
+              </label>
+              <input
+                className="input"
+                id="password"
+                name="password"
+                type="password"
+                autoComplete="current-password"
+                required
+              />
+              {/* No composition hint. A rule stated here tells anyone guessing what shape
+                  to guess, and this form has no idea what the password was set to. */}
+            </div>
+
+            <button className="btn btn-brand btn-block btn-lg" type="submit">
+              Sign in
+            </button>
+          </form>
 
           <p className="auth__aside">
             Trouble signing in? Call {clinic}
@@ -155,7 +156,7 @@ export function SignInForm({
             your details — nobody at {clinic} can see your password.
           </p>
 
-          <p className="auth__aside" style={{ marginTop: 'var(--space-4)', paddingTop: 0, border: 0 }}>
+          <p className="auth__aside">
             <Link className="lnk" href="/">
               ← Back to {clinic}
             </Link>
@@ -166,172 +167,23 @@ export function SignInForm({
   )
 }
 
-/** Email or phone, with a password. */
-function PasswordStep({ autoFocus }: { autoFocus: boolean }) {
-  return (
-    <form action={submitPassword} className="auth__fields">
-      <div className="field">
-        <label className="field__label" htmlFor="identifier">
-          Email address or phone number
-        </label>
-        <input
-          className="input"
-          id="identifier"
-          name="identifier"
-          // `username` rather than `email`: this field takes either, and a password
-          // manager should offer the saved credential for either.
-          autoComplete="username"
-          type="text"
-          placeholder="you@clinic.test or 0772 000 000"
-          required
-          autoFocus={autoFocus}
-        />
-      </div>
-
-      <div className="field">
-        <label className="field__label" htmlFor="password">
-          Password
-        </label>
-        <input
-          className="input"
-          id="password"
-          name="password"
-          type="password"
-          autoComplete="current-password"
-          required
-        />
-        {/* No composition hint. A rule stated here tells anyone guessing what shape to
-            guess, and this form has no idea what the password was set to. */}
-      </div>
-
-      <button className="btn btn-brand btn-block btn-lg" type="submit">
-        Sign in
-      </button>
-    </form>
-  )
-}
-
-/** Ask for a one-time code. */
-function PhoneStep({ clinic, autoFocus }: { clinic: string; autoFocus: boolean }) {
-  return (
-    <form action={submitPhone} className="auth__fields">
-      <div className="field">
-        <label className="field__label" htmlFor="phone">
-          Phone number
-        </label>
-        <input
-          className="input"
-          id="phone"
-          name="phone"
-          type="tel"
-          inputMode="tel"
-          autoComplete="tel"
-          placeholder="0772 000 000"
-          required
-          autoFocus={autoFocus}
-        />
-        <span className="field__hint">
-          The number {clinic} has on file for you. We will send a six-digit code.
-        </span>
-      </div>
-
-      <button className="btn btn-brand btn-block btn-lg" type="submit">
-        Send me a code
-      </button>
-    </form>
-  )
-}
-
-/** Spend the code. */
-function CodeStep({ phone }: { phone: string }) {
-  return (
-    <form action={submitCode} className="auth__fields">
-      <input type="hidden" name="phone" value={phone} />
-      <div className="field">
-        <label className="field__label" htmlFor="code">
-          Six-digit code
-        </label>
-        <input
-          className="input tnum"
-          id="code"
-          name="code"
-          // A numeric keypad on a phone, and the browser's own SMS autofill.
-          type="text"
-          inputMode="numeric"
-          autoComplete="one-time-code"
-          pattern="[0-9]{6}"
-          maxLength={6}
-          required
-          autoFocus
-        />
-        <span className="field__hint">Sent to {phone}. It expires in five minutes.</span>
-      </div>
-
-      <button className="btn btn-brand btn-block btn-lg" type="submit">
-        Sign in
-      </button>
-
-      <Link className="lnk" href="/sign-in">
-        Use a different number
-      </Link>
-    </form>
-  )
-}
-
-async function submitPassword(formData: FormData) {
+async function submitSignIn(formData: FormData) {
   'use server'
 
   const { redirect } = await import('next/navigation')
 
-  const identifier = String(formData.get('identifier') ?? '').trim()
+  const email = String(formData.get('email') ?? '').trim()
   const password = String(formData.get('password') ?? '')
 
-  // One field, two identifiers, and the API refuses a request carrying both — so which
-  // one this is gets decided here. An '@' is the whole test: a Ugandan phone number
-  // cannot contain one, and an address cannot omit it.
-  const field = identifier.includes('@') ? 'email' : 'phone'
-
-  const result = await signInWithPassword(field, identifier, password)
+  const result = await signInWithPassword('email', email, password)
 
   if (!result.ok) {
-    // The API's own sentence, unchanged. It says the same thing for an unknown account and
-    // a wrong password, and refining it here would reopen the hole the API closed.
+    // THE API'S OWN SENTENCE, UNCHANGED. It answers "no account for that address" and
+    // "wrong password" with the identical status and the identical body, so that nobody
+    // can discover who is a patient or a member of staff at a named clinic by typing
+    // addresses at this form. A "check your email address" refinement here would reopen
+    // exactly that hole, which is why nothing below branches on the field or the status.
     redirect(`/sign-in?error=${encodeURIComponent(result.message ?? 'Those details did not work.')}`)
-  }
-
-  redirect('/account')
-}
-
-async function submitPhone(formData: FormData) {
-  'use server'
-
-  const { redirect } = await import('next/navigation')
-
-  const phone = String(formData.get('phone') ?? '')
-  const result = await requestCode(phone)
-
-  if (!result.ok) {
-    redirect(`/sign-in?method=code&error=${encodeURIComponent(result.message ?? 'That did not work.')}`)
-  }
-
-  // The same destination whether or not the number is registered. The API is
-  // enumeration-safe and this must not undo it by branching on the answer.
-  redirect(`/sign-in?phone=${encodeURIComponent(phone)}`)
-}
-
-async function submitCode(formData: FormData) {
-  'use server'
-
-  const { redirect } = await import('next/navigation')
-
-  const phone = String(formData.get('phone') ?? '')
-  const code = String(formData.get('code') ?? '')
-  const result = await verifyCode(phone, code)
-
-  if (!result.ok) {
-    redirect(
-      `/sign-in?phone=${encodeURIComponent(phone)}&error=${encodeURIComponent(result.message ?? 'That code did not work.')}`,
-    )
   }
 
   redirect('/account')

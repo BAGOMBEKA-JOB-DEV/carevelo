@@ -37,9 +37,9 @@ return new class extends Migration
             // consultation.
             $table->ulid('user_id');
 
-            // Hashed, exactly as OtpCode hashes its code and for the same
-            // reason: for the minutes it lives this row IS the credential, and a
-            // leaked table must not hand over live ones.
+            // Hashed, exactly as staff_invitations hashes its token and for the
+            // same reason: for the minutes it lives this row IS the credential,
+            // and a leaked table must not hand over live ones.
             $table->string('token_hash');
 
             // The opaque room the provider is told about. apt-{ulid} and nothing

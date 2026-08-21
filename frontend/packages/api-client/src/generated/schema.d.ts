@@ -4,22 +4,6 @@
  */
 
 export interface paths {
-    "/v1/me": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["v1.me"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/tenant/aggregator-account": {
         parameters: {
             query?: never;
@@ -208,6 +192,33 @@ export interface paths {
         put?: never;
         /** Sign in with an email address or a phone number, and a password */
         post: operations["v1.auth.sign-in"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Who am I, and may I do anything yet
+         * @description A controller method rather than the route closure this used to be, so the
+         *     published contract can describe it: a closure returning an Eloquent model
+         *     is the one endpoint Scramble had nothing to say about, which is why the
+         *     frontend kept a hand-written type for it.
+         *
+         *     Reachable while a password change is outstanding -- see
+         *     RequirePasswordChange. It is how a client learns that it must show the
+         *     password form rather than finding out one refusal at a time.
+         */
+        get: operations["v1.me"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1013,44 +1024,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/auth/otp/request": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Send a code, if there is anybody to send it to
-         * @description 202 either way: the clinic accepted the request, and what happened next is
-         *     deliberately not reported.
-         */
-        post: operations["v1.auth.otp.request"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/auth/otp/verify": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Spend a code and open a session bound to this clinic */
-        post: operations["v1.auth.otp.verify"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/patients": {
         parameters: {
             query?: never;
@@ -1136,6 +1109,23 @@ export interface paths {
          *     never agreed to any of it.
          */
         post: operations["v1.patients.merge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/patients/{patient}/account": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create the account, link the record, and return the password once */
+        post: operations["v1.patients.account.store"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2058,6 +2048,41 @@ export interface components {
             notes?: components["schemas"]["ClinicalNoteResource"][];
         };
         /**
+         * CreatePatientAccountRequest
+         * @description Creating a patient's own sign-in account, at the registration desk.
+         *
+         *     One field arrives from the desk: the address the patient wants to sign in
+         *     with. Everything else about the account is derived or generated, and the two
+         *     fields that are conspicuously prohibited are the point of this class.
+         *
+         *     PASSWORD IS PROHIBITED. UpdateStaffRequest makes exactly this prohibition for
+         *     exactly this reason -- somebody who can write another person's password can
+         *     read everything that person can reach -- and there is a second reason here
+         *     that is specific to a front desk. A staff member creating twenty accounts a
+         *     day types the same password twenty times, and then every account at that
+         *     clinic is guessable by anyone who was ever given one. The server generates a
+         *     readable passphrase and shows it once instead; see InitialPassword.
+         *
+         *     NAME IS PROHIBITED. The account's name is taken from the patient record it is
+         *     created against. A second spelling of a patient's name, typed separately and
+         *     free to drift from the clinical record, is a data-quality trap with nothing on
+         *     the other side of it: staff would then be reading two names for one person and
+         *     no rule says which is right.
+         *
+         *     There is no `phone` field. `users` carries `unique(tenant_id, phone)` and
+         *     writing one here breaks on two ordinary cases -- a member of staff who is also
+         *     a patient of the clinic, and the documented "patient has no phone, register
+         *      * against a next-of-kin number" exception -- either of which would turn a
+         *     legitimate desk action into a duplicate-key failure. Notifications are
+         *     unaffected: ownership resolves through `patients.phone`, never `users.phone`.
+         */
+        CreatePatientAccountRequest: {
+            /** Format: email */
+            email: string;
+            password?: string;
+            name?: string;
+        };
+        /**
          * Currency
          * @description Currencies the platform handles. Uganda only. Multi-country expansion is explicitly not planned — the regulatory model is baked deep into this system, deliberately.
          * @enum {string}
@@ -2170,6 +2195,21 @@ export interface components {
             /** @enum {string} */
             role: "clinic_admin" | "clinician" | "pharmacist" | "dispatcher" | "front_desk" | "rider";
         };
+        /** MeResource */
+        MeResource: {
+            id: string;
+            name: string;
+            email: string | null;
+            phone: string | null;
+            /**
+             * @description Non-null means every endpoint but this one, the password change and
+             *     sign-out is refused with `password_change_required`. Sending it
+             *     here is what lets a client explain that rather than discovering it
+             *     one 403 at a time.
+             */
+            password_change_required: boolean;
+            roles: string[];
+        };
         /**
          * MergePatientRequest
          * @description Folding a duplicate registration into the record that survives.
@@ -2245,6 +2285,15 @@ export interface components {
              */
             merged_into_patient_id: string | null;
             phone_verified: boolean;
+            /**
+             * @description Whether an account can already reach this record as its own.
+             *     Derived, and never the account's identifier or address: front desk
+             *     needs to know whether to offer to create one, and nothing more. It is here rather than on an endpoint of its own because "does this
+             *      person have an account here" is a question worth not being able to
+             *     ask directly. Reading it as part of a record you are already
+             *     authorised to read asks nothing new.
+             */
+            has_account: boolean;
             created_at: string | null;
         };
         /**
@@ -2450,17 +2499,6 @@ export interface components {
         RejectDispenseOrderRequest: {
             reason: string;
         };
-        /**
-         * RequestOtpRequest
-         * @description "Send a code to this number."
-         *
-         *     Public by necessity, and it takes nothing but the number. In particular it
-         *     takes no tenant: the clinic comes from the request host, because a
-         *     client-supplied tenant would be a client-controlled authorisation decision.
-         */
-        RequestOtpRequest: {
-            phone: string;
-        };
         /** RiderDeliveryResource */
         RiderDeliveryResource: {
             id: string;
@@ -2511,7 +2549,9 @@ export interface components {
          *     and picking one silently would mean two requests that look identical signing in as
          *     different people.
          *
-         *     Patients may also use a code with no password at all, which is a different endpoint.
+         *     This is the ONLY way in, for everybody. Patients sign in here too, with the address
+         *     and the password their clinic issued them at the registration desk -- there is no
+         *     second, weaker endpoint that takes a code and no password.
          */
         SignInRequest: {
             /**
@@ -3028,10 +3068,15 @@ export interface components {
          *     working at two clinics has two accounts -- and a prohibited field says that
          *     out loud instead of discarding the value in silence.
          *
-         *     Passwords are not set here. A person sets their own after verifying their
-         *     phone; an administrator who could write another user's password could read
-         *     every clinical record that user can reach, which defeats the role boundary
-         *     entirely.
+         *     Passwords are not set here. A person sets their own; an administrator who
+         *     could write another user's password could read every clinical record that user
+         *     can reach, which defeats the role boundary entirely.
+         *
+         *     The one place a password is issued rather than chosen is a patient account
+         *     created at the registration desk, where there is no other way to hand somebody
+         *     their first credential. Even there the staff member does not choose it: the
+         *     server generates it, shows it once, and the account can do nothing but replace
+         *     it until it does.
          */
         UpdateStaffRequest: {
             name?: string;
@@ -3128,11 +3173,8 @@ export interface components {
             /** Format: date-time */
             phone_verified_at: string | null;
             is_active: boolean;
-        };
-        /** VerifyOtpRequest */
-        VerifyOtpRequest: {
-            phone: string;
-            code: string;
+            /** Format: date-time */
+            password_change_required_at: string | null;
         };
         /**
          * WithdrawConsentRequest
@@ -3221,27 +3263,6 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    "v1.me": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description `User` */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["User"];
-                };
-            };
-            401: components["responses"]["AuthenticationException"];
-        };
-    };
     "v1.aggregator.show": {
         parameters: {
             query?: never;
@@ -3575,12 +3596,25 @@ export interface operations {
             };
         };
         responses: {
+            /**
+             * @description The same resource /v1/me returns, and for the same reason: handing back the raw
+             *     Eloquent model shipped tenant_id, is_active, both timestamps and — once the
+             *     staff-issued account path landed — password_change_required_at, to a browser that
+             *     needs none of them. A client that has just signed in wants exactly what it would
+             *     ask /v1/me for, so it gets exactly that.
+             *
+             *
+             *
+             *     `MeResource`
+             */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["User"] | null;
+                    "application/json": {
+                        data: components["schemas"]["MeResource"];
+                    };
                 };
             };
             403: {
@@ -3622,6 +3656,29 @@ export interface operations {
                     };
                 };
             };
+        };
+    };
+    "v1.me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description `MeResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["MeResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
         };
     };
     "v1.auth.sign-out": {
@@ -4842,7 +4899,7 @@ export interface operations {
                  * @description The catalogue is a closed list, so an unknown key is a client bug
                  *     rather than an empty result set to puzzle over.
                  */
-                template_key?: "registration.otp" | "appointment.confirmed" | "appointment.reminder" | "appointment.cancelled" | "payment.succeeded" | "payment.failed" | "prescription.ready" | "order.priced" | "order.ready_for_pickup" | "delivery.on_its_way" | "delivery.completed" | "results.available" | "staff.invitation";
+                template_key?: "appointment.confirmed" | "appointment.reminder" | "appointment.cancelled" | "payment.succeeded" | "payment.failed" | "prescription.ready" | "order.priced" | "order.ready_for_pickup" | "delivery.on_its_way" | "delivery.completed" | "results.available" | "staff.invitation";
                 from?: string;
                 to?: string;
                 per_page?: number;
@@ -4945,114 +5002,6 @@ export interface operations {
             };
             401: components["responses"]["AuthenticationException"];
             403: components["responses"]["AuthorizationException"];
-        };
-    };
-    "v1.auth.otp.request": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RequestOtpRequest"];
-            };
-        };
-        responses: {
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        message: "If that number is registered, a code has been sent by SMS.";
-                    };
-                };
-            };
-            422: components["responses"]["ValidationException"];
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": {
-                        type: string;
-                        /** @constant */
-                        title: "Too many attempts";
-                        /** @constant */
-                        status: 429;
-                        /** @constant */
-                        code: "too_many_attempts";
-                        /** @constant */
-                        detail: "Wait a few minutes and try again.";
-                        errors: string;
-                    };
-                };
-            };
-        };
-    };
-    "v1.auth.otp.verify": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["VerifyOtpRequest"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["User"] | null;
-                };
-            };
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": {
-                        type: string;
-                        /** @constant */
-                        title: "This clinic account is suspended";
-                        /** @constant */
-                        status: 403;
-                        /** @constant */
-                        code: "tenant_suspended";
-                        /** @constant */
-                        detail: "Staff sign-in is unavailable until the clinic account is reactivated.";
-                        errors: string;
-                    };
-                };
-            };
-            422: components["responses"]["ValidationException"];
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": {
-                        type: string;
-                        /** @constant */
-                        title: "Too many attempts";
-                        /** @constant */
-                        status: 429;
-                        /** @constant */
-                        code: "too_many_attempts";
-                        /** @constant */
-                        detail: "Wait a few minutes and try again.";
-                        errors: string;
-                    };
-                };
-            };
         };
     };
     "v1.patients.index": {
@@ -5218,6 +5167,99 @@ export interface operations {
             401: components["responses"]["AuthenticationException"];
             403: components["responses"]["AuthorizationException"];
             404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "v1.patients.account.store": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The patient ID */
+                patient: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreatePatientAccountRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            patient_id: string;
+                            user_id: string;
+                            email: string | null;
+                            /**
+                             * @description The only moment the plaintext exists outside the patient's own
+                             *     head. It is stored as a hash, never audited, never logged, and
+                             *     never sent by SMS.
+                             */
+                            initial_password: string;
+                            /**
+                             * @description Always one: the endpoint creates a fresh account and links the
+                             *     single record it was called on. It is here so the desk can see
+                             *     that the link happened, because the link -- not the account --
+                             *     is what puts records in front of the patient.
+                             * @constant
+                             */
+                            records_linked: 1;
+                            note: string;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            403: components["responses"]["AuthorizationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            /**
+             * @description The unique index on (tenant_id, email) settled the race, or the
+             *     address belongs to a DEACTIVATED account -- which activeForEmail()
+             *     deliberately does not see, because a "your account is disabled"
+             *     answer at sign-in would confirm the account exists.
+             *
+             *     A 409 rather than a neutral 201 is right here and nowhere near
+             *     sign-in: the caller is an authenticated member of staff who can
+             *     already read every patient record and every address at this clinic,
+             *     so there is no enumeration surface to protect. What there is
+             *     instead is a person standing at a desk who needs to be told the
+             *     truth about why they cannot proceed.
+             */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        type: string;
+                        /** @constant */
+                        title: "That address already has an account at this clinic";
+                        /** @constant */
+                        status: 409;
+                        /** @constant */
+                        code: "account_exists";
+                        /** @constant */
+                        detail: "Use a different address, or ask the patient to sign in with the one they have.";
+                        errors: string;
+                    } | {
+                        type: string;
+                        /** @constant */
+                        title: "This patient already has an account";
+                        /** @constant */
+                        status: 409;
+                        /** @constant */
+                        code: "patient_already_has_account";
+                        detail: string;
+                        errors: string;
+                    };
+                };
+            };
             422: components["responses"]["ValidationException"];
         };
     };

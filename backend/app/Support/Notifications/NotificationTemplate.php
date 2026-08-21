@@ -26,9 +26,9 @@ final class NotificationTemplate
     /**
      * A literal URL, or a placeholder that will be filled with one.
      *
-     * Matching the placeholder NAME as well as the value matters: the OTP rule
-     * has to hold at authoring time, not only once a link has been interpolated
-     * and the message is already on its way.
+     * Matching the placeholder NAME as well as the value matters: the link-free
+     * rule has to hold at authoring time, not only once a link has been
+     * interpolated and the message is already on its way.
      */
     private const LINK = '/https?:\/\/|www\.|\{[a-z_]*(?:link|url)[a-z_]*\}/i';
 
@@ -127,9 +127,10 @@ final class NotificationTemplate
             $body = str_replace('{'.$name.'}', $value, $body);
         }
 
-        // Belt and braces on the OTP rule. An OTP message asks for the one
-        // thing an attacker needs, so it must never also teach the patient that
-        // a link in such a message is normal.
+        // Belt and braces on the link-free rule. A message that asks the patient
+        // for something -- a code, a confirmation -- must never also teach them
+        // that a link beside the request is normal, which is the shape of every
+        // mobile-money phishing message in this market.
         if (! $this->permitsLink && preg_match(self::LINK, $body) === 1) {
             throw new InvalidArgumentException(
                 "Template [{$this->key}] rendered a link into a link-free message."

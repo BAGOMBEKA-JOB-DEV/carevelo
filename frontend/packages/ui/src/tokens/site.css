@@ -1,202 +1,938 @@
 /* ============================================================
    Carevelo — the public, clinic-branded surface
 
-   Ported from ~/Desktop/impala-lite2's site.css, with one systematic change: every
-   accent reads --brand-* rather than --primary. impala is one product with one brand;
-   this surface belongs to the CLINIC, and a patient who sees Carevelo's colours where
-   their clinic's should be has been told, correctly, that they are dealing with a
-   stranger.
+   Ported from ~/Desktop/impala-lite2/web/src/views/site/site.css, which the product
+   owner named as the design language. Kept from it: a fixed header that overlays the
+   hero and then condenses and frosts on scroll, an 88px section rhythm with tinted
+   alternates, the eyebrow with its square bullet, headings on clamp() so they read on
+   a phone without a media query, the divider-grid card container, and softer radii
+   here than in the console.
 
-   Kept from the reference: a fixed header that shrinks and frosts on scroll, generous
-   section rhythm with tinted alternates, the eyebrow with a square bullet, headings on
-   clamp() so they read on a phone without a media query, and softer radii here than in
-   the console — 11px rather than 6px. A marketing page may be warm; a prescribing form
-   may not.
+   ONE SYSTEMATIC CHANGE: EVERY ACCENT READS --brand-*, NEVER --primary.
+
+   impala is one product with one brand, so its accents are `--primary`. This surface
+   belongs to the CLINIC. --primary is Carevelo's own teal and lives on staff surfaces
+   only; a patient who sees Carevelo's green where their clinic's colour should be has
+   been told, correctly, that they are dealing with a stranger, and that is the entire
+   proposition. --brand-primary-fg is the foreground the BACKEND computed for WCAG AA
+   against that brand colour — there is a test there sweeping the whole RGB cube to
+   guarantee the pairing — so a literal #fff on a brand background is never correct
+   here. A clinic with a pale yellow brand would get unreadable text.
+
+   THE ONE PLACE LITERAL COLOURS ARE DELIBERATE is the hero band. It is dark in both
+   themes by design: the navbar then sits on the same backdrop on every page and can
+   stay light-on-dark throughout, instead of changing character between the landing
+   page and /privacy. Everything else is tokens, so the dark palette under
+   :root[data-theme='dark'] carries this file without a single override.
+
+   NO HERO PHOTOGRAPH. The reference feathers a full-bleed truck photo behind a scrim;
+   the `tenants` table stores two colours and a logo, so there is no clinic photograph
+   to bleed. What is reproduced instead is the reference's own photo-free treatment —
+   an opaque near-black floor, two brand-tinted radial washes and a masked 54px grid —
+   which is what its inner pages already use.
+
+   THE MARKETING RHYTHM IS ITS OWN SCALE. 88 / 56 / 46 / 34px are not on the console's
+   --space ladder (4/6/8/12/16/18/24/30) and are not meant to be: this page's job is a
+   generous first impression, the console's is density. Marketing buttons likewise keep
+   an 11px radius and a 52px --btn-lg where the console is a sharp 6px — a landing page
+   may be warm, and a prescribing form may not.
+
+   @see docs/10-product/white-labeling-and-branding.md
    ============================================================ */
 
+/* ==================== FRAME ==================== */
+
 .site-root {
-  --hh: 76px;
-  --hh-sm: 62px;
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  /* `clip`, not `hidden`. Guard against a marketing page ever scrolling sideways —
+     on a phone that hides the primary action — but `hidden` would make this element a
+     scroll container and the fixed header would stop behaving like one. */
+  overflow-x: clip;
+  /* --canvas rather than the reference's --parchment, and the reason is local: our
+     --surface-2 (#fafafa) is LIGHTER than our --parchment (#f4f5f5), so a parchment
+     page would make .site-section--tint read as a highlight instead of a tint. On
+     white, the tinted bands recede the way they are supposed to. */
   background: var(--canvas);
+  /* Marketing prose, looser than the 1.5 the console body sets. */
+  line-height: 1.6;
 }
+
+/* The fixed header is out of flow, so the content is given back the space it used to
+   occupy. Derived from --hh so the two can never drift apart. */
 .site-root main { flex: 1 0 auto; padding-top: var(--hh); }
 
-.site-wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 var(--space-7); width: 100%; }
-.site-section { padding: 88px 0; }
-.site-section--tint {
-  background: var(--surface-2);
-  border-block: 1px solid var(--hairline-soft);
-}
-/* The brand tint, for the one section that should carry the clinic's colour. */
-.site-section--brand { background: var(--brand-surface); border-block: 1px solid transparent; }
+/* reset.css paints every <a> in Carevelo's own --primary. On a clinic's surface that
+   is the one colour that must never appear by accident, so links inherit their ink
+   here and the few places that WANT the clinic's colour ask for it by name. */
+.site-root a { color: inherit; text-decoration: none; }
 
-@media (max-width: 700px) {
-  .site-section { padding: 56px 0; }
+.site-wrap {
+  max-width: var(--maxw);
+  margin-inline: auto;
+  padding-inline: 24px;
+  width: 100%;
 }
 
-/* ---- Type ---- */
+.site-section { padding-block: 88px; }
+.site-section--tint { background: var(--surface-2); border-block: 1px solid var(--hairline-soft); }
+
+/* The desktop 88px band and 24px gutter are heavy on a phone held one-handed. */
+@media (max-width: 768px) { .site-section { padding-block: 60px; } }
+@media (max-width: 480px) {
+  .site-section { padding-block: 48px; }
+  .site-wrap { padding-inline: 18px; }
+}
+
+/* ==================== TYPE ==================== */
+
 .site-eyebrow {
-  display: inline-flex; align-items: center; gap: var(--space-3);
-  font-size: 12px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  /* Ink, not the clinic's colour — deliberately unlike the reference, which tints the
+     eyebrow text with --primary-press. The backend guarantees contrast for the
+     brand/brand-fg PAIRING, not for the brand colour used as small text on white, and
+     12px uppercase at 0.12em tracking is the most contrast-fragile text on the page.
+     The square below carries the brand instead, where a light colour costs nothing. */
   color: var(--ink-muted);
 }
 /* A square, not a circle: the same geometric register as the sharp console. */
 .site-eyebrow::before {
   content: '';
-  width: 7px; height: 7px;
+  width: 7px;
+  height: 7px;
   border-radius: 2px;
   background: var(--brand-primary);
 }
 
 .site-h1 {
   font-family: var(--head);
-  font-size: clamp(32px, 5vw, 54px);
-  font-weight: 700; letter-spacing: -0.03em; line-height: 1.04;
+  font-size: clamp(38px, 5.4vw, 62px);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.04;
+  margin-top: 18px;
+  color: var(--ink);
 }
 .site-h2 {
   font-family: var(--head);
-  font-size: clamp(26px, 3.4vw, 38px);
-  font-weight: 700; letter-spacing: -0.02em; line-height: 1.1;
+  font-size: clamp(27px, 3.4vw, 40px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  margin-top: 14px;
+  color: var(--ink);
 }
-.site-lede { font-size: clamp(16px, 1.6vw, 18px); color: var(--ink-muted); margin-top: var(--space-5); max-width: 60ch; }
-.site-sec-head { max-width: 66ch; margin-bottom: var(--space-8); }
+.site-lede {
+  font-size: clamp(16px, 1.6vw, 18px);
+  color: var(--ink-muted);
+  margin-top: 16px;
+  /* A measure, not a width. Past about 60 characters the eye loses the line. */
+  max-width: 60ch;
+}
+.site-sec-head { max-width: 66ch; }
+.site-sec-head .site-lede { margin-top: 14px; }
 
-/* ---- Buttons and links ---- */
+/* ==================== BUTTONS AND LINKS ====================
+   Rounder and larger than the console chrome, and that is a decision rather than an
+   inconsistency: 11px and a 52px tap target on a marketing page, 6px and 44px on a
+   prescribing form. Same colours, different register. */
+
 .site-root .btn { border-radius: 11px; font-weight: 600; }
 .site-root .btn-lg { min-height: 52px; padding: 0 26px; font-size: 15.5px; }
-.site-btn-row { display: flex; flex-wrap: wrap; gap: var(--space-4); align-items: center; }
+.site-btn-row { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
 
 .site-textlink {
-  color: var(--brand-primary); font-weight: 600;
-  display: inline-flex; align-items: center; gap: var(--space-2);
+  color: var(--brand-primary);
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 .site-textlink:hover { text-decoration: underline; }
+.site-textlink svg { width: 16px; height: 16px; }
 
-/* ---- Header ----
-   Fixed, and it changes on scroll. The class is toggled by a small client component;
-   without JavaScript the header simply stays at its full height and remains completely
-   usable, which is the requirement rather than the fallback. */
+/* ==================== HEADER ====================
+   Three states, driven by classes SiteHeader.tsx sets from a passive scroll listener:
+
+     at rest   — fully transparent, no chrome at all. It OVERLAYS the page (fixed, not
+                 sticky) so the hero band runs continuously behind it.
+     scrolled  — condenses to --hh-sm and fades in the frosted bar.
+     on-dark   — at rest AND over a hero band, so the contents invert to light.
+
+   Without JavaScript none of this happens and nothing is lost: the header renders at
+   full height, the links navigate and the sign-in button is a link. The frosting and
+   the drawer are the only parts that need the bundle. */
+
 .site-header {
-  position: fixed; top: 0; left: 0; right: 0; z-index: 60;
+  position: fixed;
+  inset-inline: 0;
+  top: 0;
+  z-index: 60;
+  background: transparent;
   border-bottom: 1px solid transparent;
-  transition: background 0.26s ease, border-color 0.26s ease, backdrop-filter 0.26s ease;
+  backdrop-filter: none;
+  transition: background 0.26s ease, border-color 0.26s ease, box-shadow 0.26s ease,
+    backdrop-filter 0.26s ease;
 }
+/* Near-opaque with a real shadow rather than a light wash: on a white page a
+   translucent white bar is the same colour as the page behind it, so the scroll
+   transition read as "nothing happened". The bar has to visibly detach. */
 .site-header.is-scrolled {
   background: color-mix(in srgb, var(--canvas) 94%, transparent);
   backdrop-filter: blur(12px) saturate(1.4);
   border-bottom-color: var(--hairline);
+  box-shadow: 0 10px 30px -22px rgba(11, 31, 26, 0.9);
 }
 .site-header__row {
-  display: flex; align-items: center; gap: var(--space-7);
+  display: flex;
+  align-items: center;
+  gap: 30px;
   height: var(--hh);
   transition: height 0.26s ease;
 }
 .site-header.is-scrolled .site-header__row { height: var(--hh-sm); }
 
 .site-brand {
-  display: flex; align-items: center; gap: var(--space-3);
-  font-family: var(--head); font-weight: 700; font-size: 17px;
-  letter-spacing: -0.01em; color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--head);
+  font-weight: 700;
+  font-size: 20px;
+  letter-spacing: -0.01em;
+  color: var(--ink);
   min-width: 0;
+  transition: color 0.26s ease;
 }
-.site-brand:hover { text-decoration: none; }
+/* The clinic's colour, with the foreground the API computed for contrast against it.
+   Never a hard-coded white: a clinic with a pale brand would get an unreadable
+   monogram, and the backend's colour sweep exists precisely to prevent that. */
 .site-brand__mark {
-  width: 34px; height: 34px; border-radius: 9px; flex: none;
-  display: grid; place-items: center;
-  /* The clinic's colour, with the foreground the API computed for contrast. Never a
-     hard-coded white: a clinic with a pale brand would get an unreadable monogram. */
-  background: var(--brand-primary);
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(150deg, var(--brand-primary), color-mix(in srgb, var(--brand-primary) 78%, black));
   color: var(--brand-primary-fg);
-  font-size: 15px; font-weight: 700;
-  transition: transform 0.2s ease;
+  box-shadow: 0 6px 16px -6px var(--brand-primary);
+  font-size: 15px;
+  font-weight: 700;
+  transition: transform 0.22s cubic-bezier(0.34, 1.4, 0.64, 1), box-shadow 0.22s ease,
+    width 0.26s ease, height 0.26s ease;
 }
-.site-brand:hover .site-brand__mark { transform: translateY(-1px) scale(1.06); }
+.site-brand:hover .site-brand__mark {
+  transform: translateY(-1px) scale(1.06);
+  box-shadow: 0 10px 22px -8px var(--brand-primary);
+}
+.site-header.is-scrolled .site-brand__mark { width: 30px; height: 30px; }
+/* Two lines: the clinic's name, and what this surface is for. The clinic's name is the
+   only name a patient should have to recognise here. */
 .site-brand__text { display: flex; flex-direction: column; line-height: 1.15; min-width: 0; }
-.site-brand__sub { font-family: var(--font); font-size: 10.5px; font-weight: 500; color: var(--ink-faint); letter-spacing: 0.02em; }
+.site-brand__sub {
+  font-family: var(--font);
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--ink-faint);
+  letter-spacing: 0.02em;
+}
 
-.site-navlinks { display: flex; gap: var(--space-1); }
-@media (max-width: 820px) { .site-navlinks { display: none; } }
+.site-navlinks { display: flex; gap: 6px; }
+/* A centre-out underline rather than a hover pill: a pill needs a background the
+   transparent state does not have, and the underline doubles as the persistent marker
+   for the active page. */
 .site-navlinks a {
   position: relative;
-  padding: var(--space-3) var(--space-4);
-  color: var(--ink-2); font-weight: 500; font-size: 14.5px;
-  border-radius: var(--r-md);
+  padding: 8px 12px;
+  color: var(--ink-2);
+  font-weight: 500;
+  font-size: 14.5px;
+  transition: color 0.18s ease;
 }
 .site-navlinks a::after {
   content: '';
-  position: absolute; left: var(--space-4); right: var(--space-4); bottom: 4px;
-  height: 2px; border-radius: 2px;
-  background: var(--brand-primary);
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 2px;
+  height: 2px;
+  border-radius: 2px;
+  background: currentColor;
   transform: scaleX(0);
-  transition: transform 0.2s ease;
+  transform-origin: center;
+  transition: transform 0.24s cubic-bezier(0.4, 0, 0.2, 1);
 }
-.site-navlinks a:hover { color: var(--ink); text-decoration: none; }
-.site-navlinks a:hover::after, .site-navlinks a[aria-current='page']::after { transform: scaleX(1); }
+.site-navlinks a:hover { color: var(--ink); }
+.site-navlinks a:hover::after,
+.site-navlinks a[aria-current='page']::after { transform: scaleX(1); }
 .site-navlinks a[aria-current='page'] { color: var(--brand-primary); }
 
-.site-header__right { margin-left: auto; display: flex; align-items: center; gap: var(--space-4); }
+.site-header__right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
 
-/* ---- Hero ---- */
-.site-hero { padding: 72px 0 64px; }
-.site-hero__grid { display: grid; grid-template-columns: 1.15fr 1fr; gap: var(--space-8); align-items: center; }
-@media (max-width: 980px) { .site-hero__grid { grid-template-columns: 1fr; } }
+/* The theme toggle. Styled here rather than in the component so it inverts with the
+   rest of the bar over the hero; ThemeToggle from @carevelo/ui renders the button and
+   the sun/moon icon, this owns how it sits in the header. */
+.site-theme-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  border: 1px solid var(--hairline);
+  background: transparent;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.26s ease;
+}
+.site-theme-btn:hover { background: var(--surface-sunken); color: var(--ink); }
+.site-theme-btn svg { width: 18px; height: 18px; }
 
-.site-pagehero { padding: 72px var(--space-7) 40px; text-align: center; max-width: 820px; margin: 0 auto; width: 100%; }
-.site-pagehero .site-lede { margin-inline: auto; }
+/* --- Over the dark hero band: invert everything to light. ---
+   Only ever active when NOT scrolled, so it never has to coexist with the frosted
+   bar. The text-shadow is not decoration — the band's radial washes vary in value
+   under the type, and it holds the letterforms clear of the lighter patches.
 
-/* ---- Chips ---- */
-.site-chips { display: flex; flex-wrap: wrap; gap: var(--space-3); }
-.site-chip {
-  display: inline-flex; align-items: center; gap: var(--space-2);
-  padding: 6px 12px; border-radius: var(--r-pill);
-  background: var(--brand-surface);
-  border: 1px solid var(--hairline-soft);
-  font-size: 13px; font-weight: 550; color: var(--ink-2);
+   EVERY RULE IS SPELLED TWICE, and the second spelling is the important one.
+   `.on-dark` is set by SiteHeader.tsx in an effect, and an effect runs AFTER paint —
+   so the first frame of every visit would show the header's dark ink on the near-black
+   band. Same defect as a flash of unbranded content, same reasoning: the paint is the
+   flash. `:has(.site-hero)` asks the same question in CSS, which resolves during the
+   first paint and works with no JavaScript at all. The class is kept because :has() is
+   not universal on the older Android WebViews this product still has to serve, and
+   because it is what the scroll state has to switch off. */
+.site-header.on-dark .site-brand,
+.site-header.on-dark .site-navlinks a,
+.site-header.on-dark .site-theme-btn,
+.site-root:has(.site-hero) .site-header:not(.is-scrolled) .site-brand,
+.site-root:has(.site-hero) .site-header:not(.is-scrolled) .site-navlinks a,
+.site-root:has(.site-hero) .site-header:not(.is-scrolled) .site-theme-btn {
+  color: rgba(255, 255, 255, 0.88);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+.site-header.on-dark .site-brand__sub,
+.site-root:has(.site-hero) .site-header:not(.is-scrolled) .site-brand__sub {
+  color: rgba(255, 255, 255, 0.66);
+}
+.site-header.on-dark .site-navlinks a:hover,
+.site-header.on-dark .site-navlinks a[aria-current='page'],
+.site-root:has(.site-hero) .site-header:not(.is-scrolled) .site-navlinks a:hover,
+.site-root:has(.site-hero) .site-header:not(.is-scrolled) .site-navlinks a[aria-current='page'] {
+  color: #fff;
+}
+.site-header.on-dark .site-theme-btn,
+.site-header.on-dark .site-burger,
+.site-root:has(.site-hero) .site-header:not(.is-scrolled) .site-theme-btn,
+.site-root:has(.site-hero) .site-header:not(.is-scrolled) .site-burger {
+  color: rgba(255, 255, 255, 0.9);
+  border-color: rgba(255, 255, 255, 0.28);
+}
+/* --surface-sunken is a light chip in the light theme, which on a near-black band
+   reads as a hole. Glass instead. */
+.site-header.on-dark .site-theme-btn:hover,
+.site-header.on-dark .site-burger:hover,
+.site-root:has(.site-hero) .site-header:not(.is-scrolled) .site-theme-btn:hover,
+.site-root:has(.site-hero) .site-header:not(.is-scrolled) .site-burger:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+
+/* --- Burger → X. Three elements rather than two icons, so the outer bars can rotate
+   into the cross while the middle one fades. Hidden from 901px up. --- */
+.site-burger {
+  display: none;
+  background: none;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  width: 42px;
+  height: 40px;
+  color: var(--ink);
+  cursor: pointer;
+  padding: 0;
+  transition: border-color 0.26s ease, color 0.26s ease, background 0.15s ease;
+}
+.site-burger__box { display: block; position: relative; width: 18px; height: 14px; margin: 0 auto; }
+.site-burger__box i {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  border-radius: 2px;
+  background: currentColor;
+  transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.18s ease;
+}
+.site-burger__box i:nth-child(1) { top: 0; }
+.site-burger__box i:nth-child(2) { top: 6px; }
+.site-burger__box i:nth-child(3) { top: 12px; }
+.site-burger.open .site-burger__box i:nth-child(1) { transform: translateY(6px) rotate(45deg); }
+.site-burger.open .site-burger__box i:nth-child(2) { opacity: 0; transform: scaleX(0.4); }
+.site-burger.open .site-burger__box i:nth-child(3) { transform: translateY(-6px) rotate(-45deg); }
+
+/* --- The mobile drawer. ---
+   Only ever shown under the mobile breakpoint, so it stays out of the way even if a
+   resize happens while it is open. */
+.site-mobile {
+  display: none;
+  padding: 14px 16px 20px;
+  border-bottom: 1px solid var(--hairline);
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+  max-height: calc(100dvh - var(--hh));
+  overflow-y: auto;
+}
+.site-mobile__nav { display: flex; flex-direction: column; gap: 2px; }
+.site-mobile__link {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 10px 8px;
+  border-radius: 12px;
+  color: var(--ink);
+}
+.site-mobile__link:hover,
+.site-mobile__link:active { background: var(--surface-sunken); }
+.site-mobile__link[aria-current='page'] { background: var(--brand-surface); }
+.site-mobile__ic {
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  display: grid;
+  place-items: center;
+  flex: none;
+  background: color-mix(in srgb, var(--brand-primary) 14%, var(--surface));
+  color: var(--brand-primary);
+}
+.site-mobile__ic svg { width: 19px; height: 19px; }
+.site-mobile__t { display: flex; flex-direction: column; line-height: 1.25; min-width: 0; }
+.site-mobile__t b { font-size: 15px; font-weight: 600; }
+/* The description truncates rather than wrapping: a two-line row makes the list jump
+   in height as the labels change, and the title already carries the meaning. */
+.site-mobile__t span {
+  font-size: 12.5px;
+  color: var(--ink-muted);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* A span around the icon rather than a class on the <svg>: `transform` does not apply
+   to a non-replaced inline element, and the wrapper also means this file makes no
+   assumption about which props the shared Icon forwards. */
+.site-mobile__chev {
+  margin-left: auto;
+  display: grid;
+  place-items: center;
+  width: 15px;
+  height: 15px;
+  color: var(--ink-faint);
+  flex: none;
+  transform: rotate(-90deg);
+}
+.site-mobile__chev svg { width: 15px; height: 15px; }
+.site-mobile__sep { height: 1px; background: var(--hairline); margin: 11px 6px; }
+.site-mobile__label {
+  display: block;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  margin: 2px 8px 9px;
+}
+.site-mobile__cta { width: 100%; justify-content: center; margin-top: 16px; }
+
+@media (max-width: 900px) {
+  .site-navlinks { display: none; }
+  /* The sign-in CTA already lives inside the drawer, so the desktop right-hand
+     cluster is dropped rather than allowed to overflow the viewport. */
+  .site-header__right { display: none; }
+  .site-burger { display: block; }
+  /* max-height + opacity + visibility rather than `display`, because `display` cannot
+     transition. visibility keeps the collapsed drawer out of the tab order — a
+     screen-reader user must not be able to focus a menu that is not open. */
+  .site-mobile {
+    display: block;
+    max-height: 0;
+    opacity: 0;
+    visibility: hidden;
+    overflow: hidden;
+    padding-top: 0;
+    padding-bottom: 0;
+    border-bottom-color: transparent;
+    transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.22s ease,
+      padding 0.3s ease, visibility 0.3s;
+  }
+  .site-mobile.open {
+    max-height: calc(100dvh - var(--hh));
+    opacity: 1;
+    visibility: visible;
+    overflow-y: auto;
+    padding-top: 14px;
+    padding-bottom: 20px;
+    border-bottom-color: var(--hairline);
+  }
+  .site-header__row { gap: 14px; }
+  /* Keeps the theme toggle and the burger right-aligned once the nav is gone. */
+  .site-theme-btn { margin-left: auto; }
 }
 
-/* ---- Steps: the numbered path a patient follows ---- */
-.site-steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-6); counter-reset: step; }
-@media (max-width: 980px) { .site-steps { grid-template-columns: repeat(2, 1fr); } }
-@media (max-width: 560px) { .site-steps { grid-template-columns: 1fr; } }
-
-.site-step { counter-increment: step; }
-.site-step::before {
-  content: counter(step);
-  display: grid; place-items: center;
-  width: 32px; height: 32px; margin-bottom: var(--space-4);
-  border-radius: 9px;
-  background: var(--brand-primary); color: var(--brand-primary-fg);
-  font-family: var(--head); font-weight: 700; font-size: 14px;
+/* Without JavaScript the burger cannot open the drawer — so on a phone the drawer is
+   the one place the sign-in link must not be. Put the link back on the bar and drop the
+   control that would do nothing when tapped. A browser too old to understand
+   `scripting` ignores this block and behaves as before, which is the safe direction. */
+@media (max-width: 900px) and (scripting: none) {
+  .site-header__right { display: flex; }
+  .site-burger { display: none; }
+  .site-theme-btn { margin-left: 0; }
 }
-.site-step h3 { font-size: 16.5px; font-weight: 600; margin-bottom: var(--space-2); }
-.site-step p { color: var(--ink-muted); font-size: 14.5px; }
 
-/* ---- Feature cards ---- */
-.site-features { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-6); }
-@media (max-width: 980px) { .site-features { grid-template-columns: repeat(2, 1fr); } }
-@media (max-width: 640px) { .site-features { grid-template-columns: 1fr; } }
+/* --- Entrance: one slide-down, with the links staggering in behind it. --- */
+@keyframes site-header-in {
+  from { transform: translateY(-100%); }
+  to { transform: none; }
+}
+@keyframes site-nav-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: none; }
+}
+.site-header { animation: site-header-in 0.5s cubic-bezier(0.2, 0.7, 0.3, 1) both; }
+.site-navlinks a { animation: site-nav-in 0.4s ease both; }
+.site-navlinks a:nth-child(1) { animation-delay: 0.16s; }
+.site-navlinks a:nth-child(2) { animation-delay: 0.2s; }
+.site-navlinks a:nth-child(3) { animation-delay: 0.24s; }
+.site-navlinks a:nth-child(4) { animation-delay: 0.28s; }
+.site-navlinks a:nth-child(5) { animation-delay: 0.32s; }
+.site-navlinks a:nth-child(6) { animation-delay: 0.36s; }
 
-.site-feature {
+/* ==================== HERO ====================
+   The trio below — the section's negative top margin, the inner's compensating top
+   padding, and overflow:hidden — is what lets the band bleed behind the transparent
+   fixed header. Reproduce all three or there is a seam where the band starts below
+   the bar. Pages with no hero (/privacy, /terms) keep the plain `main` offset and sit
+   on the canvas, which is seamless already. */
+
+.site-hero {
+  position: relative;
+  overflow: hidden;
+  margin-top: calc(-1 * var(--hh));
+}
+.site-hero__inner {
+  position: relative;
+  z-index: 1;
+  padding-top: calc(92px + var(--hh));
+  padding-bottom: 84px;
+}
+/* One column, with the copy capped as a measure. The reference runs a two-track grid
+   because it has a card or a photograph to put in the second one; we have neither, and
+   an empty track is just dead space that stretches the headline across the band. */
+.site-hero__inner > * { max-width: 660px; }
+.site-hero__cta { margin-top: 34px; }
+
+/* The band. Dark in both themes on purpose — see the file header — so this is the one
+   block with literal colours in it. Layer order matters, and CSS paints the FIRST
+   background-image on TOP: the two brand-tinted washes sit over the scrim, which sits
+   over the opaque floor that background-color provides. The floor has to be there —
+   every layer above it is semi-transparent, and without something solid underneath the
+   page's own canvas shows through and the white headline lands on white.
+
+   The washes are the only place the clinic's colour appears in the band, mixed down to
+   22% and 13% so a loud brand cannot lift it toward the contrast floor. */
+.site-hero__bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-color: #0f1c18;
+  background-image:
+    radial-gradient(60% 55% at 88% -5%, color-mix(in srgb, var(--brand-primary) 22%, transparent), transparent 62%),
+    radial-gradient(45% 40% at 2% 108%, color-mix(in srgb, var(--brand-primary) 13%, transparent), transparent 60%),
+    linear-gradient(180deg, rgba(14, 26, 23, 0.9) 0%, rgba(20, 32, 28, 0.86) 70%);
+}
+/* A 54px grid, masked so it fades out before it reaches the copy. It gives the flat
+   band some structure without any image bytes, which matters on a metered 3G
+   connection more than it matters aesthetically. */
+.site-hero__bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.55;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+  background-size: 54px 54px;
+  -webkit-mask-image: radial-gradient(80% 60% at 50% 12%, #000, transparent 78%);
+  mask-image: radial-gradient(80% 60% at 50% 12%, #000, transparent 78%);
+}
+
+.site-hero h1 { color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.32); margin-top: 20px; }
+/* The accent phrase in a BRIGHTENED mix, not the raw brand colour. A clinic picks its
+   colour to work on white; the same value on a near-black band is often too dark to
+   read, and no backend guarantee covers that pairing. Mixing 62% brand with white
+   keeps the hue recognisably theirs and lifts it clear of the floor. */
+.site-hero h1 .g { color: color-mix(in srgb, var(--brand-primary) 62%, white); }
+.site-hero .site-lede {
+  color: rgba(255, 255, 255, 0.87);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.28);
+  font-size: clamp(16.5px, 1.7vw, 19px);
+  margin-top: 22px;
+}
+.site-hero .site-eyebrow { color: rgba(255, 255, 255, 0.74); }
+.site-hero .site-eyebrow::before { background: color-mix(in srgb, var(--brand-primary) 62%, white); }
+/* .btn-quiet is surface-on-hairline by default, which is invisible on the band. Glass
+   instead — and :not(:disabled) so it outranks the component layer's own hover rule
+   rather than tying with it. */
+.site-hero .btn-quiet {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.36);
+  backdrop-filter: blur(6px);
+}
+.site-hero .btn-quiet:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.55);
+}
+
+.site-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 22px;
+  margin-top: 40px;
+  padding-top: 24px;
+  border-top: 1px solid var(--hairline);
+}
+.site-chip { display: flex; align-items: center; gap: 8px; color: var(--ink-muted); font-size: 14px; font-weight: 500; }
+.site-chip svg { width: 17px; height: 17px; color: var(--brand-primary); flex: none; }
+/* On the band the hairline token is dark-on-dark and the chip ink disappears, so both
+   invert. Kept as an override rather than folded into the base rules so the chips
+   remain usable in a light section. */
+.site-hero .site-chips { border-top-color: rgba(255, 255, 255, 0.22); }
+.site-hero .site-chip { color: rgba(255, 255, 255, 0.84); }
+.site-hero .site-chip svg { color: color-mix(in srgb, var(--brand-primary) 62%, white); }
+
+@media (max-width: 920px) {
+  .site-hero__inner { padding-top: calc(64px + var(--hh)); padding-bottom: 56px; }
+}
+@media (max-width: 560px) {
+  .site-hero__inner { padding-top: calc(48px + var(--hh)); padding-bottom: 44px; }
+  /* Full-width buttons: a 26px-padded pill beside another one wraps awkwardly at this
+     size, and the primary action should be the width of the thumb's target. */
+  .site-hero__cta .btn { width: 100%; justify-content: center; }
+}
+
+/* Centred page hero for the pages with no band — /privacy, /terms. It keeps the
+   gutters so a heading never touches the screen edge, and it hands the header height
+   back as padding for the same reason the hero does. */
+.site-pagehero {
+  position: relative;
+  z-index: 1;
+  padding: calc(76px + var(--hh)) 24px 40px;
+  text-align: center;
+  max-width: 820px;
+  margin-inline: auto;
+  width: 100%;
+}
+.site-pagehero .site-lede { margin-inline: auto; }
+@media (max-width: 768px) { .site-pagehero { padding: calc(52px + var(--hh)) 24px 32px; } }
+@media (max-width: 480px) { .site-pagehero { padding: calc(48px + var(--hh)) 18px 30px; } }
+
+/* ==================== STAT BAND ====================
+   Four cells with the container's background showing through a 1px grid gap — the gap
+   IS the divider, so it works at any cell count and wraps cleanly. */
+
+.stat-band {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: var(--hairline);
+  border: 1px solid var(--hairline);
+  border-radius: var(--sr-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+.stat-band__it { background: var(--surface); padding: 28px 26px; }
+.stat-band__n {
+  font-family: var(--head);
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.stat-band__n .u { color: var(--brand-primary); font-size: 22px; }
+.stat-band__l { color: var(--ink-muted); font-size: 13.5px; margin-top: 4px; }
+@media (max-width: 820px) {
+  .stat-band { grid-template-columns: repeat(2, 1fr); }
+  .stat-band__n { font-size: 28px; }
+  .stat-band__n .u { font-size: 19px; }
+  .stat-band__it { padding: 22px 18px; }
+}
+@media (max-width: 460px) { .stat-band { grid-template-columns: 1fr; } }
+
+/* The band sitting on the hero's bottom edge. The overlap has to stay smaller than
+   the hero's own bottom padding or it climbs into the chips — which is why it eases
+   back in step with the two hero padding breakpoints above (84 → 56 → 44px). */
+.stat-band--overlap { position: relative; z-index: 3; margin-top: -64px; }
+@media (max-width: 920px) { .stat-band--overlap { margin-top: -40px; } }
+@media (max-width: 560px) { .stat-band--overlap { margin-top: -26px; } }
+
+/* ==================== CELL GRID ====================
+   One bordered, rounded container subdivided into flat cells. The dividers are
+   per-cell box-shadows CLIPPED by the container's overflow, not gaps: with a gap, a
+   partial last row leaves a stray band of grey where the missing cells would be. With
+   shadows, the container's own surface shows through and the edge is clean at any
+   card count. No per-cell shadow and no hover lift — the container is the object. */
+
+.cellgrid {
+  display: grid;
   background: var(--surface);
   border: 1px solid var(--hairline);
-  border-radius: 11px;
-  padding: var(--space-7);
+  border-radius: var(--sr-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  margin-top: 52px;
 }
-.site-feature h3 { font-size: 16.5px; font-weight: 600; margin-bottom: var(--space-2); }
-.site-feature p { color: var(--ink-muted); font-size: 14.5px; }
+.cellgrid--2 { grid-template-columns: repeat(2, 1fr); }
+.cellgrid--3 { grid-template-columns: repeat(3, 1fr); }
+.cellgrid--4 { grid-template-columns: repeat(4, 1fr); }
+@media (max-width: 960px) { .cellgrid--3, .cellgrid--4 { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 768px) { .cellgrid { margin-top: 32px; } }
+@media (max-width: 680px) { .cellgrid--2, .cellgrid--3, .cellgrid--4 { grid-template-columns: 1fr; } }
 
-/* ---- Footer ---- */
-.site-footer {
-  border-top: 1px solid var(--hairline);
-  background: var(--surface-2);
-  padding: var(--space-8) 0;
-  font-size: 13.5px; color: var(--ink-muted);
+.cell {
+  background: var(--surface);
+  padding: 30px 28px;
+  display: block;
+  box-shadow: 1px 0 0 0 var(--hairline), 0 1px 0 0 var(--hairline);
 }
-.site-footer__grid { display: flex; flex-wrap: wrap; gap: var(--space-8); justify-content: space-between; }
-.site-footer__col { display: flex; flex-direction: column; gap: var(--space-2); min-width: 180px; }
-.site-footer__title { font-weight: 600; color: var(--ink-2); margin-bottom: var(--space-1); }
-.site-footer__note { margin-top: var(--space-7); padding-top: var(--space-5); border-top: 1px solid var(--hairline-soft); font-size: 12.5px; color: var(--ink-faint); }
+a.cell { transition: background 0.15s ease; }
+a.cell:hover { background: var(--surface-2); }
+
+/* The icon tile. A tint of the clinic's colour mixed into the surface rather than a
+   fixed soft token, so it follows a brand of any lightness and stays a tint in the
+   dark theme instead of becoming a bright block. */
+.cell__ic,
+.cell__n,
+.feat-card__ic {
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 16px;
+  background: color-mix(in srgb, var(--brand-primary) 14%, var(--surface));
+  color: var(--brand-primary);
+}
+.cell__ic svg,
+.feat-card__ic svg { width: 23px; height: 23px; }
+/* The numbered variant: same tile, a numeral instead of a glyph. Tinted rather than
+   solid brand for the same reason as the eyebrow — a numeral is small type, and the
+   contrast guarantee covers the brand/brand-fg pairing, not brand-as-ink. */
+.cell__n { font-family: var(--head); font-weight: 700; font-size: 19px; }
+
+.cell h3,
+.feat-card h3 { font-size: 17.5px; font-weight: 700; letter-spacing: -0.01em; color: var(--ink); }
+.cell p,
+.feat-card p { color: var(--ink-muted); font-size: 14.5px; margin-top: 9px; line-height: 1.6; }
+.cell .more,
+.feat-card .more { display: inline-flex; margin-top: 15px; font-size: 13.5px; }
+
+/* The shadowed alternative, for a section that wants separate objects rather than one
+   divided panel — two or three big cards that are each a link somewhere. */
+.feat-card {
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--sr);
+  padding: 26px;
+  box-shadow: var(--shadow-sm);
+  display: block;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+a.feat-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
+
+/* ==================== LISTS, SPLITS, MOCKUP ==================== */
+
+.ticklist { list-style: none; margin: 24px 0 0; padding: 0; display: grid; gap: 16px; }
+.ticklist li { display: flex; gap: 13px; }
+.ticklist .tk {
+  flex: none;
+  width: 25px;
+  height: 25px;
+  border-radius: 8px;
+  background: var(--brand-surface);
+  color: var(--brand-primary);
+  display: grid;
+  place-items: center;
+  margin-top: 1px;
+}
+.ticklist .tk svg { width: 15px; height: 15px; }
+.ticklist b { font-weight: 600; color: var(--ink); }
+.ticklist span { color: var(--ink-muted); font-size: 14.5px; }
+
+.site-split { display: grid; grid-template-columns: 1.02fr 0.98fr; gap: 56px; align-items: center; }
+.site-split--rev .site-split__media { order: -1; }
+@media (max-width: 920px) {
+  .site-split { grid-template-columns: 1fr; gap: 36px; }
+  /* Stacked, the reversed order would put the picture above the words that explain
+     it, which is the wrong reading order on a phone. */
+  .site-split--rev .site-split__media { order: 0; }
+}
+
+/* A browser-chrome frame for a screenshot or a small piece of live-looking UI. Three
+   dots and a body, no titles or URLs: this is a suggestion of an app, not a mock of
+   one, and a fake address bar invites the patient to read it. */
+.mockup {
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--sr-lg);
+  box-shadow: var(--shadow-pop);
+  padding: 8px;
+}
+.mockup__bar { display: flex; gap: 6px; padding: 11px 13px; }
+.mockup__bar i { width: 10px; height: 10px; border-radius: 50%; background: var(--divider); display: block; }
+.mockup__body {
+  background: var(--surface-2);
+  border: 1px solid var(--hairline-soft);
+  border-radius: 16px;
+  padding: 20px;
+}
+
+/* ==================== CTA BAND ==================== */
+
+.cta-band {
+  border-radius: var(--sr-lg);
+  padding: 60px 40px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  /* The clinic's own surface tint, falling off before it reaches the buttons. This is
+     the warmest the brand gets on a light section, and it is a background — no text
+     sits on the strong end of it. */
+  background: radial-gradient(90% 130% at 50% 0%, var(--brand-surface), transparent 62%), var(--surface);
+  border: 1px solid var(--hairline);
+  box-shadow: var(--shadow-sm);
+}
+@media (max-width: 600px) { .cta-band { padding: 44px 22px; } }
+.cta-band h2 {
+  font-family: var(--head);
+  font-size: clamp(26px, 3.6vw, 40px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+.cta-band p { color: var(--ink-muted); font-size: 17px; margin: 14px auto 28px; max-width: 52ch; }
+.cta-band .site-btn-row { justify-content: center; }
+.cta-band .site-eyebrow { justify-content: center; }
+
+/* ==================== FAQ ====================
+   Native <details>, so the questions are readable and expandable with no JavaScript
+   at all — and findable by the browser's own in-page search, which a scripted
+   accordion breaks. */
+
+.faq { max-width: 800px; margin: 44px auto 0; display: grid; gap: 12px; }
+.faq details {
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--sr);
+  padding: 4px 6px;
+  box-shadow: var(--shadow-sm);
+}
+/* Both markers have to go: list-style covers Firefox, ::-webkit-details-marker
+   covers Safari, and neither alone is enough. */
+.faq summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 16px 14px;
+  font-weight: 600;
+  color: var(--ink);
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::after { content: '+'; color: var(--brand-primary); font-weight: 700; }
+.faq details[open] summary::after { content: '–'; }
+.faq p { color: var(--ink-muted); font-size: 14.5px; line-height: 1.6; padding: 0 14px 16px; }
+
+/* ==================== FOOTER ==================== */
+
+.site-footer { background: var(--surface); padding: 40px 0 34px; margin-top: auto; }
+.site-footer__cols { display: grid; grid-template-columns: 1.7fr 1fr 1fr 1fr; gap: 40px; }
+@media (max-width: 820px) { .site-footer__cols { grid-template-columns: 1fr 1fr; gap: 30px; } }
+.site-footer p { color: var(--ink-muted); font-size: 14px; max-width: 34ch; margin-top: 14px; }
+.site-footer h4 {
+  font-size: 12.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  margin-bottom: 15px;
+}
+.site-footer ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 11px; }
+/* The contact column mixes links with plain text — an address is not clickable — and a
+   column where one row is a different size than the next reads as a mistake. */
+.site-footer li { color: var(--ink-muted); font-size: 14.5px; }
+.site-footer a { color: var(--ink-muted); font-size: 14.5px; }
+.site-footer a:hover { color: var(--brand-primary); }
+.site-footer__bottom {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 46px;
+  padding-top: 24px;
+  border-top: 1px solid var(--hairline);
+  color: var(--ink-faint);
+  font-size: 13.5px;
+}
+/* The Carevelo attribution. Smaller than the licensing sentence beside it and last in
+   the source, because the white-labeling document permits it only as a discreet line —
+   it is the product's best acquisition channel, and it still comes second to the
+   clinic's confidence in its own brand. */
+.site-footer__by { font-size: 12.5px; color: var(--ink-faint); }
+
+/* ==================== LEGAL PROSE (/privacy, /terms) ==================== */
+
+.site-doc { max-width: 820px; margin-inline: auto; padding: 0 24px 88px; }
+.site-doc h1 { font-family: var(--head); font-size: 38px; font-weight: 700; letter-spacing: -0.02em; color: var(--ink); }
+.site-doc .updated { color: var(--ink-faint); font-size: 14px; margin-top: 10px; }
+.site-doc h2 { font-size: 20px; font-weight: 700; color: var(--ink); margin: 36px 0 10px; }
+.site-doc p,
+.site-doc li { color: var(--ink-muted); font-size: 15.5px; line-height: 1.7; margin-top: 12px; }
+.site-doc .lead { color: var(--ink-2); font-size: 17px; }
+.site-doc ul { margin-top: 12px; padding-left: 22px; }
+.site-doc a { color: var(--brand-primary); font-weight: 500; }
+.site-doc a:hover { text-decoration: underline; }
+.site-doc b { color: var(--ink); }
+
+/* ==================== REDUCED MOTION ====================
+   reset.css already collapses every duration globally, which covers the transitions.
+   This block exists for what a duration cannot fix: the two named keyframe animations
+   are cancelled outright — a header that slides in from off-screen in 0.01ms still
+   flashes — and the hover transforms are neutralised, since an instant 6% jump is
+   exactly the kind of movement a vestibular reader asked us not to make. Both header
+   states still read entirely from colour and size, so nothing is lost. */
+
+@media (prefers-reduced-motion: reduce) {
+  .site-header,
+  .site-header__row,
+  .site-brand,
+  .site-brand__mark,
+  .site-navlinks a,
+  .site-navlinks a::after,
+  .site-theme-btn,
+  .site-burger,
+  .site-burger__box i,
+  .site-mobile,
+  .feat-card,
+  a.cell { transition-duration: 0.01ms !important; }
+  .site-header,
+  .site-navlinks a { animation: none !important; }
+  .site-brand:hover .site-brand__mark,
+  a.feat-card:hover { transform: none; }
+}

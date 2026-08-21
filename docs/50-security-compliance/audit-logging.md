@@ -72,6 +72,8 @@ Every `PaymentIntent` state transition; cash attestations with the attesting sta
 ### Access control
 Sign-in success and failure, role changes, invitations accepted, deactivations, **every session/host tenant mismatch** (which means a bug or an attack), and every break-glass request, grant and access.
 
+**Patient accounts, specifically.** `patient.account_created` names the staff member who issued the account and the patient record it was linked to. This is the moment a person gains sight of a medical record through the portal, and it is the only record of who opened that door — the password itself is never in the event, in any form ([ADR-0011](../70-decisions/0011-staff-issued-patient-accounts.md)).
+
 ### Tenant lifecycle
 Provisioning, suspension, offboarding, data export, deletion.
 

@@ -1,5 +1,6 @@
 <?php
 
+use App\Exceptions\StateMachine\IllegalTransition;
 use App\Models\AuditEvent;
 use App\Models\ClinicalRole;
 use App\Models\Patient;
@@ -8,25 +9,29 @@ use App\Models\User;
 use App\Support\Auth\PatientRecordClaims;
 use App\Tenancy\Tenancy;
 use Database\Seeders\RoleSeeder;
-use Illuminate\Support\Facades\Date;
 
 /*
 |--------------------------------------------------------------------------
-| Claiming a patient record
+| Linking a patient record to an account
 |--------------------------------------------------------------------------
 |
 | The step that makes the patient-account link real. Front desk registers a
-| walk-in against a phone number long before that person has any login, so the
-| record and the account exist independently and something has to join them.
+| walk-in long before that person has any login, so the record and the account
+| exist independently and something has to join them.
 |
 | Without this the link is a column nothing ever fills, and every `P own` endpoint
 | returns an empty list to a patient who plainly has records. The column shipped
 | before this did -- which is why there is a test asserting the wiring, not only
 | the service.
 |
-| THE VERIFIED PHONE IS THE PROOF. Claiming grants a human being sight of a
-| medical record, so it may only follow a one-time code that proved control of the
-| handset.
+| THE PROOF IS A MEMBER OF STAFF WHO SAW THE PERSON. It used to be a one-time
+| code proving control of a handset, and that gate cannot be honestly satisfied
+| any more: the code path was the only thing that ever set
+| `users.phone_verified_at`. What replaced it is narrower, not looser -- the
+| record is NAMED by a staff member at the registration desk rather than inferred
+| from a phone number that happens to match, so nothing is ever claimed by
+| coincidence. PatientAccountTest holds the other half of that bargain: the desk
+| visit never writes phone_verified_at.
 |
 | @see docs/70-decisions/0010-patient-account-link.md
 |
@@ -37,18 +42,20 @@ beforeEach(function () {
 });
 
 /**
+ * An account in its own clinic, in whatever role the caller names.
+ *
+ * No phone. Accounts issued at the registration desk never get one --
+ * `users` carries unique(tenant_id, phone) and the collisions are ordinary --
+ * so the fixture matches what the endpoint actually creates.
+ *
  * @return array{Tenant, User}
  */
-function claimAccount(string $phone, ClinicalRole $role = ClinicalRole::Patient, bool $verified = true): array
+function claimAccount(ClinicalRole $role = ClinicalRole::Patient): array
 {
     $tenant = Tenant::factory()->create();
 
-    $user = app(Tenancy::class)->run($tenant->id, function () use ($tenant, $phone, $role, $verified) {
-        $user = User::factory()->create([
-            'tenant_id' => $tenant->id,
-            'phone' => $phone,
-            'phone_verified_at' => $verified ? Date::now() : null,
-        ]);
+    $user = app(Tenancy::class)->run($tenant->id, function () use ($tenant, $role) {
+        $user = User::factory()->create(['tenant_id' => $tenant->id, 'phone' => null]);
         $user->assignRole($role->value);
 
         return $user;
@@ -57,137 +64,151 @@ function claimAccount(string $phone, ClinicalRole $role = ClinicalRole::Patient,
     return [$tenant, $user];
 }
 
-it('attaches a record registered against the same verified number', function () {
-    [$tenant, $user] = claimAccount('+256772000501');
+function claimRecord(Tenant $tenant): Patient
+{
+    return app(Tenancy::class)->run($tenant->id, fn () => Patient::factory()->create());
+}
 
-    app(Tenancy::class)->run($tenant->id, fn () => Patient::factory()->create([
-        'phone' => '+256772000501',
-    ]));
-
-    $claimed = app(Tenancy::class)->run($tenant->id, fn () => app(PatientRecordClaims::class)->attach($user));
-
-    expect($claimed)->toBe(1)
-        ->and(app(Tenancy::class)->run($tenant->id, fn () => $user->fresh()?->ownedPatientIds()))
-        ->toHaveCount(1);
-});
-
-it('attaches every record registered against a guardian\'s number', function () {
-    // A parent whose children were each registered against their handset. This is
-    // why ADR-0010 chose one-to-many.
-    [$tenant, $guardian] = claimAccount('+256772000502');
-
-    app(Tenancy::class)->run($tenant->id, function () {
-        Patient::factory()->create(['phone' => '+256772000502']);
+function claimAttach(Tenant $tenant, User $user, Patient $patient): void
+{
+    app(Tenancy::class)->run($tenant->id, function () use ($user, $patient): void {
+        app(PatientRecordClaims::class)->attachRecord($user, $patient);
     });
+}
 
-    $claimed = app(Tenancy::class)->run($tenant->id, fn () => app(PatientRecordClaims::class)->attach($guardian));
+it('links the record it was named, and only that one', function () {
+    // The whole difference from the sweep this replaced. A record is linked
+    // because a member of staff pointed at it, never because a column matched.
+    [$tenant, $user] = claimAccount();
 
-    expect($claimed)->toBe(1);
+    $named = claimRecord($tenant);
+    $other = claimRecord($tenant);
+
+    claimAttach($tenant, $user, $named);
+
+    [$namedOwner, $otherOwner] = app(Tenancy::class)->run($tenant->id, fn () => [
+        Patient::query()->findOrFail($named->id)->user_id,
+        Patient::query()->findOrFail($other->id)->user_id,
+    ]);
+
+    expect($namedOwner)->toBe($user->id)
+        ->and($otherOwner)->toBeNull();
 });
 
-it('refuses to claim on an unverified number', function () {
-    // The whole control. A number typed at a front desk proves nothing, and this
-    // grants sight of a medical record.
-    [$tenant, $user] = claimAccount('+256772000503', verified: false);
+it('lets one account hold a second record when staff link it deliberately', function () {
+    // ADR-0010 chose one-to-many because a guardian holds their children's
+    // records. That cardinality survives the change of proof -- what changed is
+    // that each link is now a separate, audited act by a member of staff rather
+    // than a side effect of somebody signing in.
+    [$tenant, $guardian] = claimAccount();
 
-    app(Tenancy::class)->run($tenant->id, fn () => Patient::factory()->create([
-        'phone' => '+256772000503',
-    ]));
+    $firstChild = claimRecord($tenant);
+    $secondChild = claimRecord($tenant);
 
-    $claimed = app(Tenancy::class)->run($tenant->id, fn () => app(PatientRecordClaims::class)->attach($user));
+    claimAttach($tenant, $guardian, $firstChild);
+    claimAttach($tenant, $guardian, $secondChild);
 
-    expect($claimed)->toBe(0);
+    $held = app(Tenancy::class)->run($tenant->id, fn () => $guardian->fresh()?->ownedPatientIds() ?? []);
+
+    expect($held)->toHaveCount(2)
+        ->and($held)->toContain($firstChild->id)
+        ->and($held)->toContain($secondChild->id);
 });
 
-it('does not claim records for a staff account', function () {
-    // A clinician signing in must not acquire a patient record through a side door
-    // no policy inspects.
-    [$tenant, $clinician] = claimAccount('+256772000504', ClinicalRole::Clinician);
+it('refuses to hand a patient record to a staff account', function (ClinicalRole $role) {
+    // THE line that stops a clinician acquiring a patient record through a side
+    // door no policy inspects. A member of staff who genuinely is a patient here
+    // holds a second account, exactly as attending two clinics is two accounts.
+    [$tenant, $staff] = claimAccount($role);
+    $record = claimRecord($tenant);
 
-    app(Tenancy::class)->run($tenant->id, fn () => Patient::factory()->create([
-        'phone' => '+256772000504',
-    ]));
+    expect(fn () => claimAttach($tenant, $staff, $record))->toThrow(IllegalTransition::class);
 
-    $claimed = app(Tenancy::class)->run($tenant->id, fn () => app(PatientRecordClaims::class)->attach($clinician));
+    expect(app(Tenancy::class)->run($tenant->id, fn () => Patient::query()->findOrFail($record->id)->user_id))
+        ->toBeNull();
+})->with([
+    ClinicalRole::Clinician,
+    ClinicalRole::ClinicAdmin,
+    ClinicalRole::FrontDesk,
+    ClinicalRole::Pharmacist,
+]);
 
-    expect($claimed)->toBe(0);
-});
+it('never moves a record that another account already reaches', function () {
+    // Reassignment is a decision for clinic staff working through a correction,
+    // not something this method does on the way past. The first account keeps it.
+    [$tenant, $first] = claimAccount();
+    $record = claimRecord($tenant);
 
-it('never reassigns a record already held by another account', function () {
-    // A phone number changing hands is a real event. Moving a medical record on
-    // the strength of it is a decision for clinic staff, not a side effect of
-    // somebody signing in.
-    [$tenant, $first] = claimAccount('+256772000505');
-
-    app(Tenancy::class)->run($tenant->id, function () use ($first) {
-        $record = Patient::factory()->create(['phone' => '+256772000505']);
-        $record->user_id = $first->id;
-        $record->save();
-    });
+    claimAttach($tenant, $first, $record);
 
     $second = app(Tenancy::class)->run($tenant->id, function () use ($tenant) {
-        // Same number, so the old account had to be released first; the record
-        // must still not follow the number to whoever holds it now.
-        $first = User::query()->where('phone', '+256772000505')->firstOrFail();
-        $first->forceFill(['phone' => '+256772000599'])->save();
-
-        $user = User::factory()->create([
-            'tenant_id' => $tenant->id,
-            'phone' => '+256772000505',
-            'phone_verified_at' => Date::now(),
-        ]);
+        $user = User::factory()->create(['tenant_id' => $tenant->id, 'phone' => null]);
         $user->assignRole(ClinicalRole::Patient->value);
 
         return $user;
     });
 
-    $claimed = app(Tenancy::class)->run($tenant->id, fn () => app(PatientRecordClaims::class)->attach($second));
+    expect(fn () => claimAttach($tenant, $second, $record))->toThrow(IllegalTransition::class);
 
-    expect($claimed)->toBe(0)
-        ->and(app(Tenancy::class)->run($tenant->id, fn () => $second->ownedPatientIds()))->toBeEmpty();
+    expect(app(Tenancy::class)->run($tenant->id, fn () => Patient::query()->findOrFail($record->id)->user_id))
+        ->toBe($first->id);
+});
+
+it('refuses a second link for a record it has already linked', function () {
+    // The same account, the same record, twice. Not idempotent-and-silent: the
+    // second call is a caller that believes something untrue about the record,
+    // and telling it so is cheaper than letting it find out later.
+    [$tenant, $user] = claimAccount();
+    $record = claimRecord($tenant);
+
+    claimAttach($tenant, $user, $record);
+
+    expect(fn () => claimAttach($tenant, $user, $record))->toThrow(IllegalTransition::class);
+
+    expect(app(Tenancy::class)->run($tenant->id, fn () => $user->fresh()?->ownedPatientIds() ?? []))
+        ->toHaveCount(1);
 });
 
 it('never reaches across clinics', function () {
-    [$tenantA, $user] = claimAccount('+256772000506');
+    // The composite foreign key on (tenant_id, user_id) already makes this
+    // impossible, and its refusal is a QueryException and therefore a 500. On the
+    // single write that grants a human being sight of a medical record, the clean
+    // refusal is worth the two lines.
+    [$tenantA, $user] = claimAccount();
     $tenantB = Tenant::factory()->create();
 
-    // The same person at another clinic is a different patient record, and this
-    // account has no business with it.
-    app(Tenancy::class)->run($tenantB->id, fn () => Patient::factory()->create([
-        'phone' => '+256772000506',
-    ]));
+    $strangersRecord = claimRecord($tenantB);
 
-    $claimed = app(Tenancy::class)->run($tenantA->id, fn () => app(PatientRecordClaims::class)->attach($user));
+    expect(fn () => claimAttach($tenantA, $user, $strangersRecord))->toThrow(IllegalTransition::class);
 
-    expect($claimed)->toBe(0);
+    expect(app(Tenancy::class)->run($tenantB->id, fn () => Patient::query()->findOrFail($strangersRecord->id)->user_id))
+        ->toBeNull();
 });
 
-it('audits each record claimed, individually', function () {
-    // "Who can read my records, and since when" has to be answerable per record,
-    // not per sign-in.
-    [$tenant, $user] = claimAccount('+256772000507');
+it('audits the claim against the record, saying what proved it and nothing else', function () {
+    // "Who can read my records, and since when" has to be answerable per record.
+    // The action name is unchanged from the phone-verified era on purpose: a
+    // clinic's audit trail must not fork into two vocabularies for "an account
+    // gained sight of this record". `via` is where the trust basis changed.
+    [$tenant, $user] = claimAccount();
+    $record = claimRecord($tenant);
 
-    app(Tenancy::class)->run($tenant->id, fn () => Patient::factory()->create([
-        'phone' => '+256772000507',
-    ]));
+    claimAttach($tenant, $user, $record);
 
-    app(Tenancy::class)->run($tenant->id, fn () => app(PatientRecordClaims::class)->attach($user));
+    $event = app(Tenancy::class)->run($tenant->id, fn () => AuditEvent::query()
+        ->where('action', 'patient.record_claimed')
+        ->firstOrFail());
 
-    $actions = app(Tenancy::class)->run($tenant->id, fn () => AuditEvent::query()->pluck('action')->all());
+    expect($event->subject_type)->toBe('Patient')
+        ->and($event->subject_id)->toBe($record->id)
+        ->and($event->metadata)->toBe(['via' => 'staff_attested']);
 
-    expect($actions)->toContain('patient.record_claimed');
-});
+    // An audit trail is not a contact list. AuditLog::scrub() strips several of
+    // these already; that is defence in depth, not permission to pass them, and a
+    // scrubber is a list that rots.
+    $encoded = (string) json_encode($event->metadata);
 
-it('is idempotent across repeated sign-ins', function () {
-    [$tenant, $user] = claimAccount('+256772000508');
-
-    app(Tenancy::class)->run($tenant->id, fn () => Patient::factory()->create([
-        'phone' => '+256772000508',
-    ]));
-
-    $first = app(Tenancy::class)->run($tenant->id, fn () => app(PatientRecordClaims::class)->attach($user));
-    $second = app(Tenancy::class)->run($tenant->id, fn () => app(PatientRecordClaims::class)->attach($user));
-
-    expect($first)->toBe(1)
-        ->and($second)->toBe(0);
+    foreach ([$record->phone, $record->given_name, $record->family_name, (string) $user->email] as $leak) {
+        expect($encoded)->not->toContain((string) $leak);
+    }
 });

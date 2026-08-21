@@ -100,7 +100,7 @@ An audit event is a *domain* fact and is written in the transaction. A log line 
 | Webhook receipt lag and failure rate | Missed webhooks are ordinary here; a rising rate means reconciliation is carrying load it should not |
 | Consultations ending `technical_failure` | Our video is failing real patients |
 | Mode step-downs to voice or chat | Honest signal of what patients actually experience |
-| Queue depth and oldest job age, per queue | A delayed OTP is a failed registration |
+| Queue depth and oldest job age, per queue | A stalled `critical` queue means payment outcomes and staff invitations are not moving, and somebody is waiting at a screen for each |
 | SMS delivery failure rate per tenant | Notifications silently not arriving |
 | Dispense orders held in `awaiting_substitution` | Clinicians not responding; patients waiting |
 | Failed sign-ins per tenant | Credential stuffing |

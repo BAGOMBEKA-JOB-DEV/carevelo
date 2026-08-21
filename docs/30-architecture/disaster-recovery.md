@@ -52,7 +52,7 @@ Streaming replication to a standby. Promotion may be manual for a small team —
 During failover the platform is read-degraded or down. Clinics fall back to paper; on recovery, records are entered retrospectively. **The failure mode to avoid absolutely is accepting writes that are later lost** — better to refuse a booking than to confirm one that vanishes.
 
 ### Redis failure
-Cache loss is harmless. **Queued jobs are not** — an unsent OTP is a failed registration, and an unprocessed payment webhook is a patient wondering whether they paid.
+Cache loss is harmless. **Queued jobs are not** — an unprocessed payment webhook is a patient wondering whether they paid, and an unsent staff invitation is an onboarding session stalled at the step it cannot skip.
 
 Redis persistence is enabled. Payment resolution never depends on the queue alone: the scheduled reconciliation poll re-resolves any intent whose webhook job was lost (§H5.6). This is the second time that backstop earns its cost.
 

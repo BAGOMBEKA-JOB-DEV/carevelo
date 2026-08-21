@@ -140,8 +140,9 @@ Clinician
 ```
 Patient
   id, tenant_id
+  user_id?                 -- the account, if staff have issued one
   given_name, family_name
-  phone (verified by OTP), email?
+  phone (as given — never platform-verified), email?
   date_of_birth?, sex?
   national_id_number?      -- optional, never mandatory
   address?, district?
@@ -152,6 +153,8 @@ Patient
 **Invariants**
 
 - Unique on `(tenant_id, phone)`.
+- `user_id` is nullable and is written only when a member of clinic staff issues an account against this record — an explicit, audited act, never an inference from a matching phone number. One account may hold several records, which is how a guardian holds their children's ([ADR-0010](../70-decisions/0010-patient-account-link.md), [ADR-0011](../70-decisions/0011-staff-issued-patient-accounts.md)).
+- The number is recorded as the patient gave it and is read back at the desk. Nothing in the product proves control of the handset, so `phone_verified_at` stays null on a patient record — a staff member issuing the patient an account is not phone verification and is not recorded as one ([ADR-0011](../70-decisions/0011-staff-issued-patient-accounts.md)).
 - **No clinical data may attach to a Patient in `pending_consent`.** If consent is declined the record is discarded beyond the minimal contact detail needed to explain why service cannot proceed (§H2.4).
 - A patient under 18 requires guardian consent; guardian fields become mandatory.
 - `national_id_number` is optional in perpetuity. Requiring a NIN excludes patients, and exclusion is a worse outcome than an unverified identity.

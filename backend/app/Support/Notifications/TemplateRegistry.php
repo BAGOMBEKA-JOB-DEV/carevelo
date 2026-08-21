@@ -19,8 +19,6 @@ use InvalidArgumentException;
  */
 class TemplateRegistry
 {
-    public const REGISTRATION_OTP = 'registration.otp';
-
     public const APPOINTMENT_CONFIRMED = 'appointment.confirmed';
 
     public const APPOINTMENT_REMINDER = 'appointment.reminder';
@@ -78,25 +76,6 @@ class TemplateRegistry
     private function build(): array
     {
         $templates = [
-            /*
-             * Sign-in code.
-             *
-             * NEVER carries a link, and the constructor enforces it. An SMS
-             * containing both a code and a link is the exact shape of every
-             * mobile-money phishing message in this market; teaching patients
-             * that ours look the same is teaching them to be defrauded.
-             *
-             * On the high queue: someone is staring at a sign-in screen.
-             */
-            new NotificationTemplate(
-                key: self::REGISTRATION_OTP,
-                pattern: '{code} is your {clinic} verification code. It expires in '
-                    .'{expires_in_minutes} minutes. Do not share it with anyone.',
-                isCritical: true,
-                permitsLink: false,
-                queue: 'high',
-            ),
-
             /*
              * The only templates offered on WhatsApp are the two appointment
              * messages a patient may want to keep and re-read. SMS still goes

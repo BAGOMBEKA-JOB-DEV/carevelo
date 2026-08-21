@@ -6,7 +6,7 @@ use App\Tenancy\TenantContext;
 use Illuminate\Cache\RateLimiter;
 
 /**
- * Rate limits on the public authentication endpoints.
+ * Rate limits on the public authentication endpoint.
  *
  * PER NUMBER AND PER ADDRESS, both, because each alone is trivially defeated. A
  * per-number limit does not slow an attacker walking a list of numbers from one
@@ -23,15 +23,9 @@ use Illuminate\Cache\RateLimiter;
 class AuthThrottle
 {
     /**
-     * OTP requests. Each one costs the clinic an SMS, so the number is low.
-     */
-    public const OTP_REQUESTS_PER_PHONE = 5;
-
-    public const OTP_REQUESTS_PER_IP = 20;
-
-    /**
-     * Guesses. Higher than the send limit -- a patient mistyping a code is
-     * ordinary -- and still far short of a million.
+     * Guesses. Generous enough that a member of staff misremembering their own
+     * password is not locked out of a clinic's day, and far short of what a
+     * dictionary attack needs.
      */
     public const ATTEMPTS_PER_PHONE = 10;
 
@@ -44,18 +38,6 @@ class AuthThrottle
         protected RateLimiter $limiter,
         protected TenantContext $context,
     ) {}
-
-    /** @return ?int seconds to wait, or null when the request may proceed */
-    public function otpRequest(string $e164, ?string $ipAddress): ?int
-    {
-        return $this->guard('otp-request', $e164, $ipAddress, self::OTP_REQUESTS_PER_PHONE, self::OTP_REQUESTS_PER_IP);
-    }
-
-    /** @return ?int seconds to wait, or null when the request may proceed */
-    public function otpVerify(string $e164, ?string $ipAddress): ?int
-    {
-        return $this->guard('otp-verify', $e164, $ipAddress, self::ATTEMPTS_PER_PHONE, self::ATTEMPTS_PER_IP);
-    }
 
     /** @return ?int seconds to wait, or null when the request may proceed */
     public function passwordSignIn(string $e164, ?string $ipAddress): ?int

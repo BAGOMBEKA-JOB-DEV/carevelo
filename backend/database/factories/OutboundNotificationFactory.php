@@ -34,20 +34,6 @@ class OutboundNotificationFactory extends Factory
         ];
     }
 
-    public function otp(): static
-    {
-        return $this->state(fn () => [
-            'template_key' => TemplateRegistry::REGISTRATION_OTP,
-            'body' => app(TemplateRegistry::class)
-                ->get(TemplateRegistry::REGISTRATION_OTP)
-                ->render([
-                    'clinic' => 'Kira Family Clinic',
-                    'code' => '482913',
-                    'expires_in_minutes' => 5,
-                ]),
-        ]);
-    }
-
     public function sent(): static
     {
         return $this->state(fn () => [

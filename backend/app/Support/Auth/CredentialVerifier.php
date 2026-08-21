@@ -54,9 +54,12 @@ final class CredentialVerifier
     /**
      * Burn one comparison's worth of work and learn nothing.
      *
-     * Called on any branch that would otherwise return early: an unregistered
-     * number at OTP request time, or a verification with fewer stored codes
-     * than the comparison budget.
+     * Called by matches() on the branch that would otherwise return early -- an
+     * identifier with no account behind it, which is the branch that must not be
+     * the fast one. Public rather than private because the equalising work is the
+     * point: any future path that can answer before it has a password to check
+     * should call this rather than reinvent it, and getting it wrong is a
+     * disclosure rather than a slow response.
      */
     public function decoy(string $candidate): void
     {

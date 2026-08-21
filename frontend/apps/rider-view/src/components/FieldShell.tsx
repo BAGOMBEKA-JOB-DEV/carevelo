@@ -17,14 +17,14 @@ import type { ReactNode } from 'react'
  */
 export function FieldShell({ active, children }: { active?: string; children: ReactNode }) {
   return (
-    <div className="field">
+    <div className="fieldview">
       <a className="skip-link" href="#main">Skip to content</a>
 
       <header className="topbar">
         <span className="topbar__title">Deliveries</span>
       </header>
 
-      <main className="field__main" id="main">{children}</main>
+      <main className="fieldview__main" id="main">{children}</main>
 
       <nav className="tabbar" aria-label="Sections">
         <a href="/assignments" className={active === 'assignments' ? 'is-active' : undefined} aria-current={active === 'assignments' ? 'page' : undefined}>Assignments</a>

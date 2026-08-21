@@ -66,7 +66,7 @@ it('signs in with an email address and a password', function () {
             'password' => 'correct-horse-battery',
         ])
         ->assertOk()
-        ->assertJsonPath('id', $user->id);
+        ->assertJsonPath('data.id', $user->id);
 
     $this->assertAuthenticatedAs($user);
 });
@@ -93,7 +93,7 @@ it('still signs in with a phone number, so nothing was traded away', function ()
             'password' => 'correct-horse-battery',
         ])
         ->assertOk()
-        ->assertJsonPath('id', $user->id);
+        ->assertJsonPath('data.id', $user->id);
 });
 
 it('gives a byte-identical answer to an unknown address and a wrong password', function () {

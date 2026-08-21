@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./tokens.css": "./src/tokens/index.css"
+    "./tokens.css": "./src/tokens/index.css",
+    "./fonts/*": "./src/fonts/*"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -17,8 +18,12 @@
   "dependencies": {
     "@carevelo/api-client": "workspace:*"
   },
+  "peerDependencies": {
+    "react": "^19.2.0"
+  },
   "devDependencies": {
     "@types/node": "26.2.0",
+    "@types/react": "19.2.18",
     "typescript": "5.9.3",
     "vitest": "4.1.10"
   }

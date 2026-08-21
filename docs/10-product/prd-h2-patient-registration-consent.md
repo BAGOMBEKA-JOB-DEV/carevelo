@@ -12,13 +12,13 @@ A patient registers with a clinic, understands what happens to their data, and c
 
 ## Success criteria
 
-- Registration completes in under two minutes on a mid-range Android phone over mobile data.
+- Registration — producing the record — completes in under two minutes on a mid-range Android phone over mobile data. Issuing the account at the desk adds under a minute on top.
 - The consent screen is genuinely readable by someone with no legal or technical background.
 - Every consent decision is reconstructable: what text, what version, when, by whom.
 
 ## Actors
 
-Patient (primary), Guardian (for minors), Front Desk staff (for walk-in registration), Platform.
+Patient (primary), Guardian (for minors), Front Desk staff (for walk-in registration and for issuing the patient's account), Platform.
 
 ## Main flow
 
@@ -28,13 +28,13 @@ Note where the decline path exits — before any clinical data can attach.
 sequenceDiagram
     autonumber
     actor Pt as Patient
+    participant FD as Front desk
     participant P as Platform
-    participant S as SMS
 
     alt Self-registration
         Pt->>P: Name, phone, optional details
     else Walk-in
-        Note over P: Front desk registers on<br/>the patient's behalf
+        FD->>P: Front desk registers on<br/>the patient's behalf
     end
     P->>P: Create Patient (pending_consent)
     Note right of P: NO clinical data may attach<br/>while in this state
@@ -43,9 +43,13 @@ sequenceDiagram
     alt Patient consents
         Pt->>P: Explicit affirmative action
         P->>P: Immutable ConsentRecord<br/>policy version + text hash
-        P->>S: OTP
-        Pt->>P: Verify phone
         P->>P: Patient status: active
+        opt Patient wants the portal, and has an email address
+            FD->>P: Issue an account for THIS record
+            P-->>FD: Generated password, shown once
+            FD-->>Pt: Read out at the desk
+            Note right of P: patients.user_id linked.<br/>Phone NOT marked verified.<br/>Password change required.
+        end
     else Patient declines
         Pt->>P: Decline
         P->>P: Status: discarded
@@ -62,6 +66,8 @@ Two routes, and both must exist. Most Ugandan private-clinic patients arrive phy
 
 - **Self-registration** on the clinic-branded patient portal.
 - **Staff registration** by front desk for a walk-in patient.
+
+Both routes create a **record**. Neither creates an account: the login that lets a patient see their own data is issued separately, by staff, from the record (§3).
 
 Collected: given name, family name, phone (mandatory), and optionally date of birth, sex, email, address and district. `national_id_number` is optional and stays optional forever — requiring a NIN excludes patients, and exclusion is worse than unverified identity ([Identifiers](../20-domain/identifiers-and-numbering.md)).
 
@@ -91,21 +97,33 @@ Each decision writes an immutable `ConsentRecord` with a timestamp, the policy v
 
 The full policy text is available on the same screen — not behind a link that nobody opens — and in English and Luganda at minimum.
 
-### 3. Phone verification
+### 3. The account
 
-An OTP verifies the patient controls the number. This matters more than usual here, because the phone number is how appointment details, payment prompts and prescription-ready notifications reach them; a mistyped digit sends someone else's health information to a stranger.
+Granting `data_processing` consent makes the record `active`. That is the whole of registration — a record a clinic can treat against.
 
-On success the patient becomes `active`.
+An **account** is a separate thing, and it is issued by clinic staff rather than claimed by the patient. A `clinic_admin`, `front_desk` or `clinician` creates it from the record: `POST /v1/patients/{patient}/account` ([Auth](../40-api/authentication-and-sessions.md)).
+
+- Staff supply an **email address**, which becomes the patient's only identifier.
+- **The platform generates the password** and shows it once, on screen, for the staff member to read out. Staff do not choose it — a desk creating twenty accounts a day would type the same word twenty times, and then every patient account at that clinic is guessable by anyone who was ever given one.
+- Nothing is sent by SMS. There is no code and no link anywhere in this flow.
+- The call links `patients.user_id` for the record named in the URL and writes `patient.account_created`, naming the staff member who did it.
+- The patient must replace the password at first sign-in; until they do, the session can reach nothing else.
+
+The trust basis is a staff member identifying the person in front of them — the same basis the exception table below has always sanctioned for in-person attestation, and the reasoning is recorded in [ADR-0011](../70-decisions/0011-staff-issued-patient-accounts.md).
+
+**The phone number is not verified by any of this**, and the documents no longer claim it is. The number still carries appointment details, payment prompts and prescription-ready notifications, and a mistyped digit still sends someone else's health information to a stranger — so front desk **reads the number back to the patient** and corrects it there. `phone_verified_at` stays null on both the record and the account: describing a desk visit as phone verification would leave a clinic administrator unable to tell a checked number from a typed one, which is the only thing that field is good for.
 
 ### 4. Minors
 
-A patient under 18 requires **guardian consent**. Guardian name, relationship and phone become mandatory; the `ConsentRecord` records `granted_by = guardian` with those details. The guardian's phone is separately OTP-verified.
+A patient under 18 requires **guardian consent**. Guardian name, relationship and phone become mandatory; the `ConsentRecord` records `granted_by = guardian` with those details. The guardian is identified in person by the staff member taking the consent, who attests to it as an audited action — there is no code sent to a guardian's handset, and a guardian's contact number is recorded as given rather than as verified.
 
 Clinic staff may register a minor on a guardian's behalf in person, with the guardian's consent recorded by the staff member as an attested action — itself an audited event.
 
+Where the guardian is to hold the account, one login carries several records — and each is linked by a staff member naming that record explicitly, so a guardian gains sight of a child's record only by a deliberate, audited act ([ADR-0010](../70-decisions/0010-patient-account-link.md)).
+
 ### 5. Ongoing consent management
 
-The patient can view their consent history and withdraw at any time from the portal. Withdrawal writes a new `ConsentRecord` (never an update) and emits `ConsentWithdrawn`.
+The patient can view their consent history and withdraw at any time from the portal — or, having no account, at the desk, where a staff member records the withdrawal for them as an audited action. Withdrawal writes a new `ConsentRecord` (never an update) and emits `ConsentWithdrawn`.
 
 Withdrawal halts new processing. It does not automatically erase records the clinic is obliged to retain as a medical record — the clinic is the controller and that retention obligation is theirs. The tension between the right to withdraw and the duty to retain is resolved explicitly in [Retention & Deletion](../50-security-compliance/data-retention-and-deletion.md), and the patient-facing wording must not promise deletion the clinic cannot lawfully perform.
 
@@ -114,8 +132,10 @@ Withdrawal halts new processing. It does not automatically erase records the cli
 | Exception | Handling |
 |---|---|
 | **Patient declines consent** (§H2.4) | Registration halts. Patient moves to `discarded`. Retain only the minimal contact detail needed to explain why service cannot proceed; purge on schedule. No clinical data is stored. The patient is told they may still attend in person and consent later |
-| OTP not received | Resend with backoff; voice-call fallback; front desk may verify identity in person and attest, as an audited action |
-| Phone already registered at this tenant | Offer sign-in or recovery. Never confirm or deny that a specific number is registered to an unauthenticated caller — that alone would disclose that a person is a patient of this clinic |
+| **Patient has no email address** | No account, and therefore no portal. The record stands, care is unaffected, notifications still reach them by SMS and clinical detail is shown at the desk. A real exclusion in a market where many patients have no reliably-checked address, accepted with its eyes open in [ADR-0011](../70-decisions/0011-staff-issued-patient-accounts.md) |
+| Patient forgets the initial password before first sign-in | Nothing can be resent — there is no code, no link and no self-service reset. Front desk identifies the patient in person and issues a fresh password, which re-arms the forced change. Audited exactly as issuing the account was |
+| Account issued but the patient never signs in | The password the staff member read out stays valid and stays known to them. The clinic reviews `patient.account_created` events; the risk and its bound are stated in the [Threat Model](../50-security-compliance/threat-model.md) |
+| Phone already registered at this tenant | Offer sign-in; recovery is an in-person act at the desk. Never confirm or deny that a specific number is registered to an unauthenticated caller — that alone would disclose that a person is a patient of this clinic |
 | Patient has no phone | Front desk registers against a next-of-kin number with explicit consent from both; flag the record so notifications are handled in person |
 | Guardian consent unavailable for a minor | Registration cannot complete. In-person care proceeds under the clinic's own paper processes |
 | Patient withdraws mid-consultation | Consultation may complete on clinical grounds; no new processing beyond it. Flag for the clinic to handle as controller |
@@ -132,6 +152,10 @@ Withdrawal halts new processing. It does not automatically erase records the cli
 7. Consent text is available in English and Luganda, on screen rather than behind a link.
 8. The rider-disclosure consent is captured at the point of choosing delivery, not pre-emptively at registration.
 9. All consent events appear in the audit log with actor, timestamp and tenant.
+10. A patient account is created only from an existing patient record, only by clinic staff, and the same call links that record and writes `patient.account_created` naming the staff member.
+11. The initial password is generated by the platform, shown once, and appears in no log, no audit event and no message on any channel.
+12. Issuing an account leaves `phone_verified_at` null on both the record and the account, and no screen describes it as verifying the number.
+13. A patient whose first password change is outstanding can reach nothing but their own profile, the password endpoint and sign-out.
 
 ## Out of scope for H2
 

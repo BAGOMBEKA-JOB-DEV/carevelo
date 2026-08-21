@@ -47,6 +47,17 @@ class PatientResource extends JsonResource
             // link need somewhere to go, so the pointer is part of the record.
             'merged_into_patient_id' => $this->merged_into_patient_id,
             'phone_verified' => $this->phone_verified_at !== null,
+
+            // Whether an account can already reach this record as its own.
+            // Derived, and never the account's identifier or address: front desk
+            // needs to know whether to offer to create one, and nothing more.
+            //
+            // It is here rather than on an endpoint of its own because "does this
+            // person have an account here" is a question worth not being able to
+            // ask directly. Reading it as part of a record you are already
+            // authorised to read asks nothing new.
+            'has_account' => $this->isClaimed(),
+
             'created_at' => $this->created_at?->toIso8601String(),
         ];
     }

@@ -106,6 +106,53 @@ it('lists this clinic\'s staff and nobody else\'s', function () {
     expect($ids)->not->toContain($stranger->id);
 });
 
+it('keeps patient accounts out of the clinic\'s staff list', function () {
+    // This cost nothing while patients had no accounts and became urgent the
+    // moment front desk could create them. A clinic has tens of staff and
+    // thousands of patients: without the role filter the staff list IS a patient
+    // list, twenty-five at a time, with the people an administrator came to manage
+    // somewhere past the end of it.
+    //
+    // It is also a data-minimisation failure in its own right. The staff surface
+    // is administrative, and a patient's presence on it is not administration.
+    [$tenant, $admin] = h1StaffFixture();
+    $colleague = h1StaffMember($tenant, ClinicalRole::FrontDesk);
+    $patientAccount = h1StaffMember($tenant, ClinicalRole::Patient);
+
+    $ids = h1StaffIds(
+        $this->actingAs($admin)->getJson(h1StaffUrl($tenant))->assertOk()->json('data')
+    );
+
+    expect($ids)->toContain($admin->id);
+    expect($ids)->toContain($colleague->id);
+    expect($ids)->not->toContain($patientAccount->id);
+});
+
+it('returns 404, not 403, for a patient account on the staff endpoints', function () {
+    // Same reasoning as another clinic's staff member: the account is not part of
+    // the collection being addressed. It matters concretely too -- `role` here
+    // would let an administrator promote a patient account into a clinical role,
+    // and `is_active` would let them lock a patient out of their own records from
+    // a screen that is not about patients at all.
+    [$tenant, $admin] = h1StaffFixture();
+    $patientAccount = h1StaffMember($tenant, ClinicalRole::Patient);
+
+    $this->actingAs($admin)
+        ->patchJson(h1StaffUrl($tenant, '/api/v1/tenant/users/'.$patientAccount->id), [
+            'role' => ClinicalRole::Clinician->value,
+        ])
+        ->assertNotFound();
+
+    expect($patientAccount->fresh()?->hasRole(ClinicalRole::Patient->value))->toBeTrue();
+    expect($patientAccount->fresh()?->hasRole(ClinicalRole::Clinician->value))->toBeFalse();
+
+    $this->actingAs($admin)
+        ->patchJson(h1StaffUrl($tenant, '/api/v1/tenant/users/'.$patientAccount->id), ['is_active' => false])
+        ->assertNotFound();
+
+    expect($patientAccount->fresh()?->is_active)->toBeTrue();
+});
+
 it('gives the administrator roles and access, and no clinical trace of the person', function () {
     [$tenant, $admin] = h1StaffFixture();
 

@@ -174,10 +174,16 @@ importers:
       '@carevelo/api-client':
         specifier: workspace:*
         version: link:../api-client
+      react:
+        specifier: ^19.2.0
+        version: 19.2.8
     devDependencies:
       '@types/node':
         specifier: 26.2.0
         version: 26.2.0
+      '@types/react':
+        specifier: 19.2.18
+        version: 19.2.18
       typescript:
         specifier: 5.9.3
         version: 5.9.3

@@ -1,7 +1,9 @@
 import type { ReactNode } from 'react'
+import { headers } from 'next/headers'
 import { brandStyle } from '@carevelo/ui'
 import '@carevelo/ui/tokens.css'
 import { tryResolveTenant } from '@/lib/tenant'
+import { fontStyle } from './fonts'
 
 /**
  * The root layout, and the reason this app is server-rendered.
@@ -14,6 +16,12 @@ import { tryResolveTenant } from '@/lib/tenant'
  *
  * A style OBJECT, so React sets these through the CSSOM. No tenant value is ever
  * concatenated into markup, which is a stronger guarantee than validation alone.
+ *
+ * The typeface variables ride on the same object, and merge rather than compete: both
+ * are custom properties on the same element, set in one attribute. typography.css spells
+ * out why they are an inline style and not next/font's `variable` class — briefly, a
+ * class and that file's `:root` rule have identical specificity, so the winner would be
+ * decided by CSS chunk order.
  *
  * lang is the clinic's, not the browser's. Consent text must render in English and
  * Luganda, and a screen reader needs to know which it is reading.
@@ -29,11 +37,40 @@ import { tryResolveTenant } from '@/lib/tenant'
  * the default tokens; the PAGES call resolveTenant() and get a real, server-rendered 404.
  */
 export default async function RootLayout({ children }: { children: ReactNode }) {
-  const tenant = await tryResolveTenant()
+  const [tenant, requestHeaders] = await Promise.all([tryResolveTenant(), headers()])
+
+  /*
+   * The per-request nonce minted in src/proxy.ts. Next stamps its own framework and
+   * bundle scripts automatically, but the theme bootstrap below is ours, and the policy
+   * uses 'strict-dynamic' — which discards `'self'`, so being served from our own origin
+   * is no longer enough to make a script trusted. Without this attribute the bootstrap is
+   * refused and a returning patient who chose dark gets a white flash on every load.
+   */
+  const nonce = requestHeaders.get('x-nonce') ?? undefined
 
   return (
-    <html lang="en" style={brandStyle(tenant?.branding)}>
-      <body>{children}</body>
+    <html lang="en" style={{ ...brandStyle(tenant?.branding), ...fontStyle }}>
+      <body>
+        {/*
+         * The theme, applied before the first paint. FIRST child of <body> and
+         * deliberately render-blocking: the whole job is to set data-theme while the
+         * parser is stopped, so a returning patient who chose dark never sees a white
+         * page painted and then corrected. A flash on a screen showing someone's
+         * prescription reads as a broken page rather than a slow one.
+         *
+         * NOT next/script. `beforeInteractive` is the strategy that sounds right and is
+         * not: it loads during hydration — after the paint this exists to beat. A plain
+         * external tag carrying the request's nonce runs while the parser is stopped and
+         * needs no 'unsafe-inline'.
+         *
+         * The lint rule is right in general and wrong here: `async`/`defer` would move
+         * this after the paint and reintroduce the flash it prevents. The file is 3KB,
+         * served from the same origin, and cached.
+         */}
+        {/* eslint-disable-next-line @next/next/no-sync-scripts */}
+        <script src="/theme-init.js" nonce={nonce} />
+        {children}
+      </body>
     </html>
   )
 }

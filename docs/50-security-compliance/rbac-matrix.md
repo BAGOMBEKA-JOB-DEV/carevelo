@@ -74,10 +74,13 @@ The two dotted arrows are the point: platform roles reach tenant *administration
 | Patient — read | ✓ | ✓ | name/contact | name/contact | ✓ | name/contact | own | — |
 | Patient — update demographics | ✓ | ✓ | — | — | ✓ | — | own | — |
 | Patient — merge (within tenant) ⚑ | ✓ | — | — | — | ✓ | — | — | — |
+| Patient — issue account ⚑ | ✓ | ✓ | — | — | ✓ | — | — | — |
 | Consent — read | ✓ | ✓ | — | — | ✓ | — | own | — |
 | Consent — grant / withdraw ⚑ | — | — | — | — | — | — | ✓ | — |
 
 Consent is granted by the patient or guardian only. Staff may facilitate in person, but the record names who attested.
+
+**Issuing an account is the one staff action that produces somebody else's credential.** It creates the patient's login from their record, and the initial password is known to the issuer until the patient replaces it at first sign-in — during which time that person can exercise the `patient` column above, consent included, with the audit trail naming the patient. Bounded and audited rather than prevented; stated as an accepted risk in the [Threat Model](threat-model.md) and reasoned through in [ADR-0011](../70-decisions/0011-staff-issued-patient-accounts.md).
 
 ### Clinical
 

@@ -6,6 +6,7 @@ use App\Audit\AuditLog;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\SignInRequest;
 use App\Http\Requests\Auth\UpdatePasswordRequest;
+use App\Http\Resources\V1\MeResource;
 use App\Models\User;
 use App\Support\Auth\Accounts;
 use App\Support\Auth\AuthProblem;
@@ -51,7 +52,7 @@ class AuthController extends Controller
     /**
      * Sign in with an email address or a phone number, and a password.
      */
-    public function signIn(SignInRequest $request): JsonResponse
+    public function signIn(SignInRequest $request): MeResource|JsonResponse
     {
         $field = $request->identifierField();
         $identifier = $request->identifier();
@@ -103,7 +104,32 @@ class AuthController extends Controller
             actor: $user,
         );
 
-        return response()->json($user);
+        // The same resource /v1/me returns, and for the same reason: handing back the raw
+        // Eloquent model shipped tenant_id, is_active, both timestamps and — once the
+        // staff-issued account path landed — password_change_required_at, to a browser that
+        // needs none of them. A client that has just signed in wants exactly what it would
+        // ask /v1/me for, so it gets exactly that.
+        return new MeResource($user);
+    }
+
+    /**
+     * Who am I, and may I do anything yet.
+     *
+     * A controller method rather than the route closure this used to be, so the
+     * published contract can describe it: a closure returning an Eloquent model
+     * is the one endpoint Scramble had nothing to say about, which is why the
+     * frontend kept a hand-written type for it.
+     *
+     * Reachable while a password change is outstanding -- see
+     * RequirePasswordChange. It is how a client learns that it must show the
+     * password form rather than finding out one refusal at a time.
+     */
+    public function me(Request $request): MeResource
+    {
+        /** @var User $user */
+        $user = $request->user();
+
+        return new MeResource($user);
     }
 
     public function signOut(Request $request): Response
@@ -140,6 +166,22 @@ class AuthController extends Controller
         }
 
         $user->password = $request->newPassword();
+
+        // Discharged in the same write, and only here.
+        //
+        // An account created at the registration desk carries a password a member
+        // of staff chose and spoke aloud, and RequirePasswordChange refuses
+        // everything but this call until it is replaced. Clearing it alongside
+        // the rotation and the session purge below is what makes the discharge
+        // mean something: the credential the staff member knows stops working,
+        // any session they opened with it ends, and any remember-me cookie
+        // holding it dies with the token.
+        //
+        // Note what is NOT relaxed to get here: UpdatePasswordRequest still
+        // requires the current password. The patient has it -- staff read it to
+        // them -- so a second, weaker credential path would buy nothing and would
+        // be a way into every account that had not yet been claimed.
+        $user->password_change_required_at = null;
 
         // Rotated in the same write: this is what invalidates any remember-me
         // cookie held by a device we cannot reach through the session table.

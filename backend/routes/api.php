@@ -7,7 +7,6 @@ use App\Http\Controllers\Api\Admin\TenantAdminController;
 use App\Http\Controllers\Api\Admin\WorkingHoursController;
 use App\Http\Controllers\Api\Auth\AuthController;
 use App\Http\Controllers\Api\Auth\InvitationController;
-use App\Http\Controllers\Api\Auth\OtpController;
 use App\Http\Controllers\Api\Platform\BreakGlassController;
 use App\Http\Controllers\Api\Platform\PlatformTenantController;
 use App\Http\Controllers\Api\V1\AppointmentController;
@@ -21,6 +20,7 @@ use App\Http\Controllers\Api\V1\DeliveryController;
 use App\Http\Controllers\Api\V1\DispenseOrderController;
 use App\Http\Controllers\Api\V1\JoinTokenController;
 use App\Http\Controllers\Api\V1\NotificationController;
+use App\Http\Controllers\Api\V1\PatientAccountController;
 use App\Http\Controllers\Api\V1\PatientController;
 use App\Http\Controllers\Api\V1\PaymentIntentController;
 use App\Http\Controllers\Api\V1\PrescriptionController;
@@ -31,8 +31,8 @@ use App\Http\Controllers\Api\V1\TenantController;
 use App\Http\Controllers\HealthController;
 use App\Http\Controllers\Webhooks\AggregatorWebhookController;
 use App\Http\Middleware\BindTenantContext;
+use App\Http\Middleware\RequirePasswordChange;
 use App\Http\Middleware\ResolveTenant;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -60,23 +60,40 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         ->name('consent.policy');
 
     /*
-     * Authentication.
+     * Authentication. One way in: an identifier and a password.
      *
-     * Public by necessity. Responses are ENUMERATION-SAFE: identical body and
-     * equalised timing whether or not the number is registered, because
-     * confirming that a phone belongs to a specific clinic discloses that the
-     * person is a patient there -- itself health-adjacent information.
+     * The identifier is an email address or a phone number -- both, because a
+     * clinic administrator at a desk expects to type an address and a clinician
+     * between rooms has their number in hand. Everyone signs in the same way,
+     * patients included.
+     *
+     * Public by necessity. Responses are ENUMERATION-SAFE: identical body,
+     * identical status and equalised timing whether or not the identifier belongs
+     * to an account here, because confirming that it does discloses that the
+     * person is a patient of this clinic -- itself health-adjacent information.
+     * The timing half is not incidental; see CredentialVerifier.
      *
      * @see docs/40-api/authentication-and-sessions.md
      */
-    Route::post('auth/otp/request', [OtpController::class, 'request'])->name('auth.otp.request');
-    Route::post('auth/otp/verify', [OtpController::class, 'verify'])->name('auth.otp.verify');
     Route::post('auth/sign-in', [AuthController::class, 'signIn'])->name('auth.sign-in');
     Route::post('invitations/{token}/accept', [InvitationController::class, 'accept'])
         ->name('invitations.accept');
 
-    Route::middleware('auth:sanctum')->group(function () {
-        Route::get('me', fn (Request $request) => $request->user())->name('me');
+    /*
+     * Everything behind a session.
+     *
+     * RequirePasswordChange sits immediately after authentication, and only
+     * ever bites an account that did not choose its own password -- which today
+     * means a patient account opened for them at the registration desk. While
+     * that is outstanding the group refuses everything but the three routes
+     * named in RequirePasswordChange::PERMITTED_ROUTES, because a staff member
+     * who knows the password could otherwise sign in as the patient and forge a
+     * consent decision the audit trail would attribute to them.
+     *
+     * @see docs/50-security-compliance/rbac-matrix.md
+     */
+    Route::middleware(['auth:sanctum', RequirePasswordChange::class])->group(function () {
+        Route::get('me', [AuthController::class, 'me'])->name('me');
         Route::post('auth/sign-out', [AuthController::class, 'signOut'])->name('auth.sign-out');
         // Invalidates every other session for this user.
         Route::post('me/password', [AuthController::class, 'updatePassword'])->name('me.password');
@@ -94,6 +111,21 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         Route::apiResource('patients', PatientController::class)
             ->except(['destroy', 'update']);
         Route::patch('patients/{patient}', [PatientController::class, 'update'])->name('patients.update');
+        /*
+         * The patient's own way in, issued across the registration desk.
+         *
+         * POST only. There is no GET -- an endpoint whose job is answering
+         * "does this person have an account here" is a question worth not
+         * being able to ask, and the derived `has_account` flag on
+         * PatientResource tells staff what they need while they are already
+         * reading a record they are entitled to read. No DELETE either.
+         *
+         * The generated password is in the 201 body and nowhere else: not in
+         * an SMS, not in the audit trail, not in a log line.
+         */
+        Route::post('patients/{patient}/account', [PatientAccountController::class, 'store'])
+            ->name('patients.account.store');
+
         Route::get('patients/{patient}/consents', [ConsentController::class, 'index'])->name('consents.index');
         Route::post('patients/{patient}/consents', [ConsentController::class, 'store'])->name('consents.store');
         Route::post('patients/{patient}/consents/withdraw', [ConsentController::class, 'withdraw'])

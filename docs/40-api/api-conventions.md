@@ -175,7 +175,7 @@ Per tenant and per actor, with `429` and a `Retry-After` header.
 
 | Endpoint class | Limit |
 |---|---|
-| Authentication, OTP | Strict, per phone number and per IP |
+| Authentication and password change | Strict, per identifier — phone number or email address — and per IP |
 | Payment initiation | Moderate, per patient |
 | Read endpoints | Generous |
 | Webhooks | Per tenant, generous, with signature verification first |

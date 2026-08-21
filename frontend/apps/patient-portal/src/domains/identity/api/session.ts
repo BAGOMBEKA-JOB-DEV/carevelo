@@ -2,11 +2,16 @@ import { cookies, headers } from 'next/headers'
 import { ApiError, humanise, type Problem } from '@carevelo/api-client'
 
 /**
- * The sign-in calls, and the one piece of real plumbing in this app.
+ * The session calls — signing in with a password, choosing a new one, signing out — and
+ * the one piece of real plumbing in this app.
+ *
+ * THERE IS NO PHONE CODE. Sign-in is an email address and a password, full stop. The
+ * one-time-code flow that used to live here is gone from the product and its endpoints
+ * are gone from the API, so nothing in this file knows about SMS.
  *
  * THE PROBLEM THIS SOLVES. Authentication is a Sanctum session COOKIE, and the cookie
  * has to end up in the patient's browser. The portal is a separate server from the API,
- * so a server-side call to /auth/otp/verify receives `Set-Cookie` here and the browser
+ * so a server-side call to /auth/sign-in receives `Set-Cookie` here and the browser
  * never sees it — the patient would sign in and immediately be a guest again.
  *
  * So every response's cookies are read and re-issued on the portal's own response
@@ -143,46 +148,6 @@ export interface StepResult {
 }
 
 /**
- * Ask for a one-time code.
- *
- * ENUMERATION-SAFE. The API answers identically whether or not the number is
- * registered, because confirming it would disclose that this person is a patient of
- * this clinic — special-category data, handed to anyone who can type a phone number.
- * The message below therefore says the same thing in both cases, and the UI must not
- * "helpfully" improve on it.
- */
-export async function requestCode(phone: string): Promise<StepResult> {
-  const xsrf = await csrfToken()
-  const response = await call('/v1/auth/otp/request', { method: 'POST', body: { phone }, xsrf })
-
-  await forward(response.cookies)
-
-  if (response.status === 202) {
-    return { ok: true }
-  }
-
-  return failure(response.status, response.body)
-}
-
-/**
- * Spend the code and become signed in.
- */
-export async function verifyCode(phone: string, code: string): Promise<StepResult> {
-  const xsrf = await csrfToken()
-  const response = await call('/v1/auth/otp/verify', { method: 'POST', body: { phone, code }, xsrf })
-
-  // The session cookie is in here. Without forwarding it the patient signs in on the
-  // server and stays a guest in their browser.
-  await forward(response.cookies)
-
-  if (response.status === 200) {
-    return { ok: true }
-  }
-
-  return failure(response.status, response.body)
-}
-
-/**
  * Sign in with an email address or a phone number, and a password.
  *
  * ENUMERATION-SAFE, AND THE UI MUST NOT UNDO IT. The API answers "no account for that
@@ -211,6 +176,63 @@ export async function signInWithPassword(
   await forward(response.cookies)
 
   if (response.status === 200) {
+    return { ok: true }
+  }
+
+  return failure(response.status, response.body)
+}
+
+/**
+ * Change the password on the signed-in account.
+ *
+ * THE CURRENT PASSWORD IS ALWAYS REQUIRED. There is no relaxed path for the patient whose
+ * clinic created their account, because that patient DOES have a current password — the
+ * clinic generated one and a member of staff read it to them at the desk. Waiving the
+ * check for them would add a second, weaker way to set a credential in exchange for
+ * nothing, and the weaker of two credential paths is the one that gets attacked.
+ *
+ * What that account carries instead is `password_change_required_at`, and it is enforced
+ * on the API side rather than here: while it is set, middleware refuses every
+ * authenticated request except reading the account, this call, and signing out. A frontend
+ * that forgot to send the patient here therefore cannot leave them using the portal on a
+ * password the front desk knows. Changing the password clears the flag and ends every
+ * other session, which is what closes off anything opened with the initial credential.
+ *
+ * The confirmation is sent rather than compared here. The API is the one authority on
+ * whether two fields match — a check done only in the browser is a check that is not done,
+ * and a check done in both places is two rules free to disagree.
+ *
+ * OBSERVED CONTRACT: POST /v1/me/password takes `current_password`, `password` and
+ * `password_confirmation`, and answers 204. The field names are Laravel's own convention —
+ * `confirmed` looks for `<field>_confirmation` — and they were briefed to this file as
+ * `new_password*` by mistake, which the endpoint answered with "the password field is
+ * required" until the journey was actually driven. Written
+ * against the agreed shape while the backend half is in flight.
+ */
+export async function changePassword(
+  currentPassword: string,
+  newPassword: string,
+  confirmation: string,
+): Promise<StepResult> {
+  const xsrf = await csrfToken()
+
+  const response = await call('/v1/me/password', {
+    method: 'POST',
+    body: {
+      current_password: currentPassword,
+      password: newPassword,
+      password_confirmation: confirmation,
+    },
+    xsrf,
+  })
+
+  // A successful change ends every other session, which can rotate this one's cookie.
+  // Forwarding keeps the browser holding whatever is now current rather than the cookie
+  // the call just invalidated — otherwise the patient sets a password and is signed out
+  // by their own success.
+  await forward(response.cookies)
+
+  if (response.status === 204) {
     return { ok: true }
   }
 

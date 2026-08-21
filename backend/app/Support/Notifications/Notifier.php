@@ -71,7 +71,7 @@ class Notifier
 
         $body = $template->render($parameters);
 
-        if ($this->isRateLimited($template)) {
+        if ($this->isRateLimited()) {
             return $this->suppress($template, $e164, $body);
         }
 
@@ -141,20 +141,25 @@ class Notifier
     }
 
     /**
-     * OTPs are exempt.
+     * Whether the tenant has spent its minute allowance -- counting this message
+     * against it if not.
      *
-     * An OTP is user-initiated, one per sign-in attempt, and the person is
-     * waiting for it -- suppressing one locks a patient out of their own
-     * records. Abuse of the OTP path is contained where it belongs, by a
-     * per-number limit on the authentication endpoint, not by a tenant-wide
-     * throughput cap that a busy clinic can exhaust on reminders.
+     * Every template in the catalogue is subject to the cap, with no exemptions.
+     * There was one, for the sign-in code, and its reasoning was specific to that
+     * message: a person had asked for it and was waiting for it, one per attempt,
+     * so suppressing one locked a patient out of their own records -- and abuse of
+     * that path was already bounded per number and per address by AuthThrottle,
+     * at the endpoint rather than here. Nothing left in the catalogue has that
+     * shape. Every remaining message is raised by the clinic's own workflow, so
+     * the tenant-wide cap is both the right place to bound it and the only one.
+     *
+     * If a message somebody is actively waiting on is ever added, exempt it on a
+     * property the template declares rather than by naming its key here: a rule
+     * that lives in this method is one nobody can find from the template it
+     * applies to.
      */
-    private function isRateLimited(NotificationTemplate $template): bool
+    private function isRateLimited(): bool
     {
-        if ($template->key === TemplateRegistry::REGISTRATION_OTP) {
-            return false;
-        }
-
         $key = self::rateLimitKey($this->context->currentOrFail());
 
         if ($this->limiter->tooManyAttempts($key, self::MAX_PER_TENANT_PER_MINUTE)) {
