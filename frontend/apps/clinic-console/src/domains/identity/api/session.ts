@@ -49,7 +49,7 @@ import type { Me, SignInOutcome, StepResult } from '../model/types'
  * So every response's cookies are read and re-issued on the console's own response through
  * Next's `cookies()`. The console and the API share the host (`kira.localhost`) and cookies
  * ignore ports, so the browser then sends the session on every subsequent request and
- * `domains/*/api/http.ts` forwards it server-side.
+ * `domains/<domain>/api/http.ts` forwards it server-side.
  *
  * Why not fetch from the browser instead: that needs JavaScript, and the front desk of a
  * Ugandan clinic is not the place to make signing in depend on a bundle arriving. Every
