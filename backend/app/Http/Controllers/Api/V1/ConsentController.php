@@ -186,6 +186,27 @@ class ConsentController extends Controller
      * patient data whatsoever -- only the clinic's own name, which the portal
      * already renders in its branding.
      */
+    /**
+     * The current consent policy, in every language it is published in.
+     *
+     * THE DOCBLOCK IS LOAD-BEARING. Without it the generator inferred this response from
+     * the PHP alone and got two things wrong, both of which reached the typed client the
+     * consent screen is built on:
+     *
+     *   - `text` became `unknown[]`. It is a MAP keyed by language code, not a list, and a
+     *     flattened associative array looks like a list to a generator that only sees the
+     *     runtime shape. The frontend then had no way to ask for the Luganda text by key.
+     *   - `version` became the literal `'2026-08-01'`, because the constant's value was
+     *     visible and looked like a fixed part of the contract. It is not — it is the
+     *     current value of something designed to change, and the first policy revision
+     *     would have broken every generated client against a version they had pinned.
+     *
+     * The array shape below says what is actually true, and the contract gate regenerates
+     * from it. Keep the `string, string` map open-ended: publishing a third language must
+     * not be a breaking change to the type.
+     *
+     * @return JsonResponse
+     */
     public function currentPolicy(Request $request): JsonResponse
     {
         $text = $this->renderedPolicy($this->tenantOf($request));

@@ -1,12 +1,6 @@
 {
   "Routes": {
     "hub": {
-      "eyebrow": "Your care",
-      "welcome": "Welcome back, {firstName}.",
-      "signedInTo": "You are signed in to {clinic}.",
-      "signOut": "Sign out",
-      "yourClinicLabel": "Your clinic",
-      "signedInAsLabel": "Signed in as",
       "doHeading": "What you can do here",
       "services": {
         "title": "See what {clinic} offers",
@@ -29,9 +23,7 @@
         "action": "See prescriptions"
       },
       "byLinkHeading": "Opened from a link {clinic} sends you",
-      "byLinkBody": "Paying for a dispensed order, choosing collection or delivery, and tracking a delivery all open from a link {clinic} sends you. There is no list of them here, because the clinic's system does not yet offer this portal one — so please keep the message {clinic} sent.",
-      "contact": "To change an appointment or ask about your care, contact {clinic} directly. Carevelo provides the software and cannot answer a clinical question.",
-      "contactWithPhone": "To change an appointment or ask about your care, contact {clinic} directly on {phone}. Carevelo provides the software and cannot answer a clinical question."
+      "byLinkBody": "Paying for a dispensed order, choosing collection or delivery, and tracking a delivery all open from a link {clinic} sends you. There is no list of them here, because the clinic's system does not yet offer this portal one — so please keep the message {clinic} sent."
     },
     "booking": {
       "noRecordTitle": "We cannot tell which patient record is yours",

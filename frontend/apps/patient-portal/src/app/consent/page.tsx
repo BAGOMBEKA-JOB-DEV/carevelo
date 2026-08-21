@@ -1,7 +1,6 @@
 import { redirect } from 'next/navigation'
 import { clinicMetadata } from '@/lib/metadata'
 import { resolveTenant } from '@/lib/tenant'
-import { currentUser } from '@/lib/session'
 import {
   ConsentDeclined,
   ConsentScreen,

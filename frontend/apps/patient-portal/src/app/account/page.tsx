@@ -1,28 +1,46 @@
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { getTranslations } from 'next-intl/server'
 import { clinicMetadata } from '@/lib/metadata'
-import { Icon } from '@carevelo/ui'
+import { Icon, type IconName } from '@carevelo/ui'
 import { resolveTenant } from '@/lib/tenant'
 import { currentUser } from '@/lib/session'
 import { signOut } from '@/domains/identity'
 import { SiteShell } from '@/components/SiteShell'
 
 /**
- * Where a signed-in person lands.
+ * Where a signed-in person lands, and the index of everything they can do here.
  *
- * A GUEST IS REDIRECTED, not shown an empty page: this route exists only for somebody
- * with a session, and the check asks the API rather than reading the cookie, because a
- * cookie cannot know it has been invalidated by a deactivation or a role change.
+ * A GUEST IS REDIRECTED, not shown an empty page: this route exists only for somebody with
+ * a session, and the check asks the API rather than reading the cookie, because a cookie
+ * cannot know it has been invalidated by a deactivation or a role change.
  *
  * A PATIENT WHOSE PASSWORD IS STILL THE CLINIC'S IS SENT TO CHOOSE ONE. Their temporary
- * password was generated at the front desk and read out to them, so it is known to a
- * member of staff — and the API refuses every other authenticated request until it is
- * changed. Landing them here would show a page whose every future feature would fail.
+ * password was generated at the front desk and read out to them, so it is known to a member
+ * of staff — and the API refuses every other authenticated request until it is changed.
+ * Landing them here would show a page whose every link fails at the first hop.
  *
- * Booking, prescriptions and delivery tracking arrive in the next phase and this page says
- * so in as many words. What it does not do is show a plausible empty state for a feature
- * that does not exist — a patient waiting on a delivery card that will never populate is
- * worse served than one told plainly.
+ * ---------------------------------------------------------------------------------------
+ * THIS PAGE USED TO SAY THE FEATURES WERE BEING BUILT. THEY ARE BUILT, SO IT LINKS TO THEM.
+ *
+ * What it still does NOT do is show a plausible card for something that cannot work. Two
+ * whole journeys — paying for a dispensed order, choosing collection or delivery, and
+ * tracking a delivery — have no entry point in this portal at all, because the API has no
+ * patient-callable listing behind one: `DispenseOrderController::index()` and
+ * `DeliveryController::index()` both authorise `viewAny`, which is clinic staff only, and
+ * neither uses `AuthorisesPatientReads` (although `viewOwn` exists on both policies,
+ * unused). A patient can open an order or a delivery they hold the identifier for and
+ * cannot discover that identifier from anywhere they are allowed to look.
+ *
+ * A "Your deliveries" card that opened onto a permanent empty state would be worse than
+ * none: it would tell a patient that their delivery is not there, when what is true is that
+ * this portal cannot ask. So the page says, in the patient's own language, that those pages
+ * open from a link the clinic sends and that the message is worth keeping.
+ * ---------------------------------------------------------------------------------------
+ *
+ * THE HEADINGS AND CARD COPY LIVE IN THE `Routes` NAMESPACE, which is the route layer's own
+ * and is deliberately thin. Everything the cards LINK to describes itself in its own
+ * domain's catalogue; this page writes only the sentence that gets somebody there.
  */
 export default async function AccountPage() {
   const [tenant, user] = await Promise.all([resolveTenant(), currentUser()])
@@ -38,12 +56,54 @@ export default async function AccountPage() {
     redirect('/set-password')
   }
 
-  const [t, common] = await Promise.all([
+  const [t, routes, common] = await Promise.all([
     getTranslations('Account'),
+    getTranslations('Routes'),
     getTranslations('Common'),
   ])
   const clinic = tenant.trading_name ?? common('thisClinic')
   const phone = tenant.contact?.phone
+
+  /*
+   * The four places a patient can actually get to from here, in the order the journey
+   * happens: see what is offered, book it, keep track of it, read what was prescribed.
+   *
+   * THE CATALOGUE KEYS ARE WRITTEN OUT, NOT BUILT FROM A TEMPLATE LITERAL. `routes(\`hub.${key}.title\`)`
+   * would compile — next-intl's generated key union does not survive interpolation — and
+   * would then resolve a missing key at runtime to the literal string `Routes.hub.x.title`,
+   * printed on the page where a sentence should be. Spelling them out is what makes a
+   * renamed key a build failure, which is the whole reason this app types its catalogue.
+   */
+  const destinations: readonly { href: string; icon: IconName; title: string; body: string; action: string }[] = [
+    {
+      href: '/services',
+      icon: 'file',
+      title: routes('hub.services.title', { clinic }),
+      body: routes('hub.services.body', { clinic }),
+      action: routes('hub.services.action'),
+    },
+    {
+      href: '/book',
+      icon: 'calendar',
+      title: routes('hub.book.title'),
+      body: routes('hub.book.body'),
+      action: routes('hub.book.action'),
+    },
+    {
+      href: '/appointments',
+      icon: 'clock',
+      title: routes('hub.appointments.title'),
+      body: routes('hub.appointments.body'),
+      action: routes('hub.appointments.action'),
+    },
+    {
+      href: '/prescriptions',
+      icon: 'heart',
+      title: routes('hub.prescriptions.title'),
+      body: routes('hub.prescriptions.body'),
+      action: routes('hub.prescriptions.action'),
+    },
+  ]
 
   return (
     <SiteShell tenant={tenant} signedIn>
@@ -70,7 +130,7 @@ export default async function AccountPage() {
           </form>
         </div>
 
-        <div className="cellgrid cellgrid--3">
+        <div className="cellgrid cellgrid--2">
           <div className="cell">
             <div className="stat">
               <span className="stat__label">{t('yourClinicLabel')}</span>
@@ -90,20 +150,37 @@ export default async function AccountPage() {
               <span className="stat__note tnum">{user.phone ?? ''}</span>
             </div>
           </div>
-
-          <div className="cell">
-            <div className="stat">
-              <span className="stat__label">{t('nextStepLabel')}</span>
-              <span className="stat__value" style={{ fontSize: 21 }}>
-                {t('nextStepValue')}
-              </span>
-              <span className="stat__note">{t('nextStepNote')}</span>
-            </div>
-          </div>
         </div>
 
+        <h2 className="site-h2" style={{ marginTop: 'var(--space-8)' }}>
+          {routes('hub.doHeading')}
+        </h2>
+
+        <div className="cellgrid cellgrid--2">
+          {destinations.map((destination) => (
+            /*
+             * The whole card is the link. A patient tapping on a cracked screen on a bus
+             * should not have to find a four-word phrase inside it, and `a.cell` is styled
+             * for exactly this — the "more" line below is the affordance, not the target.
+             */
+            <Link className="cell" href={destination.href} key={destination.href}>
+              <span className="cell__ic" aria-hidden="true">
+                <Icon name={destination.icon} />
+              </span>
+              <h3>{destination.title}</h3>
+              <p>{destination.body}</p>
+              <span className="more lnk">
+                {destination.action} <Icon name="chev" size={15} />
+              </span>
+            </Link>
+          ))}
+        </div>
+
+        {/* Not a card, because it is not somewhere to go. Stated plainly instead, where a
+            patient looking for their delivery will read it. */}
         <div className="notice notice-info" style={{ marginTop: 'var(--space-7)' }}>
-          {t('notice', { clinic })}
+          <strong>{routes('hub.byLinkHeading', { clinic })}</strong>
+          <p style={{ marginTop: 'var(--space-2)' }}>{routes('hub.byLinkBody', { clinic })}</p>
         </div>
 
         {/* Two whole sentences rather than one with a fragment glued on where the phone
