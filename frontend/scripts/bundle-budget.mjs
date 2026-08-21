@@ -119,6 +119,12 @@ const TARGET_BYTES = 150 * 1024
  * inventing budgets the architecture docs never set.
  *
  * As the booking flow lands its own routes, add them here with their measured size.
+ *
+ * 180_224 is 176 KiB: today's measurement of 179,789 bytes rounded up to the next whole KiB.
+ * Two consecutive builds of an unchanged tree produced byte-identical output, so the 435 bytes
+ * of slack are not there to absorb build noise — they are there so that the first person to
+ * touch this is not fighting a gate that trips on a chunk-hash length. It is under a quarter of
+ * a percent; nothing meaningful fits in it.
  */
 const CEILINGS = {
   '/': 180_224,
@@ -127,9 +133,19 @@ const CEILINGS = {
 const KIB = 1024
 const kib = (bytes) => `${(bytes / KIB).toFixed(1)} KiB`
 
-/** Gzip each file on its own, the way a server compresses each response. */
-const gzippedSize = (files) =>
-  files.reduce((total, file) => total + gzipSync(readFileSync(join(dist, file))).length, 0)
+/**
+ * Gzip each file on its own, the way a server compresses each response.
+ *
+ * Memoised because the same chunk appears on every route — the shared runtime is most of the
+ * bundle — and compressing 220KB of JavaScript once per route per lookup would make this the
+ * slowest step of the build for no better an answer.
+ */
+const sizeCache = new Map()
+const sizeOf = (file) => {
+  if (!sizeCache.has(file)) sizeCache.set(file, gzipSync(readFileSync(join(dist, file))).length)
+  return sizeCache.get(file)
+}
+const gzippedSize = (files) => files.reduce((total, file) => total + sizeOf(file), 0)
 
 /**
  * The JS a browser must fetch before this route is interactive, split by who fetches it.
@@ -184,7 +200,7 @@ const measurements = Object.entries(routes)
       legacyOnly,
     }
   })
-  .sort((a, b) => b.totalBytes - a.totalBytes)
+  .sort((a, b) => b.totalBytes - a.totalBytes || a.route.localeCompare(b.route))
 
 console.log('\nPatient portal first-load JavaScript — gzipped, each chunk compressed as its own response\n')
 
@@ -204,9 +220,9 @@ for (const { route, totalBytes, modernBytes } of measurements) {
 // needs — "it is 4KB over" is not actionable, "this chunk grew by 4KB" is.
 for (const { route, files, legacyOnly } of measurements.filter((m) => CEILINGS[m.route] !== undefined)) {
   console.log(`\n  ${route} is made of:`)
-  for (const file of [...files].sort((a, b) => gzippedSize([b]) - gzippedSize([a]))) {
+  for (const file of [...files].sort((a, b) => sizeOf(b) - sizeOf(a))) {
     const note = legacyOnly.includes(file) ? '  nomodule — legacy browsers only' : ''
-    console.log(`    ${kib(gzippedSize([file])).padStart(10)}  ${file}${note}`)
+    console.log(`    ${kib(sizeOf(file)).padStart(10)}  ${file}${note}`)
   }
 }
 
@@ -238,4 +254,4 @@ if (failures.length > 0) {
   process.exit(1)
 }
 
-console.log('\nWithin budget.\n')
+console.log('\nEvery gated route is within its ceiling.\n')

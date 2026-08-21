@@ -27,6 +27,24 @@ import { NextResponse, type NextRequest } from 'next/server'
  * hold in your head; the directives below differ from the portal's only where the surfaces
  * genuinely differ, and each of those differences says why.
  *
+ * THIS FILE IS NECESSARY AND, TODAY, NOT SUFFICIENT — src/app/layout.tsx has to read the
+ * nonce before any of it takes effect, and that is not a style point. Next injects the
+ * nonce DURING the render, from the CSP header on the request. A route prerendered at build
+ * time has no request, so it ships script tags with no `nonce` attribute; 'strict-dynamic'
+ * then discards 'self' and the browser refuses ALL of them, framework chunks included.
+ *
+ * Measured on the clinic console, which is built identically to this one: `next build`
+ * reports `/` as `○ (Static)`, and the HTML `next start` serves contains 8 <script> tags and
+ * 0 `nonce=` attributes while the response header carries a nonce. The patient portal, same
+ * policy, serves 9.
+ *
+ * The portal is not special — its root layout awaits `headers()` to read x-nonce, which
+ * opts every route into dynamic rendering as a side effect. This layout reads nothing, so
+ * it stays static. Until it does the same, this surface is no more hydrated than it was
+ * under the old `script-src 'self'`; it is only differently unhydrated. The framework says
+ * this outright: "When you use nonces in your CSP, all pages must be dynamically rendered."
+ *
+ * @see node_modules/next/dist/docs/01-app/02-guides/content-security-policy.md
  * @see docs/30-architecture/frontend-nextjs.md
  */
 export function proxy(request: NextRequest): NextResponse {
