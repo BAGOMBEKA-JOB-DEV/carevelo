@@ -1,4 +1,5 @@
 import { headers, cookies } from 'next/headers'
+import { unstable_rethrow } from 'next/navigation'
 import { ApiClient, ApiError } from '@carevelo/api-client'
 
 /**
@@ -182,6 +183,11 @@ export async function attempt<T>(work: Promise<T>): Promise<Attempt<T>> {
   try {
     return { ok: true, value: await work }
   } catch (error) {
+    // Framework control-flow errors — redirect, notFound, the dynamic-rendering bailout — are
+    // exceptions Next expects to catch itself. Swallowing one here would turn "render this per
+    // request" into "the API failed". See the long version in scheduling/api/gateway.ts.
+    unstable_rethrow(error)
+
     if (error instanceof ApiError) {
       return { ok: false, message: error.message }
     }

@@ -32,6 +32,19 @@ import type { DispatchPaths } from '../model/types'
  * is told and offered pickup." So a full lane here means somebody should be ringing
  * patients, not that the software is stuck. The notice says so, because a dispatcher who
  * reads this as a backlog waits for it to clear on its own.
+ *
+ * ------------------------------------------------------------
+ * WHY THE FULFILMENT METHOD IS A COLUMN AND NOT A FILTER.
+ *
+ * What arrives is every order in `dispensed`. An order whose delivery has been created has
+ * already moved to `out_for_delivery`, so everything in this list genuinely still needs
+ * something — but not all of it needs DISPATCH. An order set for collection is on the
+ * pharmacy's shelf; an order with no method chosen is waiting on the patient to say.
+ *
+ * Filtering those out would be tidier and would hide the two states somebody has to act on.
+ * A dispatcher looking at a short list and a long one wants to know which of them are
+ * theirs, and which are stuck for a reason that is not "no rider". So the method is shown
+ * and the button appears only where creating a delivery is actually the next step.
  */
 export function AwaitingDispatch({
   orders,
@@ -48,8 +61,9 @@ export function AwaitingDispatch({
         <div className="grow stack">
           <h2 id="awaiting">Waiting to go out</h2>
           <p className="muted">
-            Dispensed and set for delivery, with no delivery record yet. Creating one is what
-            puts an address in front of a rider.
+            Every order that has been dispensed and has not left the pharmacy. Creating a
+            delivery is what puts an address in front of a rider, and it is only the next step
+            for the ones the patient asked to have delivered.
           </p>
         </div>
 
@@ -68,7 +82,7 @@ export function AwaitingDispatch({
         </Notice>
       ) : orders.value.length === 0 ? (
         <EmptyState title="Nothing waiting" icon="check">
-          Every dispensed order set for delivery has a delivery record.
+          Every dispensed order has either left the pharmacy or been collected.
         </EmptyState>
       ) : (
         <>
@@ -83,6 +97,7 @@ export function AwaitingDispatch({
               <thead>
                 <tr>
                   <th scope="col">Order</th>
+                  <th scope="col">The patient asked for</th>
                   <th scope="col" className="tnum">Total</th>
                   <th scope="col">
                     <span className="sr-only">Dispatch</span>
@@ -97,11 +112,32 @@ export function AwaitingDispatch({
                         {order.reference}
                       </a>
                     </td>
+                    <td>
+                      {order.fulfilment === 'delivery' ? (
+                        <Badge tone="info">Delivery</Badge>
+                      ) : order.fulfilment === 'pickup' ? (
+                        <Badge tone="neutral">Collection</Badge>
+                      ) : (
+                        <Badge tone="warn">Not chosen</Badge>
+                      )}
+                    </td>
                     <td className="tnum">
                       <Money value={order.total} />
                     </td>
                     <td>
-                      {mayDispatch ? (
+                      {order.fulfilment !== 'delivery' ? (
+                        /*
+                         * Deliberately not a disabled button. Dispatch is not the next step
+                         * here and pressing anything would be wrong: an order set for
+                         * collection is on the shelf, and one with no method chosen is
+                         * waiting on the patient — which the pharmacy records, not dispatch.
+                         */
+                        <span className="muted">
+                          {order.fulfilment === 'pickup'
+                            ? 'On the shelf for collection'
+                            : 'Waiting on the patient to choose'}
+                        </span>
+                      ) : mayDispatch ? (
                         <Button href={paths.newDelivery(order.id)} variant="quiet">
                           Create delivery
                           <span className="sr-only"> for order {order.reference}</span>

@@ -220,7 +220,12 @@ export function ConsultationRoom({
       return redirect(back({ problem: 'end', message: result.message ?? undefined }))
     }
 
-    return redirect(back({ ended: outcome }))
+    /*
+     * No confirmation parameter. The head badge says "Ended · <outcome>" and the prescribing
+     * panel changes shape — the page states the new fact rather than carrying a message about
+     * it, which also means a reload does not re-announce something that happened once.
+     */
+    return redirect(back())
   }
 
   async function addendum(formData: FormData) {
@@ -319,7 +324,21 @@ export function ConsultationRoom({
       <Problem problem={problem} message={message} />
 
       <div className="grid" style={{ gap: 'var(--space-5)' }}>
-        <MediaPane credentials={state.credentials} mode={used} clinicPhone={clinicPhone} />
+        {state.credentials !== null ? (
+          <MediaPane credentials={state.credentials} mode={used} clinicPhone={clinicPhone} />
+        ) : (
+          /*
+           * NO ROOM, AND THAT IS CORRECT RATHER THAN BROKEN. The encounter is over, so
+           * `assertJoinable` would refuse a fresh pass — and there is nothing to be in. What is
+           * left is the record, which is the screen a clinician needs to add an addendum or to
+           * issue the prescription that only a completed consultation can carry.
+           */
+          <Notice tone="neutral" icon="file" title="You are reading the record" announce={false}>
+            This consultation has ended. There is no room to go back into. You can still add an
+            addendum to any note, and — if it ended as completed — issue a prescription against
+            it.
+          </Notice>
+        )}
 
         {consultation === null ? (
           /*

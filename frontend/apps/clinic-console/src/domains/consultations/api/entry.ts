@@ -50,13 +50,26 @@ export type RoomState =
       /** The patient's previous encounters at THIS clinic. Never anywhere else. */
       readonly history: readonly Consultation[]
     }
-  /** Inside. */
+  /**
+   * Inside — or reading back an encounter that is over.
+   *
+   * `credentials` IS NULLABLE AND THAT IS THE WHOLE POINT OF THIS BEING ONE STATE RATHER THAN
+   * TWO. A clinician who ends a consultation, closes the tab, and comes back an hour later has
+   * no room cookie any more and cannot be given one — `assertJoinable` refuses a completed
+   * appointment, correctly. But they still need the screen: to add an addendum, and to issue
+   * the prescription that only a COMPLETED consultation can carry.
+   *
+   * An earlier shape sent them to the door with a "Rejoin" button that would have answered
+   * 403. Null credentials means the media pane is not drawn and everything else is, which is
+   * exactly what is true.
+   */
   | {
       readonly kind: 'open'
       readonly appointment: Appointment
       readonly patient: Patient | null
       readonly bookedMode: ConsultationMode | null
-      readonly credentials: RoomCredentials
+      /** Null when the encounter is over and there is no room left to be in. */
+      readonly credentials: RoomCredentials | null
       /** Null until the clinician starts it, which the door does in the same action. */
       readonly consultation: Consultation | null
       readonly notes: readonly ClinicalNote[]
@@ -99,7 +112,16 @@ export async function loadRoom(appointmentId: string): Promise<RoomState> {
   const credentials = await readRoomCredentials(appointmentId)
   const consultation = await findConsultationForAppointment(appointmentId, appointment.patient_id)
 
-  if (credentials !== null) {
+  /*
+   * IN THE ROOM, or reading back the record of an encounter that is over. The second case is
+   * not a lesser version of the first: an addendum is a legitimate act after the fact and is
+   * the only correction this product has, and a prescription can ONLY be issued once the
+   * consultation has ended as completed — so the screen a clinician needs most is one they
+   * reach with no room cookie at all.
+   */
+  const ended = consultation !== null && consultation.ended_at !== null
+
+  if (credentials !== null || ended) {
     const notes = consultation === null ? [] : ((await listNotes(consultation.id)) ?? [])
 
     return {
@@ -114,14 +136,9 @@ export async function loadRoom(appointmentId: string): Promise<RoomState> {
     }
   }
 
-  /*
-   * `completed` and `abandoned` are terminal for the APPOINTMENT, but the consultation's
-   * record is still worth opening — an addendum to a note is a legitimate act after the fact,
-   * and it is the only correction mechanism this product has. So a finished appointment with
-   * a consultation lands at the door rather than at a dead end; the door screen offers the
-   * record and not a join button, because `assertJoinable` would refuse one.
-   */
-  if ((status === 'completed' || status === 'abandoned') && consultation === null) {
+  // Terminal for the appointment with nothing recorded against it. There is no record to open
+  // and `assertJoinable` would refuse a door, so the screen says so rather than offering one.
+  if (status === 'completed' || status === 'abandoned') {
     return { kind: 'closed', appointment, patient, reason: 'finished' }
   }
 

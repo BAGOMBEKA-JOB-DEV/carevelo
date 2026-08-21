@@ -1,4 +1,5 @@
 import { ApiError } from '@carevelo/api-client'
+import { unstable_rethrow } from 'next/navigation'
 import { readingApi, writingApi } from './gateway'
 import type { NoteSection } from '../model/drafts'
 import type { ClinicalNote } from '../model/types'
@@ -165,7 +166,16 @@ export async function saveDraft(request: SaveDraftRequest): Promise<SaveResult> 
  * one extra appended note in a record where nothing is ever overwritten.
  */
 async function detectConflict(request: SaveDraftRequest): Promise<ClinicalNote | null> {
-  const notes = await listNotes(request.consultationId).catch(() => null)
+  /*
+   * The catch is deliberately broad and deliberately does NOT swallow a framework control-flow
+   * error — `listNotes` re-throws anything that is not a 404 or a 403, and Next's own bailouts
+   * come through that path. See the long note in scheduling/api/gateway.ts.
+   */
+  const notes = await listNotes(request.consultationId).catch((error: unknown) => {
+    unstable_rethrow(error)
+
+    return null
+  })
 
   if (notes === null) {
     return null

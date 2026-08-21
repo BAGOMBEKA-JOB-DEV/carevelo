@@ -131,6 +131,21 @@ export function AppointmentRow({
           </Button>
         ) : null}
 
+        {/*
+          * THE RECORD, AFTER THE ENCOUNTER IS OVER, AND THIS LINK IS NOT OPTIONAL.
+          *
+          * A prescription can only be issued on a consultation whose outcome is `completed`,
+          * and ending the consultation is what sets that — which also moves the APPOINTMENT to
+          * `completed`. So the moment prescribing becomes possible, the appointment stops being
+          * enterable. A clinician who closed the tab between the two would have no way back to
+          * the only screen that can issue the prescription. This is that way back.
+          */}
+        {isClinician && (status === 'completed' || status === 'abandoned') ? (
+          <Button variant="quiet" href={paths.room(appointment.id)}>
+            <Icon name="file" /> Open the record
+          </Button>
+        ) : null}
+
         {isAdministrator && status !== null && (status === 'awaiting_payment' || status === 'payment_failed') ? (
           <ConfirmOnAuthority appointment={appointment} action={confirmAction} />
         ) : null}
@@ -261,7 +276,16 @@ function ConfirmOnAuthority({
             deliberate one, and this is the only place the difference can be made. */}
         <Field name={`vouch-${appointment.id}`} label="Type CONFIRM to continue">
           {(control) => (
-            <Input {...control} name="vouch" required autoComplete="off" pattern="CONFIRM" />
+            /* Case-insensitive on purpose: the server compares upper-cased, and a browser
+               refusing "confirm" while the server would have accepted it is a control that
+               disagrees with itself. */
+            <Input
+              {...control}
+              name="vouch"
+              required
+              autoComplete="off"
+              pattern="[Cc][Oo][Nn][Ff][Ii][Rr][Mm]"
+            />
           )}
         </Field>
 

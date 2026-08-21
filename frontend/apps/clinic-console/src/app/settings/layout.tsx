@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { unstable_rethrow } from 'next/navigation'
 import { ConsoleShell } from '@/components/ConsoleShell'
 import { getClinic } from '@/domains/tenant'
 
@@ -57,7 +58,11 @@ async function clinicLogo(): Promise<string | null> {
     const clinic = await getClinic()
 
     return clinic.branding.logo_url
-  } catch {
+  } catch (error) {
+    // Next's own signals — a redirect, a not-found, the dynamic-rendering marker — throw,
+    // and a catch this broad would swallow them. See `domains/tenant/api/http.ts`.
+    unstable_rethrow(error)
+
     return null
   }
 }

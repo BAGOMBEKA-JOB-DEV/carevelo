@@ -1,4 +1,5 @@
 import { cookies, headers } from 'next/headers'
+import { unstable_rethrow } from 'next/navigation'
 import { ApiClient, ApiError } from '@carevelo/api-client'
 
 /**
@@ -264,6 +265,22 @@ export async function attempt<T>(work: Promise<T>): Promise<Attempt<T>> {
   try {
     return { ok: true, value: await work }
   } catch (error) {
+    /*
+     * THE FRAMEWORK'S OWN CONTROL FLOW IS NOT AN ERROR, AND SWALLOWING IT IS A REAL BUG.
+     *
+     * `redirect()`, `notFound()` and Next's dynamic-rendering signal all WORK BY THROWING,
+     * and a `catch` this broad catches every one of them. The symptom is not a crash — it
+     * is a redirect that silently does not happen, or a page that renders a "this did not
+     * load" notice instead of being marked dynamic. Observed here rather than reasoned
+     * about: `next build` probes each route by rendering it without a request, `headers()`
+     * throws DYNAMIC_SERVER_USAGE, and this catch turned it into a logged failure.
+     *
+     * `unstable_rethrow` is the framework's own answer — it re-throws its signals and
+     * returns for everything else. Unstable in name; the alternative is matching on a
+     * `digest` string, which is not more stable, only less honest about it.
+     */
+    unstable_rethrow(error)
+
     if (error instanceof ApiError) {
       return { ok: false, status: error.status, message: error.message }
     }
@@ -292,6 +309,10 @@ export async function attempt<T>(work: Promise<T>): Promise<Attempt<T>> {
  * field and checking a cable.
  */
 export function writeFailure(error: unknown, what: string): string {
+  // See `attempt()`: a redirect from deeper in the call is not a failure to report, it is
+  // the framework navigating, and turning it into a sentence would strand the caller.
+  unstable_rethrow(error)
+
   if (error instanceof ApiError) {
     return error.message
   }

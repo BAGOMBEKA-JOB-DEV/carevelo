@@ -118,6 +118,8 @@ export function NoteEditor({ consultationId, userId, seeds, closed }: NoteEditor
 }
 
 type Status =
+  /** Nothing typed and nothing on the record. Distinct from `clean`, which claims a save. */
+  | { kind: 'empty' }
   | { kind: 'clean' }
   | { kind: 'unsaved' }
   | { kind: 'saving' }
@@ -139,7 +141,15 @@ function SectionEditor({
   const key = draftKey(userId, consultationId, section)
 
   const [body, setBody] = useState(seed.body)
-  const [status, setStatus] = useState<Status>({ kind: 'clean' })
+  /*
+   * `empty` and `clean` are deliberately different opening states. A section the clinician has
+   * not touched, in a consultation with nothing on the record, must not say "Saved to the
+   * clinic's record" — that is a claim about a note that does not exist, and it is exactly the
+   * claim this component must never make.
+   */
+  const [status, setStatus] = useState<Status>(
+    seed.noteId === null && seed.body === '' ? { kind: 'empty' } : { kind: 'clean' },
+  )
 
   /*
    * REFS, NOT STATE, for the two values the save path reads.
@@ -189,7 +199,7 @@ function SectionEditor({
       if (value.trim() === '' || value === syncedBody.current) {
         // Nothing to say, or nothing new to say. A no-op save would append a duplicate row to
         // a record where nothing can ever be removed.
-        setStatus({ kind: 'clean' })
+        setStatus(baseNoteId.current === null ? { kind: 'empty' } : { kind: 'clean' })
 
         return
       }
@@ -294,15 +304,7 @@ function SectionEditor({
 
     reconciled.current = true
 
-    let stored: StoredDraft | null = null
-
-    try {
-      const raw = window.localStorage.getItem(key)
-
-      stored = raw === null ? null : (JSON.parse(raw) as StoredDraft)
-    } catch {
-      stored = null
-    }
+    const stored = readStoredDraft(key)
 
     if (stored === null || typeof stored.body !== 'string' || stored.body === '') {
       return
@@ -397,7 +399,7 @@ function SectionEditor({
             latest.current = status.theirs
             syncedBody.current = status.theirs
             forget()
-            setStatus({ kind: 'clean' })
+            setStatus(status.theirs === '' ? { kind: 'empty' } : { kind: 'clean' })
           }}
         />
       ) : null}
@@ -424,6 +426,7 @@ function StatusLine({
 }) {
   return (
     <p className="fine" id={id} aria-live="polite">
+      {status.kind === 'empty' ? 'Nothing written here yet.' : null}
       {status.kind === 'clean' ? 'Saved to the clinic’s record.' : null}
       {status.kind === 'unsaved' ? 'Saved on this device. Sending to the clinic shortly…' : null}
       {status.kind === 'saving' ? 'Sending to the clinic’s record…' : null}
@@ -519,6 +522,24 @@ function ConflictPanel({
       </div>
     </Notice>
   )
+}
+
+/**
+ * The draft this browser is holding for one section, or null.
+ *
+ * A separate function rather than a try/catch inline, because storage throws in more ways than
+ * one — blocked site data, a quota, a value written by an older version of this component —
+ * and every one of them means the same thing here: there is no usable local copy, carry on
+ * with what the server sent.
+ */
+function readStoredDraft(key: string): StoredDraft | null {
+  try {
+    const raw = window.localStorage.getItem(key)
+
+    return raw === null ? null : (JSON.parse(raw) as StoredDraft)
+  } catch {
+    return null
+  }
 }
 
 /** Does this browser let us keep a local copy at all? Probed once, reported once. */

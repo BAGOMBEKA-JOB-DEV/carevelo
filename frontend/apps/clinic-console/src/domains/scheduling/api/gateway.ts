@@ -1,4 +1,5 @@
 import { headers, cookies } from 'next/headers'
+import { unstable_rethrow } from 'next/navigation'
 import { ApiClient, ApiError, type components } from '@carevelo/api-client'
 
 /**
@@ -217,6 +218,8 @@ export async function currentStaff(): Promise<Staff | null> {
 
     return response.data ?? null
   } catch (error) {
+    unstable_rethrow(error)
+
     if (error instanceof ApiError) {
       // 401 is the ordinary answer for a signed-out browser and is not worth logging.
       return null
@@ -238,6 +241,25 @@ export async function currentStaff(): Promise<Staff | null> {
  * that with the framework's error boundary, which tells a clinician nothing and looks like
  * the clinic's software is broken.
  */
+/**
+ * Let the framework's own control-flow errors through.
+ *
+ * NEXT SIGNALS THINGS BY THROWING. `redirect()`, `notFound()` and — the one that bit here — the
+ * dynamic-rendering bailout are all exceptions that the framework expects to catch itself. A
+ * broad `catch` that swallows one does not merely hide it: a bailout swallowed during a static
+ * render attempt turns "this route must be rendered per request" into "the API said no", and
+ * this file would then answer that nobody is signed in and send a member of staff to sign in
+ * again on a page that was working.
+ *
+ * Observed rather than theorised: `next build` printed `[scheduling] /v1/me did not answer
+ * DYNAMIC_SERVER_USAGE` from the handler below before this call was added.
+ *
+ * `unstable_rethrow` is the sanctioned way to say "not mine" — it re-throws anything the
+ * framework owns and returns for everything else. The prefix is Next's, not a comment on its
+ * stability here; there is no supported alternative and open-coding a `digest` check would be
+ * a copy of Next's internals that stops matching on an upgrade.
+ */
+
 export type Attempt<T> = { ok: true; value: T } | { ok: false; message: string | null }
 
 /**
@@ -252,6 +274,8 @@ export async function attempt<T>(work: Promise<T>): Promise<Attempt<T>> {
   try {
     return { ok: true, value: await work }
   } catch (error) {
+    unstable_rethrow(error)
+
     if (error instanceof ApiError) {
       return { ok: false, message: error.message }
     }
