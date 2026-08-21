@@ -27,6 +27,29 @@ export type Tenant = components['schemas']['TenantResource']
  * @see docs/10-product/white-labeling-and-branding.md
  * @see docs/30-architecture/multi-tenancy.md
  */
+/**
+ * The host this request was really made to.
+ *
+ * x-forwarded-host FIRST, and this is not belt-and-braces — it is the only header that
+ * survives. On the render Next performs when a Server Action calls redirect(), `host`
+ * degrades from `kira.localhost:3100` to `localhost:3100`: the clinic's subdomain, which is
+ * the entire basis of tenancy, is gone. The tenant then resolves to nothing and a patient
+ * who has just signed in correctly lands on a 404. Measured directly — every ordinary
+ * render reports the full host, the action-redirect render does not, and x-forwarded-host
+ * reports it in BOTH.
+ *
+ * This does not weaken the rule that the tenant is never a client-supplied value. It was
+ * never less client-supplied than `host` — both arrive on the wire — and the trust boundary
+ * is unchanged: whatever terminates TLS sets these, and the API is the authority that
+ * resolves the tenant and enforces row-level security on the session. The portal only asks;
+ * it never asserts.
+ */
+export async function requestHost(): Promise<string | null> {
+  const requestHeaders = await headers()
+
+  return requestHeaders.get('x-forwarded-host') ?? requestHeaders.get('host')
+}
+
 export async function resolveTenant(): Promise<Tenant> {
   const tenant = await tryResolveTenant()
 
@@ -53,7 +76,7 @@ export async function resolveTenant(): Promise<Tenant> {
  */
 export async function tryResolveTenant(): Promise<Tenant | null> {
   const requestHeaders = await headers()
-  const host = requestHeaders.get('host')
+  const host = await requestHost()
 
   if (!host) {
     return null

@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { signInWithPassword } from '../api/session'
+import { brandStyle } from '@carevelo/ui'
 import type { Tenant } from '@/lib/tenant'
 
 /**
@@ -38,7 +39,9 @@ export function SignInForm({
   const logo = tenant.branding?.logo_url
 
   return (
-    <div className="auth-page">
+    /* The clinic's tokens, server-rendered here rather than on <html> — see SiteShell for
+       why the root layout must not resolve the tenant. */
+    <div className="auth-page" style={brandStyle(tenant.branding)}>
       {/* First focusable element: a keyboard user should reach the form without
           traversing the panel. */}
       <a className="skip-link" href="#signin">

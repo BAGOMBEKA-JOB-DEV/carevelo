@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { brandStyle } from '@carevelo/ui'
 import type { Tenant } from '@/lib/tenant'
 import { SiteFooter } from './SiteFooter'
 import { SiteHeader } from './SiteHeader'
@@ -32,7 +33,16 @@ export function SiteShell({
   children: ReactNode
 }) {
   return (
-    <div className="site-root">
+    /*
+     * THE CLINIC'S TOKENS, in the first HTML byte. They used to sit on <html>, which forced
+     * the root layout to fetch the tenant — and a fetch in the root layout makes the render
+     * Next performs for a Server Action redirect allocate ~800MB and never finish. Custom
+     * properties inherit, so setting them here reaches every descendant exactly as before.
+     *
+     * A style OBJECT, so React sets these through the CSSOM. No tenant value is ever
+     * concatenated into markup, which is a stronger guarantee than validation alone.
+     */
+    <div className="site-root" style={brandStyle(tenant.branding)}>
       {/* First focusable element. A patient using a keyboard or a screen reader should
           not have to pass the header to reach the page. */}
       <a className="skip-link" href="#main">

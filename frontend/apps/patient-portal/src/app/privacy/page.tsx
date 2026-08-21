@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { clinicMetadata } from '@/lib/metadata'
 import { resolveTenant } from '@/lib/tenant'
 import { currentUser } from '@/lib/session'
 import { SiteShell } from '@/components/SiteShell'
@@ -206,3 +207,6 @@ export default async function PrivacyPage() {
     </SiteShell>
   )
 }
+
+/** The clinic's name in the tab. Exported per page — see lib/metadata.ts. */
+export const generateMetadata = clinicMetadata

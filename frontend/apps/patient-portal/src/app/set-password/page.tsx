@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { clinicMetadata } from '@/lib/metadata'
 import { SetPasswordForm } from '@/domains/identity'
 import { resolveTenant } from '@/lib/tenant'
 import { currentUser } from '@/lib/session'
@@ -35,3 +36,6 @@ export default async function SetPasswordPage({
 
   return <SetPasswordForm tenant={tenant} error={params.error} />
 }
+
+/** The clinic's name in the tab. Exported per page — see lib/metadata.ts. */
+export const generateMetadata = clinicMetadata

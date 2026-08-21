@@ -1,88 +1,60 @@
 import type { ReactNode } from 'react'
 import { headers } from 'next/headers'
-import { brandStyle } from '@carevelo/ui'
 import '@carevelo/ui/tokens.css'
-import { tryResolveTenant } from '@/lib/tenant'
 import { fontStyle } from './fonts'
 
 /**
- * The root layout, and the reason this app is server-rendered.
+ * The root layout: typefaces, the theme bootstrap, and nothing else.
  *
- * The clinic's tokens go onto <html> HERE, during the server render, so they are in
- * the first HTML byte. That is acceptance criterion 7 — "branding is server-rendered
- * with no flash of unbranded content" — and it is why brandStyle returns a value
- * rather than applyBrand running in an effect: an effect runs after paint, and the
- * paint is the flash.
+ * THE CLINIC'S TOKENS ARE NOT SET HERE, AND THAT IS LOAD-BEARING. They used to be —
+ * `brandStyle(tenant.branding)` on <html>, which meant this layout had to resolve the
+ * tenant, which meant a `fetch` in the ROOT LAYOUT on every render.
  *
- * A style OBJECT, so React sets these through the CSSOM. No tenant value is ever
- * concatenated into markup, which is a stronger guarantee than validation alone.
+ * A fetch in the root layout is fine for an ordinary request and fatal for the render
+ * Next performs when a Server Action calls redirect(): a single sign-in submission
+ * allocated roughly 800MB, the RSC stream closed early, the browser never navigated, and
+ * a few submissions later the server was killed by the OOM reaper. Measured, then
+ * confirmed by removing this one call: 126MB before, 130MB after, and the redirect works.
+ * Fetching in a PAGE is unaffected — /account resolves the tenant and its own session on
+ * exactly that render and is fine. It is the root layout specifically.
  *
- * The typeface variables ride on the same object, and merge rather than compete: both
- * are custom properties on the same element, set in one attribute. typography.css spells
- * out why they are an inline style and not next/font's `variable` class — briefly, a
- * class and that file's `:root` rule have identical specificity, so the winner would be
- * decided by CSS chunk order.
+ * So the tokens moved down to the element each page already renders — `.site-root` in
+ * SiteShell, `.auth-page` in the sign-in and set-password forms. Nothing is lost:
+ * custom properties inherit, so a token set on a wrapper reaches every descendant exactly
+ * as it did from <html>, and it is still in the first HTML byte, which is what acceptance
+ * criterion 7 actually asks for — no flash of unbranded content.
  *
  * lang is the clinic's, not the browser's. Consent text must render in English and
  * Luganda, and a screen reader needs to know which it is reading.
- *
- * The layout carries the TOKENS and nothing else. Site chrome belongs to the pages that
- * want it, because sign-in is a full-bleed split screen and a header above it would leave
- * the clinic's panel floating in the middle of the page.
- *
- * tryResolveTenant, NOT resolveTenant. A notFound() thrown from a root layout takes out
- * the very layout that not-found.tsx renders inside, so Next answers with its global error
- * shell — which streams no readable text, and produced a 404 that said nothing whatsoever
- * to anyone without JavaScript. The layout therefore tolerates an unknown host and paints
- * the default tokens; the PAGES call resolveTenant() and get a real, server-rendered 404.
  */
 export default async function RootLayout({ children }: { children: ReactNode }) {
-  const [tenant, requestHeaders] = await Promise.all([tryResolveTenant(), headers()])
-
   /*
-   * The per-request nonce minted in src/proxy.ts. Next stamps its own framework and
-   * bundle scripts automatically, but the theme bootstrap below is ours, and the policy
-   * uses 'strict-dynamic' — which discards `'self'`, so being served from our own origin
-   * is no longer enough to make a script trusted. Without this attribute the bootstrap is
-   * refused and a returning patient who chose dark gets a white flash on every load.
+   * The per-request nonce minted in src/proxy.ts. Next stamps its own framework and bundle
+   * scripts automatically, but the theme bootstrap is ours, and the policy uses
+   * 'strict-dynamic' — which discards `'self'`, so being served from our own origin is no
+   * longer enough to make a script trusted.
    */
-  const nonce = requestHeaders.get('x-nonce') ?? undefined
+  const nonce = (await headers()).get('x-nonce') ?? undefined
 
   return (
     /*
-     * suppressHydrationWarning, and ONLY on this element.
-     *
-     * theme-init.js sets data-theme on <html> while the parser is stopped, which is the
-     * whole point of it — before the first paint. React then hydrates against server HTML
-     * that has no such attribute, sees a mismatch on the root element, and does not merely
-     * warn: it discards the tree and re-renders it. That is what was breaking navigation
-     * after a server action and what drove the render loop that exhausted the server's
-     * heap. The attribute is deliberately written by something outside React, so telling
-     * React not to police this one element is the correct answer rather than a silencer.
-     *
-     * It suppresses one level deep, on <html> only. Nothing inside it is exempted.
+     * suppressHydrationWarning on this element alone. theme-init.js sets data-theme while
+     * the parser is stopped — before the first paint, which is the point of it — and React
+     * would otherwise see an attribute the server never rendered and treat the root as a
+     * mismatch. Nothing inside <html> is exempted.
      */
-    <html
-      lang="en"
-      suppressHydrationWarning
-      style={{ ...brandStyle(tenant?.branding), ...fontStyle }}
-    >
+    <html lang="en" suppressHydrationWarning style={fontStyle}>
       <body>
         {/*
-         * The theme, applied before the first paint. FIRST child of <body> and
-         * deliberately render-blocking: the whole job is to set data-theme while the
-         * parser is stopped, so a returning patient who chose dark never sees a white
-         * page painted and then corrected. A flash on a screen showing someone's
-         * prescription reads as a broken page rather than a slow one.
+         * The theme, applied before the first paint. FIRST child of <body> and deliberately
+         * render-blocking: the whole job is to set data-theme while the parser is stopped,
+         * so a returning patient who chose dark never sees a white page painted and then
+         * corrected.
          *
-         * NOT next/script. `beforeInteractive` is the strategy that sounds right and is
-         * not: it loads during hydration — after the paint this exists to beat. A plain
-         * external tag carrying the request's nonce runs while the parser is stopped and
-         * needs no 'unsafe-inline'.
-         *
-         * The lint rule is right in general and wrong here: `async`/`defer` would move
-         * this after the paint and reintroduce the flash it prevents. The file is 3KB,
-         * served from the same origin, and cached.
+         * NOT next/script. `beforeInteractive` loads during hydration — after the paint this
+         * exists to beat. A plain external tag carrying the request's nonce runs while the
+         * parser is stopped and needs no 'unsafe-inline'. The lint rule is right in general
+         * and wrong here: async/defer would reintroduce the flash this prevents.
          */}
         {/* eslint-disable-next-line @next/next/no-sync-scripts */}
         <script src="/theme-init.js" nonce={nonce} />
@@ -93,18 +65,11 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
 }
 
 /**
- * The tab title is the CLINIC's name. A patient switching tabs should see their
- * clinic, not ours.
+ * A neutral fallback for anything that cannot export its own metadata — notably
+ * not-found.tsx, which by design has no clinic to name. Static, because resolving a tenant
+ * here would put a fetch back in the root layout; see lib/metadata.ts for what that costs.
  */
-export async function generateMetadata() {
-  const tenant = await tryResolveTenant()
-
-  return {
-    // An unknown host resolves to no clinic, and the title must not hint at what this
-    // server is or whose clinics are on it.
-    title: tenant?.trading_name ?? 'Not available',
-    // Not indexable: a clinic's patient portal is not a public web page, and its
-    // existence is the clinic's commercial information.
-    robots: { index: false, follow: false },
-  }
+export const metadata = {
+  title: 'Not available',
+  robots: { index: false, follow: false },
 }

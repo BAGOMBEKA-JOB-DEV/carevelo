@@ -1,5 +1,6 @@
-import { cookies, headers } from 'next/headers'
+import { cookies } from 'next/headers'
 import { ApiError, humanise, type Problem } from '@carevelo/api-client'
+import { requestHost } from '@/lib/tenant'
 
 /**
  * The session calls — signing in with a password, choosing a new one, signing out — and
@@ -28,7 +29,8 @@ import { ApiError, humanise, type Problem } from '@carevelo/api-client'
  */
 
 async function apiOrigin(): Promise<string> {
-  const host = (await headers()).get('host') ?? 'localhost'
+  // See requestHost(): `host` loses the clinic's subdomain on an action-redirect render.
+  const host = (await requestHost()) ?? 'localhost'
   const configured = process.env.NEXT_PUBLIC_API_ORIGIN
 
   if (!configured) {
@@ -59,7 +61,7 @@ async function call(
     // Without an Origin the API is not treated as talking to its own frontend and
     // Sanctum never starts a session. This is the header that makes the whole flow
     // stateful.
-    Origin: `http://${(await headers()).get('host')}`,
+    Origin: `http://${await requestHost()}`,
     Cookie: jar
       .getAll()
       .map((cookie) => `${cookie.name}=${cookie.value}`)

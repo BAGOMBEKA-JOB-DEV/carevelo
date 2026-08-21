@@ -1,5 +1,6 @@
-import { cookies, headers } from 'next/headers'
+import { cookies } from 'next/headers'
 import type { components } from '@carevelo/api-client'
+import { requestHost } from '@/lib/tenant'
 
 /**
  * Who is signed in.
@@ -26,7 +27,8 @@ export type Me = components['schemas']['MeResource']
  * home page shows a sign-in prompt, and a records page redirects.
  */
 export async function currentUser(): Promise<Me | null> {
-  const host = (await headers()).get('host') ?? 'localhost'
+  // See requestHost(): `host` loses the clinic's subdomain on an action-redirect render.
+  const host = (await requestHost()) ?? 'localhost'
   const jar = await cookies()
 
   const configured = process.env.NEXT_PUBLIC_API_ORIGIN
