@@ -67,7 +67,7 @@ export function AssignmentCard({
         */}
         <Button href={href} variant="quiet" className="grow">
           Open
-          <Icon name="chev" />
+          <Icon name="chevRight" />
         </Button>
       </div>
     </Card>

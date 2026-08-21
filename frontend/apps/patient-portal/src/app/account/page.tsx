@@ -170,7 +170,7 @@ export default async function AccountPage() {
               <h3>{destination.title}</h3>
               <p>{destination.body}</p>
               <span className="more lnk">
-                {destination.action} <Icon name="chev" size={15} />
+                {destination.action} <Icon name="arrowRight" size={15} />
               </span>
             </Link>
           ))}

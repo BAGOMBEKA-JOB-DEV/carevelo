@@ -290,13 +290,13 @@ function DayNavigation({
     <div className="card row-wrap between" style={{ gap: 'var(--space-5)' }}>
       <div className="row" style={{ gap: 'var(--space-3)' }}>
         <Button variant="quiet" href={href(paths.day, { day: shiftDay(day, -1), clinician: clinicianId })}>
-          <Icon name="chev" className="ico" /> Previous
+          <Icon name="chevLeft" className="ico" /> Previous
         </Button>
         <Button variant="quiet" href={href(paths.day, { day: today(), clinician: clinicianId })}>
           Today
         </Button>
         <Button variant="quiet" href={href(paths.day, { day: shiftDay(day, 1), clinician: clinicianId })}>
-          Next <Icon name="chev" className="ico" />
+          Next <Icon name="chevRight" className="ico" />
         </Button>
       </div>
 

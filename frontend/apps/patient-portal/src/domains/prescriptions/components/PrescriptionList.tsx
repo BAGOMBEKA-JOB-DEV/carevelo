@@ -106,7 +106,7 @@ export async function PrescriptionList({
                       should be prefetched and client-routed where JavaScript has arrived,
                       while remaining an ordinary anchor where it has not. */}
                   <Link className="lnk" href={`${basePath}/${prescription.id}`}>
-                    {t('open')} <Icon name="chev" size={16} />
+                    {t('open')} <Icon name="arrowRight" size={16} />
                   </Link>
                 </div>
               </Card>

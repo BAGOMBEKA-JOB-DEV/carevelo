@@ -78,7 +78,25 @@ export default async function BookPage({
     redirect('/set-password')
   }
 
-  if (handoff === null) {
+  /*
+   * THE SESSION IS THE SOURCE OF TRUTH; THE COOKIE IS ONLY A SHORTCUT.
+   *
+   * This used to read the registration handoff alone, so a patient who simply signed in —
+   * rather than registering in this same browser session — reached a dead end telling them
+   * to telephone the clinic. Booking, which is the whole point of the portal.
+   *
+   * `patient_ids` comes from GET /v1/me and is authoritative: it is derived from
+   * patients.user_id, which only a deliberate, audited act writes. The handoff cookie is
+   * preferred when present because it names the record the patient was just registered
+   * against, which is the right one when an account holds several — a guardian booking for
+   * the child they have just registered, rather than for themselves.
+   *
+   * Still nothing? Then the account genuinely has no record linked, which is a real state
+   * (a member of staff has not linked one yet) and the honest screen below says so.
+   */
+  const patientId = handoff?.patientId ?? user.patient_ids[0]
+
+  if (patientId === undefined) {
     return <CannotIdentifyRecord tenant={tenant} />
   }
 
@@ -86,7 +104,7 @@ export default async function BookPage({
     <SiteShell tenant={tenant} signedIn>
       <BookingScreen
         tenant={tenant}
-        patientId={handoff.patientId}
+        patientId={patientId}
         paths={SCHEDULING_PATHS}
         serviceId={params.service}
         clinicianId={params.clinician}

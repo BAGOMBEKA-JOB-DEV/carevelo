@@ -187,7 +187,7 @@ export function PrescribingForm({ consultationId, prescriber, patientName }: Pre
             setConfirming(true)
           }}
         >
-          <Icon name="chev" /> Review before issuing
+          <Icon name="arrowRight" /> Review before issuing
         </Button>
       </div>
     </div>
