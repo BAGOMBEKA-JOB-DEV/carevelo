@@ -1,29 +1,18 @@
-import { FieldShell } from '@/components/FieldShell'
-import { SECTIONS } from '@/components/sections'
+import { redirect } from 'next/navigation'
+import { DELIVERY_PATHS } from '@/app/paths'
 
 /**
- * Thin by design: a route composes domains and holds no logic, which the boundary
- * rules enforce. Features arrive in src/domains/.
+ * The landing page, which is a redirect and now says so.
  *
- * NOT A REDIRECT TO /assignments, though that is where a rider is going. A redirect would
- * be the right call once there is an assignment list to redirect to; today it would send a
- * rider from one placeholder to another and hide the fact that neither is real. When the
- * list exists, this page should become that redirect.
+ * IT USED TO BE A PLACEHOLDER, AND THE PLACEHOLDER LEFT A NOTE ASKING FOR EXACTLY THIS:
+ * "NOT A REDIRECT TO /assignments, though that is where a rider is going. A redirect
+ * would be the right call once there is an assignment list to redirect to." There is one.
  *
- * `active={null}`: the landing page is not one of the tabs, and it says so rather than
- * leaving the prop off.
+ * NO SESSION CHECK HERE. /assignments performs it, and duplicating the check would mean a
+ * round trip to `GET /v1/me` purely to decide which redirect to issue — a request on
+ * somebody's own metered bundle that changes nothing about where they end up. It leaks
+ * nothing either way: the redirect is identical for a signed-in rider and for a stranger.
  */
 export default function HomePage() {
-  return (
-    <FieldShell active={null}>
-      <div className="empty">
-        <p className="empty__title">Nothing to deliver yet</p>
-        <p>
-          This app is not built. When it is, the deliveries assigned to you will be on the{' '}
-          <a href={SECTIONS.assignments.href}>Assignments</a> tab and the ones you have
-          finished on <a href={SECTIONS.completed.href}>Completed</a>.
-        </p>
-      </div>
-    </FieldShell>
-  )
+  redirect(DELIVERY_PATHS.assignments)
 }

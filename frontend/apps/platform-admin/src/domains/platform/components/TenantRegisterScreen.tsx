@@ -1,0 +1,368 @@
+import { Button, Card, DateTime, EmptyState, Notice, Select } from '@carevelo/ui'
+import { attempt, type Capabilities } from '@/domains/identity'
+import { listTenants } from '../api/tenants'
+import { href } from '../model/links'
+import { STATUSES, knownStatus } from '../model/status'
+import type { PlatformPaths, TenantStatus } from '../model/types'
+import { StatusBadge } from './StatusBadge'
+import { TenantPanel } from './TenantPanel'
+
+/**
+ * The register of clinics on Carevelo, and their lifecycle.
+ *
+ * ============================================================
+ * WHAT IS NOT ON THIS SCREEN IS THE DESIGN
+ * ============================================================
+ *
+ * No patient count. No consultation count. No revenue. No aggregator credentials. Not
+ * hidden from this table — absent from `PlatformTenantResource`, which carries status,
+ * trial, attestations and contact and stops there.
+ *
+ * The register says so out loud, once, in a standing notice. An operator who does not know
+ * that a figure is deliberately unavailable will go looking for it in a database, and the
+ * point of a control plane that cannot answer clinical questions is lost the moment
+ * somebody starts answering them another way. docs/40-api/openapi.yaml puts it in one line:
+ * "What support can answer from here: is this clinic provisioned, on trial, suspended,
+ * offboarding. What it cannot answer from anywhere: anything about a patient."
+ *
+ * ============================================================
+ * READ-ONLY IS A ROLE, NOT A DISABLED BUTTON
+ * ============================================================
+ *
+ * `platform_support` may read this register and may not change anything on it
+ * (docs/50-security-compliance/rbac-matrix.md § Administration). The provisioning and
+ * lifecycle controls are therefore ABSENT for that role rather than present and disabled,
+ * and a notice says which role they need. A disabled control invites somebody to find out
+ * why; an absent one with an explanation does not.
+ *
+ * ============================================================
+ * CURSOR PAGINATION, AND NO SEARCH BECAUSE THERE IS NO SEARCH
+ * ============================================================
+ *
+ * The index accepts `status`, `per_page` and `cursor`. There is no name, subdomain or id
+ * filter, so this screen offers none: a search box that filtered the hundred rows already
+ * fetched would find nothing on page two and would look exactly like a clinic that is not
+ * on Carevelo. Reported as a gap instead.
+ *
+ * Cursor rather than offset because clinics are provisioned and suspended while somebody
+ * pages through, which is exactly the traffic under which an offset duplicates and skips
+ * rows.
+ */
+export type TenantRegisterScreenProps = {
+  can: Capabilities
+  paths: PlatformPaths
+  /** `?status=` — one of the five states, or absent for all of them. */
+  status?: string | undefined
+  /** `?cursor=` — opaque, straight from `meta.next_cursor`. Never constructed here. */
+  cursor?: string | undefined
+  /** `?tenant=` — whose panel is open. Only ever a clinic on the page in view; see TenantPanel. */
+  tenant?: string | undefined
+  /** `?problem=` and `?message=` — what the last write did, and the API's own sentence. */
+  problem?: string | undefined
+  message?: string | undefined
+  /** `?provisioned=` — the subdomain of a clinic just created, for the confirmation. */
+  provisioned?: string | undefined
+}
+
+export async function TenantRegisterScreen({
+  can,
+  paths,
+  status,
+  cursor,
+  tenant,
+  problem,
+  message,
+  provisioned,
+}: TenantRegisterScreenProps) {
+  // A `<select>` with nothing chosen posts an EMPTY STRING rather than an absent parameter,
+  // and an unknown value in a hand-edited URL must mean "all" rather than "none" — a filter
+  // nobody chose should never hide a suspended clinic. Normalised once, here.
+  const filter: TenantStatus | undefined = knownStatus(status ?? '') ?? undefined
+
+  const page = await attempt(
+    listTenants({
+      ...(filter === undefined ? {} : { status: filter }),
+      ...(cursor === undefined || cursor === '' ? {} : { cursor }),
+    }),
+  )
+
+  const rows = page.ok ? page.value.data : []
+  const open = tenant === undefined ? undefined : rows.find((row) => row.id === tenant)
+
+  return (
+    <>
+      <div className="page-head">
+        <div className="grow">
+          <h1>Tenants</h1>
+          <p>The register of clinics on Carevelo, and their lifecycle.</p>
+        </div>
+        {can.provision ? (
+          <Button variant="primary" href={paths.provision}>
+            Provision a clinic
+          </Button>
+        ) : null}
+      </div>
+
+      <div className="grid">
+        <div className="row-wrap">
+          <a className="lnk" href={paths.overview}>
+            Platform overview
+          </a>
+        </div>
+
+        {provisioned ? (
+          <Notice tone="info" icon="check" title="Clinic provisioned">
+            <code>{provisioned}</code> now exists, in <code>provisioning</code>. It is not
+            open for business and no control here opens it: the clinic completes its own
+            checklist — branding, at least one bookable service, at least one clinician,
+            consent text, its own mobile-money account — and becomes active that way.
+          </Notice>
+        ) : null}
+
+        <Outcome problem={problem} message={message} />
+
+        {/*
+          The standing disclosure. Not dismissible, and deliberately above the table rather
+          than under it: it is the answer to the question an operator is about to ask.
+        */}
+        <Notice tone="info" icon="shield" title="What this register can and cannot answer">
+          Administration only. A clinic&rsquo;s patients, consultations and prescriptions are
+          not reachable from this screen, and there is no patient count, consultation count,
+          revenue figure or aggregator credential on any platform endpoint — none of those
+          are hidden here, they do not exist in the resource. The only path across that line
+          is a break-glass grant, which is a different screen precisely so that taking it is
+          a deliberate act.
+        </Notice>
+
+        {!can.changeLifecycle ? (
+          <Notice tone="info" icon="lock" title="Read-only">
+            Your platform role reads this register and requests break-glass grants.
+            Provisioning, suspension, resumption and export need <code>platform_admin</code>,
+            so those controls are not on this screen at all rather than present and
+            refusing.
+          </Notice>
+        ) : null}
+
+        {/* ---- Narrowing by state. A GET, so the result is a URL that can be reloaded,
+                bookmarked or sent to somebody during an incident. ---- */}
+        <Card as="section" padding="tight">
+          <form method="get" action={paths.register} className="row-wrap">
+            {/*
+              No hidden cursor. Changing the filter must start the list again: a cursor
+              belongs to the query that produced it, and carrying one across a filter change
+              pages into a set that no longer exists.
+            */}
+            <div className="field grow" style={{ maxWidth: 280 }}>
+              <label className="field__label" htmlFor="status">
+                State
+              </label>
+              <Select id="status" name="status" defaultValue={filter ?? ''}>
+                <option value="">Every state</option>
+                {STATUSES.map((state) => (
+                  <option key={state} value={state}>
+                    {state}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <Button type="submit" variant="quiet">
+              Filter
+            </Button>
+          </form>
+        </Card>
+
+        {/* The panel sits ABOVE the table so that opening a clinic does not send the
+            operator scrolling for what they just clicked. */}
+        {open ? (
+          <TenantPanel
+            tenant={open}
+            can={can}
+            paths={paths}
+            status={filter}
+            cursor={cursor}
+          />
+        ) : tenant !== undefined ? (
+          <Notice tone="warn" icon="help" title="That clinic is not on this page">
+            The API publishes no endpoint that fetches one clinic by id — index, provision,
+            update and export, and no show — so a panel can only open for a row already
+            loaded. Clear the filter or page to the clinic you want. This is a gap in the
+            contract, not a setting.
+          </Notice>
+        ) : null}
+
+        {/* ---- The register itself ---- */}
+        {!page.ok ? (
+          <Notice tone="bad" icon="activity" title="The register could not be read">
+            {page.message
+              ?? 'The request to /v1/platform/tenants did not complete. Nothing follows from '
+                + 'that about any clinic — only that this screen could not ask.'}
+          </Notice>
+        ) : rows.length === 0 ? (
+          <EmptyState
+            icon="users"
+            title={filter ? `No clinic is in ${filter}` : 'No clinics on the register'}
+            action={
+              filter ? (
+                <Button variant="quiet" href={paths.register}>
+                  Show every state
+                </Button>
+              ) : undefined
+            }
+          >
+            {filter
+              ? 'That is a statement about this filter, not about Carevelo. Clear it to see '
+                + 'every clinic.'
+              : 'Nothing has been provisioned yet.'}
+          </EmptyState>
+        ) : (
+          <Card as="section" padding="tight">
+            <div className="table-scroll">
+              <table className="table">
+                <caption className="field__hint" style={{ captionSide: 'top', textAlign: 'left' }}>
+                  {rows.length} clinic{rows.length === 1 ? '' : 's'} on this page
+                  {filter ? `, in ${filter}` : ''}. Paged by cursor, so the list stays
+                  consistent while clinics are being provisioned beside it.
+                </caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Clinic</th>
+                    <th scope="col">Subdomain</th>
+                    <th scope="col">State</th>
+                    <th scope="col">Trial ends</th>
+                    <th scope="col">District</th>
+                    <th scope="col">
+                      <span className="sr-only">Open</span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row) => (
+                    <tr key={row.id}>
+                      <td>
+                        <div className="stack">
+                          <strong>{row.trading_name ?? row.legal_name}</strong>
+                          {row.trading_name ? (
+                            <span className="muted" style={{ fontSize: 12.5 }}>
+                              {row.legal_name}
+                            </span>
+                          ) : null}
+                        </div>
+                      </td>
+                      <td>
+                        <code>{row.subdomain}</code>
+                      </td>
+                      <td>
+                        <StatusBadge status={row.status} />
+                      </td>
+                      <td>
+                        {row.trial_ends_at ? (
+                          <DateTime value={row.trial_ends_at} />
+                        ) : (
+                          <span className="muted">—</span>
+                        )}
+                      </td>
+                      <td>{row.district ?? <span className="muted">—</span>}</td>
+                      <td>
+                        <a
+                          className="lnk"
+                          href={href(paths.register, {
+                            status: filter,
+                            cursor,
+                            tenant: row.id,
+                          })}
+                        >
+                          Open
+                        </a>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        )}
+
+        {page.ok && (page.value.meta.prev_cursor || page.value.meta.next_cursor) ? (
+          <div className="row-wrap">
+            {page.value.meta.prev_cursor ? (
+              <Button
+                variant="quiet"
+                href={href(paths.register, {
+                  status: filter,
+                  cursor: page.value.meta.prev_cursor,
+                })}
+              >
+                Previous
+              </Button>
+            ) : null}
+            {page.value.meta.next_cursor ? (
+              <Button
+                variant="quiet"
+                href={href(paths.register, {
+                  status: filter,
+                  cursor: page.value.meta.next_cursor,
+                })}
+              >
+                Next
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+    </>
+  )
+}
+
+/**
+ * What the last write had to say about itself.
+ *
+ * THE API'S OWN SENTENCE, UNCHANGED, wherever there is one. A refused lifecycle move is the
+ * interesting case: the API knows which transitions are legal and this screen deliberately
+ * does not, so its refusal is the only accurate explanation available and a paraphrase here
+ * would lose the part the operator can act on.
+ */
+function Outcome({ problem, message }: { problem?: string | undefined; message?: string | undefined }) {
+  if (problem === undefined || problem === '') {
+    return null
+  }
+
+  if (problem === 'incomplete') {
+    return (
+      <Notice tone="warn" title="Nothing was submitted">
+        The form was sent without a choice on it, so nothing was changed.
+      </Notice>
+    )
+  }
+
+  if (problem === 'not_found') {
+    return (
+      <Notice tone="warn" icon="help" title="That clinic is not there">
+        Most likely a register left open while somebody else changed it. Reload the list.
+      </Notice>
+    )
+  }
+
+  if (problem === 'refused') {
+    return (
+      <Notice tone="warn" icon="lock" title="Refused">
+        {message ?? 'The API refused this change for this account.'}
+      </Notice>
+    )
+  }
+
+  if (problem === 'export_failed') {
+    return (
+      <Notice tone="bad" title="The export did not complete">
+        {message
+          ?? 'The export request did not complete. Nothing was withheld deliberately — the '
+            + 'endpoint has no status check and never refuses on commercial grounds.'}
+      </Notice>
+    )
+  }
+
+  return (
+    <Notice tone="bad" title="That change was not applied">
+      {message ?? 'The request did not complete, and the API gave no reason this screen can pass on.'}
+    </Notice>
+  )
+}

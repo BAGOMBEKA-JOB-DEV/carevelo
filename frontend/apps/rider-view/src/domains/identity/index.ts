@@ -41,6 +41,9 @@
 /* ---- Screens and controls ---- */
 export { SignInScreen } from './components/SignInScreen'
 export { SignOutButton } from './components/SignOutButton'
+/* What to render for a session that is valid and still cannot use this app. Both cases it
+   covers would otherwise show a rider an empty list, which reads as a quiet morning. */
+export { AccessNotice } from './components/AccessNotice'
 
 /* ---- The session ---- */
 export { signInWithPassword, signOut, currentRider, isRider } from './api/session'
