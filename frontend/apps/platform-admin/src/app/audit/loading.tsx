@@ -5,34 +5,51 @@ import { ControlPlaneShell } from '@/components/ControlPlaneShell'
 /**
  * Audit, in the shape it will arrive in.
  *
- * IT OVERRIDES THE ROOT FALLBACK so the highlighted tab stays on this section during the
- * wait — the same reason tenants/loading.tsx and break-glass/loading.tsx do.
+ * THE SHORTEST WAIT IN THE APP, AND STILL WORTH A FILE. Everything on this route is static
+ * — `PlannedSection` renders words out of `sections.ts` and fetches nothing — but the page
+ * above it awaits `authoriseOperator()` before it renders any of them, so there is exactly
+ * one round trip during which nothing on screen changes. Without a fallback here Next walks
+ * up to `app/loading.tsx`, and an operator clicking "Audit" would watch the OVERVIEW's
+ * placeholder — a stat card and a clinics-by-state row — resolve into three paragraphs
+ * about audit metadata, with the sidebar highlight sitting on nothing the whole time. A
+ * skeleton of the wrong page is worse than no skeleton, and the fix is a small file rather
+ * than a compromise in the shared one.
  *
- * THERE IS SOMETHING TO WAIT FOR HERE EVEN THOUGH THE SCREEN IS A PLACEHOLDER. `/audit`
- * renders `PlannedSection`, which reads nothing — but the route authorises the operator
- * first, and that is a round trip to the API. The page's own comment makes the point that
- * the authorisation is real even though the screen is not, and the wait is real with it.
+ * `active="audit"` is most of the value here: it is the only thing on screen during that
+ * round trip that tells an operator their click registered.
  *
- * SO THE SHAPE IS `PlannedSection`'S: a heading, the standing notice about what is not
- * built yet, and the two-column grid of planned screens. The card COUNT is not knowable
- * from here — it comes from `components/sections.ts`, which the shell reads and this file
- * does not — so four is a shape rather than a claim.
+ * See app/loading.tsx for why the frame is rendered for real and costs nothing.
+ *
+ * THE HEADING IS REAL, and unusually there is no argument to have about it: "Audit" is the
+ * section's label in `sections.ts`, the topbar's title and the page's <h1>, and none of the
+ * three depends on anything fetched.
+ *
+ * WHAT IS NOT RENDERED IS THE "Not built yet" BADGE. It sits in the page head's actions
+ * slot and it is a statement about the state of the product; a fallback has no business
+ * making that statement a moment before the page makes it properly, and a grey rectangle
+ * where a badge goes is a badge to anybody glancing.
  */
 export default function AuditLoading(): ReactElement {
   return (
     <ControlPlaneShell title="Audit" active="audit">
-      <Stack gap="6">
-        <PageHeader title="Audit" />
+      <PageHeader title="Audit" />
 
-        {/* The notice that says what is and is not here yet. */}
+      <Stack gap="5">
+        {/* The standing notice that nothing on this screen works yet, and under it the
+            caution about metadata-only reads of a clinic's events. Both are unconditional
+            on this route, so both have their height reserved. */}
+        <Skeleton block="sm" />
         <Skeleton block="sm" />
 
+        {/* The three planned screens, in the two-column grid that collapses to one at the
+            same width the real one does. */}
         <Grid cols={2} gap="5">
-          {Array.from({ length: 4 }, (_unused, index) => (
-            <Card key={index} as="section">
+          {Array.from({ length: 3 }, (_unused, index) => (
+            /* Index as key: generated from a count, never reordered, no state to carry. */
+            <Card key={index}>
               <Stack gap="3">
-                <Skeleton lines={1} />
-                <Skeleton lines={2} />
+                <Skeleton lines={1} className="title-sm" />
+                <Skeleton lines={3} />
               </Stack>
             </Card>
           ))}

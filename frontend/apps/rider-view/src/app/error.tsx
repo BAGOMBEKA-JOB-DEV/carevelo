@@ -1,48 +1,65 @@
 'use client'
 
 import { useEffect, useRef, type ReactElement } from 'react'
-import { Button, Card, Inline, Stack } from '@carevelo/ui'
-import { DELIVERY_PATHS } from '@/app/paths'
+import { Button, Card, Stack } from '@carevelo/ui'
 
 /**
- * What a rider sees when a screen fails to render.
+ * What a rider sees when a screen in this app fails to render.
+ *
+ * THIS IS THE LAST NET, NOT THE FIRST ONE, AND THAT DISTINCTION IS THE WHOLE DESIGN OF
+ * THIS SURFACE. Every read on the rider view already goes through `attempt()`, precisely
+ * so that a request which did not come back leaves the frame, the tab bar and the sign-out
+ * in place and says what happened — `AssignmentsScreen` argues that case at length, and
+ * `assignments/[delivery]/page.tsx` repeats it for the one read a rider cannot do without.
+ * So a rider should almost never arrive here. What is left for this file to catch is the
+ * unexpected throw: a render that went wrong, a shape the API sent that the screen could
+ * not use, a bug. Without it those become Next's built-in error page — unstyled, no
+ * navigation, and in a development build the message and the stack printed on a phone that
+ * is being held at a stranger's gate.
  *
  * `'use client'` AND `{ error, reset }` ARE THE FRAMEWORK CONTRACT. Next renders this as
- * the fallback of a React error boundary, and an error boundary catches at render time in
- * the browser; there is no server-rendered variant of this file to reach for.
+ * the fallback of a React error boundary; an error boundary catches at render time in the
+ * browser, so there is no server-rendered variant of this file to reach for.
  *
  * ------------------------------------------------------------------------------------
- * IT IS AS INCURIOUS AS not-found.tsx, AND FOR THE SAME REASON.
+ * NOTHING FROM THE ERROR OBJECT IS SHOWN EXCEPT `digest`.
  *
- * `not-found.tsx` on this surface refuses to distinguish a delivery that never existed from
- * one belonging to another rider, because a page that said "that delivery is not yours"
- * would confirm the record exists somewhere — which is how somebody learns that a named
- * person is a patient of some other clinic. A failure has to hold the same line. This
- * screen therefore says only that the page did not load. It names no delivery, no
- * recipient, no address, and no reason.
+ * `error.message` on this surface can carry a package reference, a recipient's name, a
+ * request URL with a delivery identifier in the path, or the API's own sentence written
+ * for an operator. `error.stack` carries file paths and, in development, source. None of
+ * it is rendered here and none of it is logged from here — the rider payload rule is that
+ * a delivery's identifiers do not travel any further than the screen that needs them, and
+ * a browser console on a shared handset is further.
  *
- * WHICH IS ALSO WHY `error.message` NEVER REACHES IT. On this surface a message can carry a
- * recipient's name, an address, or the API's sentence about a delivery this rider is not
- * entitled to see — and the rider rule in the data-protection document is written precisely
- * against details leaking onto a handset that is often shared and often borrowed.
- * `error.stack` is not rendered either.
+ * `error.digest` is different in kind: Next hashes the original error ON THE SERVER and
+ * sends only the hash, exactly so that a client can name a failure without holding it. It
+ * matches one line in the server log and decodes to nothing on its own. It is shown, and
+ * labelled as the thing to read out, because a rider telephoning the clinic to say "the
+ * app broke" gives a dispatcher nothing to look for and a code gives them a line.
  *
- * `error.digest` IS shown. Next hashes the original error ON THE SERVER and sends only the
- * hash, so it names a failure without holding one; it matches a line in the server log and
- * decodes to nothing on its own. A rider telephoning the clinic with "it would not open"
- * gives support nothing to work with; the same call with a digest gives them the line.
+ * NO CLINICAL CONTENT, and there is none to leak: this component cannot reach a delivery,
+ * so there is no branch below where a medicine, a diagnosis or a note could appear. The
+ * copy also never names what the rider was doing, because "your delivery could not be
+ * opened" already says a delivery exists.
  * ------------------------------------------------------------------------------------
  *
- * NO FieldShell, WHICH IS WHERE THIS PARTS COMPANY WITH not-found.tsx AND assignments/
- * loading.tsx — BOTH OF WHICH DO RENDER IT. Those two are server components, so the shell
- * costs the handset nothing. This one is a client component, and everything it imports
- * joins the route's JavaScript: `FieldShell` pulls in `components/sections.ts`, whose
- * per-section prose is there for the planned-section screens and not for the two tab
- * labels a frame needs. Sending that to a phone on mobile data, on every route, to decorate
- * a screen almost nobody reaches is the wrong trade — so the frame's COLUMN is reproduced
- * with the same CSS classes, which cost nothing, and the one way out is a real button.
+ * IT DOES NOT RENDER `FieldShell`, FOR THE REASON `clinic-console/src/app/error.tsx` SETS
+ * OUT. This file is a client component, so everything it imports joins the route's client
+ * bundle — and `FieldShell` imports `components/sections.ts`, which carries a lede, a
+ * caution and a list of planned screens per section in order to produce two navigation
+ * links. This app ships almost no client JavaScript on purpose, for a rider on a mid-range
+ * Android paying for their own data, and paying that weight on every route to decorate a
+ * screen almost nobody reaches is the wrong way round. The frame's two wrapper elements
+ * are rendered by hand instead, so the page still has the app's padding and full height,
+ * and the way out is stated explicitly rather than implied by a tab bar.
+ *
+ * ONE WAY OUT, FULL WIDTH, AT THE BOTTOM. Same shape as `not-found.tsx`: the thumb is
+ * already at the bottom of the phone, and a small centred link is a mis-tap. The retry
+ * comes first because it is what usually works — `reset()` re-renders the segment, which
+ * on this surface is a read and never a status change, so pressing it cannot record
+ * anything twice.
  */
-export default function FieldError({
+export default function RiderError({
   error,
   reset,
 }: {
@@ -50,10 +67,21 @@ export default function FieldError({
   reset: () => void
 }): ReactElement {
   /*
-   * Focus moves to the heading once, on mount. An error boundary swaps the page out
-   * without a navigation, so nothing announces and focus stays on a control that no longer
-   * exists. `tabIndex={-1}` makes the heading focusable programmatically without ever
-   * putting it in the tab order.
+   * Focus moves to the heading once, on mount.
+   *
+   * An error boundary swaps the page out underneath the reader without a navigation, so
+   * nothing is announced and focus stays on whatever the old page had — often a control
+   * that no longer exists. Moving focus to the <h1> is what a real navigation would have
+   * done, and it is deterministic in a way a live region is not: `role="alert"` announces
+   * when the boundary swaps in the browser and says nothing if this markup is ever present
+   * at parse time. `tabIndex={-1}` makes the heading focusable programmatically without
+   * ever putting it into the tab order.
+   *
+   * A plain <h1> rather than `PageHeader`, which is what `not-found.tsx` uses: PageHeader
+   * takes `title: string` and forwards no ref, and there is nowhere to attach one without
+   * changing a component four apps share for the sake of this screen. `.title` because the
+   * reset strips heading sizes and `.page-head h1` only dresses a heading inside a page
+   * head, which this is not.
    */
   const heading = useRef<HTMLHeadingElement>(null)
 
@@ -62,40 +90,40 @@ export default function FieldError({
   }, [])
 
   return (
-    /* `.fieldview` and `.fieldview__main` are the frame's own classes — the 560px column,
-       the canvas behind it, the field padding. Pure CSS, so the column is right without
-       importing the component that usually renders it. */
     <div className="fieldview">
       <main className="fieldview__main" id="main">
         <Card>
           <Stack gap="5">
             <h1 className="title" ref={heading} tabIndex={-1}>
-              This did not load
+              This screen did not open
             </h1>
 
             <p className="muted">
-              The page could not be opened just now. Nothing you have recorded has been lost
-              and nothing has been sent. Try again — a request that did not come back is the
-              usual cause out here, and it often works on the second try.
+              Something went wrong while this screen was being put together. Your round has
+              not changed and nothing has been recorded — a delivery you have not marked is
+              still waiting for you. Try once more, and if it still will not open, telephone
+              the clinic and carry on with the package you are holding.
             </p>
 
-            <Inline gap="4">
-              {/* `type="button"`: not in a form, and must not become a submit if it ever
-                  ends up inside one. `size="lg"` because this is pressed with a thumb. */}
-              <Button variant="primary" size="lg" type="button" onClick={reset}>
-                Try again
-              </Button>
-              <Button variant="quiet" size="lg" href={DELIVERY_PATHS.assignments}>
-                My deliveries
-              </Button>
-            </Inline>
+            {/* `type="button"`: not in a form today, and must not become a submit if it
+                ever ends up inside one. */}
+            <Button variant="primary" size="lg" type="button" onClick={reset} block>
+              Try again
+            </Button>
 
-            {/* Only the digest, only when the server produced one. */}
+            <Button variant="quiet" size="lg" href="/assignments" block>
+              My deliveries
+            </Button>
+
+            {/* Only the digest, only when the server produced one. It is absent for an
+                error thrown in the browser, so this is conditional rather than a line that
+                sometimes has nothing after it. */}
             {error.digest === undefined ? null : (
               <p className="fine">
-                If you telephone the clinic about this, read them{' '}
-                <span className="mono">{error.digest}</span>. It says nothing about the
-                delivery or the person waiting for it.
+                If you telephone about this, read them this code:{' '}
+                <span className="mono">{error.digest}</span>. It points the clinic&rsquo;s
+                engineers at this one failure and holds nothing about you, the recipient or
+                the package.
               </p>
             )}
           </Stack>
