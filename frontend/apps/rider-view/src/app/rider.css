@@ -1,0 +1,135 @@
+/* ============================================================
+   The rider view's own layer — four rules, every one of them measured.
+
+   WHY THIS FILE EXISTS AT ALL, GIVEN THAT packages/ui IS THE PLACE FOR THIS
+
+   It is, and three of the four rules below belong there and should move there. They are
+   here because this app is used ONE-HANDED, ON A MOTORCYCLE, IN SUNLIGHT, and two of the
+   shared tokens do not survive that — measured, not guessed, with the numbers written out
+   below so the next person can check them rather than trust them. The token layer is a
+   dependency of four apps and is being edited by somebody else; a scoped override with the
+   arithmetic in it is the honest way to fix a rider's screen today without reaching into a
+   package this change does not own.
+
+   EVERY RULE IS SCOPED TO `.fieldview`, THE RIDER FRAME. Nothing here can escape into the
+   console, the portal or the control plane, and nothing here claims a selector that
+   packages/ui already claims — the two custom properties are REDEFINED on the frame, which
+   is exactly the mechanism custom properties exist for, and the two classes are prefixed.
+   `packages/ui/src/tokens/tokens.test.ts` reads only its own directory, so it would not
+   catch a collision here; the prefixes are what make one impossible instead.
+
+   WHEN THIS FILE SHOULD SHRINK. The moment `colors.css` raises `--ink-faint` and `--good`
+   at source, the first block deletes with no other change. The `.tabbar` media query
+   deletes when `layout.css` stops hiding the rider's only navigation on a laptop. What is
+   genuinely rider-specific — the package reference and the centred secondary row — stays.
+   ============================================================ */
+
+/* ---- The two AA failures, both reached THROUGH the shared primitives ----
+
+   These are not stylistic preferences. Both are computed WCAG 2.1 contrast ratios against
+   the ground each colour actually lands on in this app, and both currently fail the 4.5:1
+   floor for normal text that docs/30-architecture/frontend-nextjs.md commits to.
+
+   --ink-faint  #8f9693 on --canvas #ffffff = 3.02:1   FAILS
+                #707774 on --canvas #ffffff = 4.59:1   passes
+
+   It matters here more than anywhere because of WHAT wears it. `--ink-faint` is the colour
+   of `.eyebrow`, `.stat__label`, `.fine` and `.table th` — which means it is the colour
+   PageHeader paints its eyebrow, Stat paints its label and DataTable paints every column
+   header. On this surface it was the colour of the package reference: 12px, uppercase,
+   letter-spaced, grey, at 3.02:1, read off a phone at arm's length in direct sun by
+   somebody wearing a helmet. #707774 is still lighter than --ink-muted (5.09:1), so the
+   three-step ink hierarchy the type scale depends on survives intact.
+
+   --good       #2e8f62 on --good-soft #e3f1ea = 3.45:1  FAILS
+                #24734e on --good-soft #e3f1ea = 4.96:1  passes
+
+   `--good` is `.badge-good`, which on this surface is the `delivered` badge — the word that
+   tells a rider their work is recorded. A rider only reaches it through a delivery opened
+   by its own URL, since the rider endpoint filters delivered work out of the list, but a
+   state that CAN render must be readable when it does. */
+.fieldview {
+  --ink-faint: #707774;
+  --good: #24734e;
+}
+
+/* ---- Every secondary link is a thumb target ----
+
+   `.lnk` in the token layer is `display: inline-flex; align-items: center` and sets no
+   height, so it is exactly as tall as 15px of text — around 20px. That is a reasonable
+   desktop link and it is not a control you can hit reliably with a thumb at a junction.
+   `--touch-min` is 44px and is the floor the accessibility requirements set; because `.lnk`
+   is already a flex container, one `min-height` is the whole fix and the label stays
+   vertically centred in it.
+
+   NOTE WHAT THIS DELIBERATELY DOES NOT DO: it does not make these links look like buttons.
+   "I could not deliver this" must stay quiet and visually separate from "Delivered" — the
+   two record opposite outcomes and only one of them can be undone, by a dispatcher, over
+   the telephone. Reachable is not the same as prominent, and this rule buys the first
+   without buying the second. */
+.fieldview .lnk {
+  min-height: var(--touch-min);
+}
+
+/* ---- The package reference, which is not an eyebrow ----
+
+   It was `.eyebrow .tnum`: 12px, weight 700, tracked 0.12em, uppercase, --ink-faint. Every
+   one of those five decisions is right for a label that introduces a heading and wrong for
+   this string, because this string is not a label. It is the value a rider reads ALOUD to
+   the pharmacist at the counter and matches against the sticker on the package — and it is
+   also, deliberately, the only thing on the whole surface that identifies the contents at
+   all, since a reference names a package without describing it.
+
+   So it is set as ink at reading size: --ink on --canvas is 15.78:1, against 3.02:1 before.
+   Tabular figures because it is compared character by character against a printed label,
+   and a proportional `1` next to a proportional `l` is how a package goes to the wrong
+   address. The residual tracking is there for the same reason — it separates the glyphs
+   without making the string read as a heading. */
+.rider-ref {
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- A centred secondary row ----
+
+   Four places on this surface centre a single quiet control under a full-width primary one:
+   the consequence line under the status button, "I could not deliver this", "Go back" and
+   "All my deliveries". `Inline justify="center"` would centre them too, and it was the
+   first thing tried — but Inline is a flex row, so the child shrinks to its content and a
+   sentence that wraps then sets its second line ragged against the first. This is one
+   text-align declaration and it keeps wrapped text centred as a block.
+
+   It is a class rather than four inline styles because inline style is banned in app code
+   by eslint.config.js, and it is banned for a reason worth restating: there were 477 of
+   them across the four apps and 404 of those held a `var(--space-*)` that had nowhere else
+   to go. This is the "nowhere else to go" for the ten sites in these two apps that are not
+   spacing at all. */
+.rider-center {
+  text-align: center;
+}
+
+/* ---- The rider has no navigation on a laptop ----
+
+   `layout.css` hides `.tabbar` above 900px, and it is right to: on the clinic console the
+   tab bar is the small-screen SUBSTITUTE for the sidebar, so showing both would be two
+   navigations for one set of destinations. This surface has no sidebar to substitute for.
+   Above 900px it therefore has no navigation at all — no way to reach "Completed", no way
+   back from a delivery except the browser's own back button, and nothing marked
+   `aria-current`.
+
+   In practice the device is a phone and this never fires. It is fixed anyway, because
+   "every interactive element reachable by keyboard" is not conditional on the viewport
+   somebody happens to open the app at, and because a dispatcher checking a rider's screen
+   over their shoulder on a desktop is a real thing that happens.
+
+   Scoped to `.fieldview` so the console's tab bar is untouched. The rule belongs in
+   layout.css beside the one it corrects; it is here because that file is not this change's
+   to edit. */
+@media (min-width: 901px) {
+  .fieldview .tabbar {
+    display: flex;
+  }
+}

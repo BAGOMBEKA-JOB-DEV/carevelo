@@ -95,7 +95,15 @@ export function Grid(props: GridProps): ReactElement {
 
   /* `in` rather than a boolean read off a destructured variable: the narrowing has to
      happen on `props` itself for `props.gap` to be reachable at all on the plain arm. */
-  const gap = 'panel' in props ? undefined : SPACE[props.gap ?? '5']
+  /*
+   * '6' — 18px — because that is what `.grid` in reset.css already sets, and this component
+   * renders `.grid`. A default of '5' would have quietly tightened all 36 existing `grid
+   * g-N` containers by 2px the moment they adopted it: too small to notice in review, big
+   * enough to be a change nobody chose. The default matches the stylesheet so that adopting
+   * `<Grid>` on existing markup is visually lossless, and a caller who wants something else
+   * says so.
+   */
+  const gap = 'panel' in props ? undefined : SPACE[props.gap ?? '6']
   const panel = gap === undefined
   const list = Tag === 'ul' || Tag === 'ol'
 

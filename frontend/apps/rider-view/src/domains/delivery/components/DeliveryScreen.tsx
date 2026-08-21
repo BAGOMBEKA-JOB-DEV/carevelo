@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { Button, Card, Choice, Icon, Notice } from '@carevelo/ui'
+import { Button, Card, Choice, Icon, Notice, PageHeader, Stack } from '@carevelo/ui'
 import { setStatus } from '../api/deliveries'
 import { deliveryHref, href } from '../model/links'
 import { FAILURE_REASONS, isKnownStatus, view } from '../model/status'
@@ -50,6 +50,23 @@ import { DeliveryStatusBadge } from './DeliveryStatusBadge'
  * rider at the roadside on a stalled connection can still record a delivery from HTML the
  * server already sent, and every action ends in a redirect so that pulling the page down
  * to refresh can never re-post anything.
+ *
+ * ==================================================================
+ * THE ORDER OF THIS PAGE IS A THUMB-REACH DECISION, NOT AN OUTLINE.
+ * ==================================================================
+ *
+ * Heading, then where it goes, then who to hand it to, then the control that moves it. The
+ * one thing a rider presses is therefore the LAST thing in the column — bottom of the
+ * screen, where a thumb rests when a phone is held one-handed — rather than the first, at
+ * the top, where a thumb has to stretch across the whole device to reach it. Everything
+ * above it is read, not pressed. That ordering is also the tab order, because DOM order is
+ * tab order and this file has no `order` or `reverse` anywhere in it.
+ *
+ * The two headings inside the cards are plain `<h2>` and were `<h2 className="eyebrow">`.
+ * `.eyebrow` is 12px uppercase in `--ink-faint`, measured at **3.02:1** against the card —
+ * a heading set below the AA floor, on the screen that carries the address somebody is
+ * riding to. The eyebrow treatment is for a label that introduces a heading, not for the
+ * heading itself.
  */
 
 export type DeliveryScreenProps = {
@@ -181,15 +198,21 @@ export function DeliveryScreen({
 
   return (
     <>
-      <div className="page-head">
-        <div className="grow stack">
-          <span className="eyebrow tnum">{delivery.reference}</span>
-          <h1>{delivery.recipient_name}</h1>
-        </div>
-        <DeliveryStatusBadge status={delivery.status} />
-      </div>
+      {/*
+        THE REFERENCE RIDES IN `description` RATHER THAN IN `eyebrow`, and that is the
+        contrast fix rather than a layout preference: PageHeader paints its eyebrow with
+        `.eyebrow`, which is `--ink-faint` at 3.02:1. `.rider-ref` is `--ink` at 15.78:1 and
+        sets the string in tabular figures, because it is compared character by character
+        against a printed label. `.page-head p` owns the paragraph's colour; the span's own
+        colour wins inside it.
+      */}
+      <PageHeader
+        title={delivery.recipient_name}
+        description={<span className="rider-ref">{delivery.reference}</span>}
+        actions={<DeliveryStatusBadge status={delivery.status} />}
+      />
 
-      <div className="stack" style={{ gap: 'var(--space-5)' }}>
+      <Stack gap="5">
         {/* `isKnownStatus` because `done` came off the query string — see model/status.ts.
             A banner that says "Recorded: status unknown" is worse than no banner. */}
         {done && isKnownStatus(done) ? (
@@ -222,11 +245,12 @@ export function DeliveryScreen({
         ) : null}
 
         {/* ---- Where it goes ---- */}
-        <Card className="stack">
-          <h2 className="eyebrow">Deliver to</h2>
-          {/* The address is the largest text on the screen after the name, because it is
-              read at a junction with a helmet on. */}
-          <p>{delivery.address_text}</p>
+        <Card as="section" aria-labelledby="deliver-to">
+          <Stack gap="3">
+            <h2 id="deliver-to">Deliver to</h2>
+            {/* The address is the largest text on the screen after the name, because it is
+                read at a junction with a helmet on. */}
+            <p>{delivery.address_text}</p>
 
           {/*
             THE LANDMARK IS NOT DECORATION. Ugandan addresses are frequently a landmark and
@@ -235,37 +259,46 @@ export function DeliveryScreen({
             given its own line rather than being run into the address, so it is findable at
             a glance.
           */}
-          {delivery.landmark ? (
-            <p className="row">
-              <Icon name="pin" className="ico" />
-              <span>{delivery.landmark}</span>
-            </p>
-          ) : null}
+            {delivery.landmark ? (
+              <p className="row">
+                <Icon name="pin" className="ico" />
+                <span>{delivery.landmark}</span>
+              </p>
+            ) : null}
 
-          {delivery.district ? <p className="muted">{delivery.district}</p> : null}
+            {delivery.district ? <p className="muted">{delivery.district}</p> : null}
+          </Stack>
         </Card>
 
         {/* ---- Who to hand it to ---- */}
-        <Card className="stack">
-          <h2 className="eyebrow">Recipient</h2>
-          <p>{delivery.recipient_name}</p>
-          <CallRecipient
-            name={delivery.recipient_name}
-            phone={delivery.recipient_phone}
-            size="lg"
-            block
-          />
+        <Card as="section" aria-labelledby="recipient">
+          <Stack gap="3">
+            <h2 id="recipient">Recipient</h2>
+            <p>{delivery.recipient_name}</p>
+            <CallRecipient
+              name={delivery.recipient_name}
+              phone={delivery.recipient_phone}
+              size="lg"
+              block
+            />
+          </Stack>
         </Card>
 
         {/* ---- The one control ---- */}
         {state.advance ? (
-          <form action={advance} className="stack">
-            <Button type="submit" variant="primary" size="lg" block>
-              {state.advance.action}
-            </Button>
-            <p className="muted" style={{ textAlign: 'center' }}>
-              {state.advance.consequence}
-            </p>
+          <form action={advance}>
+            <Stack gap="3">
+              {/*
+                52px tall and full width. This is THE control on the screen, it is pressed
+                with a thumb — often with the other hand on a handlebar — and it is the last
+                thing in the column so that thumb does not have to travel. `btn-sm` does not
+                exist in the toolkit, for the same reason.
+              */}
+              <Button type="submit" variant="primary" size="lg" block>
+                {state.advance.action}
+              </Button>
+              <p className="muted rider-center">{state.advance.consequence}</p>
+            </Stack>
           </form>
         ) : (
           <Notice tone="neutral" icon="check" title={state.label}>
@@ -281,8 +314,15 @@ export function DeliveryScreen({
             record opposite outcomes and only one of them can be undone, by a dispatcher,
             over the telephone. Quiet, below, and it opens a second screen state rather
             than firing.
+
+            IT IS STILL A 44px TARGET, WHICH IS NOT A CONTRADICTION. `rider.css` gives every
+            `.lnk` on this surface `min-height: var(--touch-min)`; a bare `.lnk` is about
+            20px tall, which is a reasonable desktop link and is not something a thumb can
+            hit at a junction. Reachable is not the same as prominent — the target grows,
+            the visual weight does not, and this stays a quiet centred line under a
+            full-width filled button rather than becoming a second button beside it.
           */
-          <p style={{ textAlign: 'center' }}>
+          <p className="rider-center">
             <a className="lnk" href={deliveryHref(paths, delivery.id, { report: '1' })}>
               I could not deliver this
             </a>
@@ -290,44 +330,64 @@ export function DeliveryScreen({
         ) : null}
 
         {state.mayFail && reporting ? (
-          <Card className="stack">
-            <form action={reportFailure} className="stack" style={{ gap: 'var(--space-5)' }}>
-              <Choice
-                name="failure_reason"
-                legend="Why could you not deliver it?"
-                hint="The clinic uses these to fix addresses and to decide what happens next."
-                options={FAILURE_REASONS.map((reason) => ({
-                  value: reason.value,
-                  label: reason.label,
-                  note: reason.note,
-                }))}
-                required
-              />
+          <Card>
+            <form action={reportFailure}>
+              <Stack gap="5">
+                <Choice
+                  name="failure_reason"
+                  legend="Why could you not deliver it?"
+                  hint="The clinic uses these to fix addresses and to decide what happens next."
+                  options={FAILURE_REASONS.map((reason) => ({
+                    value: reason.value,
+                    label: reason.label,
+                    note: reason.note,
+                  }))}
+                  required
+                  /*
+                    THE ERROR IS TIED TO THE CONTROL, NOT ONLY ANNOUNCED ABOVE IT.
+                    `?problem=invalid` means the reason was missing or was not one of the
+                    four — the API's own words, unchanged. It was rendered as a Notice at
+                    the top of the page and nowhere else, which looks right and is not: a
+                    screen-reader user who lands on the radiogroup after the redirect is
+                    told nothing is wrong with it, because nothing on it said so. `error`
+                    puts `aria-invalid` on the group and points its `aria-describedby` at
+                    the sentence, so the failure is attached to the thing that failed.
+                  */
+                  {...(problem === 'invalid'
+                    ? {
+                        error:
+                          message
+                          ?? 'Choose one of the reasons below before recording this as not '
+                            + 'delivered.',
+                      }
+                    : {})}
+                />
 
-              <Notice tone="warn" icon="box">
-                Take the package back to the pharmacy today. Medicine belongs on licensed
-                premises and never stays with a rider overnight.
-              </Notice>
+                <Notice tone="warn" icon="box">
+                  Take the package back to the pharmacy today. Medicine belongs on licensed
+                  premises and never stays with a rider overnight.
+                </Notice>
 
-              <Button type="submit" variant="danger" size="lg" block>
-                Record: not delivered
-              </Button>
+                <Button type="submit" variant="danger" size="lg" block>
+                  Record: not delivered
+                </Button>
 
-              <p style={{ textAlign: 'center' }}>
-                <a className="lnk" href={self}>
-                  Go back
-                </a>
-              </p>
+                <p className="rider-center">
+                  <a className="lnk" href={self}>
+                    Go back
+                  </a>
+                </p>
+              </Stack>
             </form>
           </Card>
         ) : null}
 
-        <p style={{ textAlign: 'center' }}>
+        <p className="rider-center">
           <a className="lnk" href={paths.assignments}>
             ← All my deliveries
           </a>
         </p>
-      </div>
+      </Stack>
     </>
   )
 }

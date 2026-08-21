@@ -1,4 +1,4 @@
-import { Button, EmptyState, Notice } from '@carevelo/ui'
+import { Button, EmptyState, Notice, PageHeader, Stack } from '@carevelo/ui'
 import { attempt } from '@/domains/identity'
 import { listAssignments } from '../api/deliveries'
 import { href } from '../model/links'
@@ -75,14 +75,9 @@ export async function AssignmentsScreen({
       {/* Renders nothing. See the file for why this is the one client component here. */}
       <AssignmentsRefresher />
 
-      <div className="page-head">
-        <div className="grow">
-          <h1>Assignments</h1>
-          <p>The deliveries assigned to you.</p>
-        </div>
-      </div>
+      <PageHeader title="Assignments" description="The deliveries assigned to you." />
 
-      <div className="stack" style={{ gap: 'var(--space-5)' }}>
+      <Stack gap="5">
         {done === 'delivered' ? (
           <Notice tone="info" icon="check" title="Delivered">
             Recorded. The clinic has been told, and this delivery has left your list.
@@ -119,16 +114,21 @@ export async function AssignmentsScreen({
           </EmptyState>
         ) : (
           <>
-            {/* `listStyle: none` and no padding: this is a list for a screen reader's
-                benefit, not a bulleted one. */}
-            <ul
-              className="stack"
-              style={{ gap: 'var(--space-5)', listStyle: 'none', padding: 0 }}
-            >
+            {/*
+              A LIST FOR A SCREEN READER'S BENEFIT, NOT A BULLETED ONE. `Stack as="ul"`
+              strips the markers and the user-agent indent AND puts `role="list"` back on —
+              Safari drops list semantics from an element whose `list-style` is `none`, so
+              removing the bullet without restoring the role is how a list stops being
+              announced as one. The name matters as much as the role: a rider tabbing into
+              this hears "Your deliveries, list, 4 items" and knows how much round is left,
+              which is the first thing they want to know and the one thing a run of
+              unlabelled cards cannot tell them.
+            */}
+            <Stack as="ul" gap="5" aria-label="Your deliveries">
               {loaded.value.data.map((delivery) => (
                 <AssignmentCard delivery={delivery} key={delivery.id} paths={paths} />
               ))}
-            </ul>
+            </Stack>
 
             {/*
               CURSOR, NEVER A PAGE NUMBER. The dispatcher is assigning into the same table
@@ -137,6 +137,15 @@ export async function AssignmentsScreen({
               collects. In practice a rider with more than one page of live assignments is
               a rider who has been over-committed, but the link is here rather than
               silently dropping the twenty-sixth.
+
+              A BLOCK BUTTON AND NOT `<Pagination>`, THOUGH THAT COMPONENT NOW EXISTS AND
+              PAGES BY CURSOR EXACTLY AS THIS DOES. Pagination renders Previous and Next as
+              a pair, and with no `previousHref` — which is this list, because the rider
+              endpoint hands back no `prev_cursor` — the Previous half becomes a real
+              disabled button. Its own docblock argues against furniture that says "there is
+              more here" when there is not, and that argument is sharper on a 390px screen
+              held in one hand: a dead control immediately beside the only live one is a
+              mis-tap waiting to happen. One full-width target, or nothing.
             */}
             {loaded.value.meta.next_cursor ? (
               <Button
@@ -149,7 +158,7 @@ export async function AssignmentsScreen({
             ) : null}
           </>
         )}
-      </div>
+      </Stack>
     </>
   )
 }

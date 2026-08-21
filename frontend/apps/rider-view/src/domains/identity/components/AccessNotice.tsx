@@ -1,4 +1,4 @@
-import { Notice } from '@carevelo/ui'
+import { Notice, PageHeader } from '@carevelo/ui'
 
 /**
  * A session that cannot be used on this surface right now, and why.
@@ -43,6 +43,26 @@ import { Notice } from '@carevelo/ui'
  * silent dead end an unhandled flag would produce — a rider signing in successfully and
  * then watching every screen fail for no stated reason.
  *
+ * ==================================================================
+ * EACH BRANCH RENDERS THE PAGE'S `<h1>`, AND NONE OF THEM USED TO.
+ * ==================================================================
+ *
+ * This component is rendered INSTEAD of a screen, not beside one — `/assignments` and
+ * `/assignments/[delivery]` both return `<FieldShell><AccessNotice/></FieldShell>` and
+ * nothing else. So while it rendered a bare `<Notice>`, all three of these states produced
+ * a page with no heading at all: nothing for a screen-reader user to jump to, and a
+ * document that announces as a fragment of something larger rather than as a page.
+ *
+ * That is the worst possible place for it. `unreachable` is not an edge case on this
+ * surface — it is what a rider sees every time they pass through a dead spot, several times
+ * an hour — and it is precisely the moment somebody needs to be told plainly where they are
+ * and that nothing is broken. The `<h1>` is the first thing that says it.
+ *
+ * `PageHeader` takes `title: string`, so each branch renders exactly one `<h1>` and cannot
+ * render two. The sentence that was the notice's `title` is now the heading, and the notice
+ * keeps the detail — which also means the state is stated once in the page outline and once
+ * in prose, rather than only inside a box a heading-navigation pass walks straight past.
+ *
  * @see docs/40-api/authentication-and-sessions.md
  */
 export function AccessNotice({
@@ -63,37 +83,56 @@ export function AccessNotice({
 }) {
   if (reason === 'unreachable') {
     return (
-      <Notice tone="warn" icon="activity" title="Cannot reach the clinic system">
-        {/*
+      <>
+        <PageHeader
+          title="Cannot reach the clinic system"
+          description="Nothing has been lost and nothing has changed."
+        />
+
+        <Notice tone="warn" icon="activity">
+          {/*
           "PULL DOWN", NOT "IT WILL REFRESH ITSELF". The 30-second refresher lives inside
           the assignments screen, and this notice is rendered INSTEAD of that screen — so
           nothing on this page is retrying, and promising otherwise would leave a rider
           waiting at a screen that has stopped asking.
         */}
-        {message ??
-          'The clinic’s system could not be reached from this phone. Nothing has been lost '
-            + 'and nothing has changed. Pull the page down to try again once you have '
-            + 'signal, and if you are signed in, stay signed in — you will not be able to '
-            + 'sign back in until the connection returns.'}
-      </Notice>
+          {message ??
+            'The clinic’s system could not be reached from this phone. Pull the page down to '
+              + 'try again once you have signal, and if you are signed in, stay signed in — '
+              + 'you will not be able to sign back in until the connection returns.'}
+        </Notice>
+      </>
     )
   }
 
   if (reason === 'password_change_required') {
     return (
-      <Notice tone="warn" icon="lock" title="Your password needs changing first">
-        Your clinic has asked for a new password on this account. This app cannot set one —
-        sign in to the clinic system to change it, then come back here. Your deliveries are
-        waiting and nothing has been lost.
-      </Notice>
+      <>
+        <PageHeader
+          title="Your password needs changing first"
+          description="Your deliveries are waiting and nothing has been lost."
+        />
+
+        <Notice tone="warn" icon="lock">
+          Your clinic has asked for a new password on this account. This app cannot set one —
+          sign in to the clinic system to change it, then come back here.
+        </Notice>
+      </>
     )
   }
 
   return (
-    <Notice tone="info" icon="truck" title="This app is for riders">
-      You are signed in, but this account is not a delivery rider for this clinic — so
-      there is nothing here for it. This is not an error, and your other work is unaffected.
-      Ask your clinic administrator if you think that is wrong.
-    </Notice>
+    <>
+      <PageHeader
+        title="This app is for riders"
+        description="This is not an error, and your other work is unaffected."
+      />
+
+      <Notice tone="info" icon="truck">
+        You are signed in, but this account is not a delivery rider for this clinic — so
+        there is nothing here for it. Ask your clinic administrator if you think that is
+        wrong.
+      </Notice>
+    </>
   )
 }

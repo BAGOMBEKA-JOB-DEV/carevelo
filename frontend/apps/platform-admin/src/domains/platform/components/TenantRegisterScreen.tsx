@@ -1,4 +1,18 @@
-import { Button, Card, DateTime, EmptyState, Notice, Select } from '@carevelo/ui'
+import {
+  Button,
+  Card,
+  DataTable,
+  DateTime,
+  EmptyState,
+  Field,
+  Inline,
+  Notice,
+  PageHeader,
+  Pagination,
+  Select,
+  Stack,
+  Toolbar,
+} from '@carevelo/ui'
 import { attempt, type Capabilities } from '@/domains/identity'
 import { listTenants } from '../api/tenants'
 import { href } from '../model/links'
@@ -47,6 +61,31 @@ import { TenantPanel } from './TenantPanel'
  * Cursor rather than offset because clinics are provisioned and suspended while somebody
  * pages through, which is exactly the traffic under which an offset duplicates and skips
  * rows.
+ *
+ * ============================================================
+ * THE TABLE IS A `DataTable` NOW, AND THE MARKUP IT REPLACED WAS ALREADY GOOD
+ * ============================================================
+ *
+ * That is worth saying plainly, because "we replaced it with the component" usually means
+ * something was wrong. This was a real `<table>` in a real `.table-scroll` and all six
+ * `<th>` carried `scope="col"`. What the component adds is the three things a person leaves
+ * out at four in the afternoon, made structurally impossible rather than remembered:
+ *
+ *  - The CLINIC column is now `<th scope="row">`. It is the value that names the row, so a
+ *    screen reader says "Kabalagala Medical Centre, State, active" instead of announcing a
+ *    lifecycle state with nothing attached to it. A table read cell by cell with no row
+ *    name is a table of disembodied values, and this one has a suspended clinic in it.
+ *  - The action column's heading was an empty-looking `<th>` carrying an `sr-only` span.
+ *    `headerHidden` says the same thing in the type, so it cannot be written as a genuinely
+ *    empty `<th>` by the next person copying the row above it.
+ *  - `.table-scroll` takes `tabIndex={0}`, a `role="region"` and the caption as its name.
+ *    A region that scrolls sideways and cannot be focused cannot be scrolled by anybody who
+ *    is not holding a mouse, and this table is six columns wide.
+ *
+ * `empty` is required, which also collapsed a branch: the screen used to choose between an
+ * `EmptyState` and a table, so the headings and the caption vanished when a filter matched
+ * nothing and the page changed shape under the reader. Now the table keeps its shape and
+ * the empty state renders inside it.
  */
 export type TenantRegisterScreenProps = {
   can: Capabilities
@@ -91,24 +130,24 @@ export async function TenantRegisterScreen({
 
   return (
     <>
-      <div className="page-head">
-        <div className="grow">
-          <h1>Tenants</h1>
-          <p>The register of clinics on Carevelo, and their lifecycle.</p>
-        </div>
-        {can.provision ? (
-          <Button variant="primary" href={paths.provision}>
-            Provision a clinic
-          </Button>
-        ) : null}
-      </div>
+      <PageHeader
+        title="Tenants"
+        description="The register of clinics on Carevelo, and their lifecycle."
+        actions={
+          can.provision ? (
+            <Button variant="primary" href={paths.provision}>
+              Provision a clinic
+            </Button>
+          ) : undefined
+        }
+      />
 
-      <div className="grid">
-        <div className="row-wrap">
+      <Stack gap="6">
+        <Inline gap="3">
           <a className="lnk" href={paths.overview}>
             Platform overview
           </a>
-        </div>
+        </Inline>
 
         {provisioned ? (
           <Notice tone="info" icon="check" title="Clinic provisioned">
@@ -145,30 +184,51 @@ export async function TenantRegisterScreen({
 
         {/* ---- Narrowing by state. A GET, so the result is a URL that can be reloaded,
                 bookmarked or sent to somebody during an incident. ---- */}
+        {/*
+          A `Toolbar as="form" method="get"`, which is what this already was and now says so.
+
+          The `<div class="field">` here was hand-rolled — a label, an htmlFor and an id
+          typed out at the call site — and it was the only raw form control left in either of
+          these two apps. `Field` owns that wiring, which is the point of it: the four
+          attributes that must agree do agree, once, in one file, and a page still LOOKS
+          correct when one of them is wrong.
+
+          What the Toolbar itself adds is a name. A bare `<div>` of one `<select>` and one
+          button has no accessible name at all, so a screen-reader user landing on the
+          control hears "State, combo box" with nothing to say what it filters — and this
+          page can have two such groups on it once the panel is open. Deliberately NOT
+          `role="toolbar"`: that role promises arrow-key navigation between the controls,
+          which needs client JavaScript this surface does not ship.
+
+          No hidden cursor. Changing the filter must start the list again: a cursor belongs
+          to the query that produced it, and carrying one across a filter change pages into
+          a set that no longer exists.
+        */}
         <Card as="section" padding="tight">
-          <form method="get" action={paths.register} className="row-wrap">
-            {/*
-              No hidden cursor. Changing the filter must start the list again: a cursor
-              belongs to the query that produced it, and carrying one across a filter change
-              pages into a set that no longer exists.
-            */}
-            <div className="field grow" style={{ maxWidth: 280 }}>
-              <label className="field__label" htmlFor="status">
-                State
-              </label>
-              <Select id="status" name="status" defaultValue={filter ?? ''}>
-                <option value="">Every state</option>
-                {STATUSES.map((state) => (
-                  <option key={state} value={state}>
-                    {state}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <Button type="submit" variant="quiet">
-              Filter
-            </Button>
-          </form>
+          <Toolbar
+            label="Filter the clinic register by lifecycle state"
+            as="form"
+            method="get"
+            action={paths.register}
+            actions={
+              <Button type="submit" variant="quiet">
+                Filter
+              </Button>
+            }
+          >
+            <Field name="status" label="State">
+              {(control) => (
+                <Select {...control} defaultValue={filter ?? ''}>
+                  <option value="">Every state</option>
+                  {STATUSES.map((state) => (
+                    <option key={state} value={state}>
+                      {state}
+                    </option>
+                  ))}
+                </Select>
+              )}
+            </Field>
+          </Toolbar>
         </Card>
 
         {/* The panel sits ABOVE the table so that opening a clinic does not send the

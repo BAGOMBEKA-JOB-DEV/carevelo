@@ -1,4 +1,4 @@
-import { Button, Card, DateTime, Notice } from '@carevelo/ui'
+import { Button, Card, DateTime, Grid, Inline, Notice, PageHeader, Stack, Stat } from '@carevelo/ui'
 import { attempt } from '@/domains/identity'
 import { getHealth } from '../api/health'
 import { isolation, tenantCounts } from '../model/health'
@@ -50,70 +50,88 @@ import type { Health, PlatformPaths } from '../model/types'
  * across weeks in a periodic review, not watched as a dial, and a number that changes
  * quietly under the reader is a number nobody can cite. `checked_at` is rendered so the
  * page is a dated snapshot rather than an implied live view.
+ *
+ * ============================================================
+ * THE HEADLINE FIGURE IS A `Stat` NOW, AND IT USED TO BE `fontSize: 44` BY HAND
+ * ============================================================
+ *
+ * Two things follow from moving it into the component, and the second is the one that
+ * mattered. The size is decided by the type scale rather than by a number typed on this
+ * screen — `.stat__value` is the display face at 28px with tabular figures — so this figure
+ * and the same figure on the break-glass screen can no longer disagree about how important
+ * they are, which they did: both were hand-set to 44 in two different files and either could
+ * have been edited alone.
+ *
+ * And the LABEL PRECEDES THE VALUE, by construction, because the component's props cannot
+ * reorder them. A bare "3" announced on its own is a screen-reader user's dead end. That is
+ * not hypothetical on this screen: the count is the most consequential number in the app,
+ * and it means the opposite of what a number on a dashboard usually means.
+ *
+ * The stat and the paragraph that frames it sit in a `Grid cols={2}`, which collapses to one
+ * column at 700px. That replaces a `minWidth: 260` on the paragraph, which was doing the
+ * same job by hand and only approximately: a flex child with a minimum width wraps when it
+ * runs out of room, but nothing said what "enough room" was except that number.
  */
 export async function OverviewScreen({ paths }: { paths: PlatformPaths }) {
   const health = await attempt(getHealth())
 
   return (
     <>
-      <div className="page-head">
-        <div className="grow">
-          <h1>Platform overview</h1>
-          <p>
+      <PageHeader
+        title="Platform overview"
+        description={
+          <>
             Carevelo&rsquo;s own control plane. It administers clinics and reaches none of
             their clinical data — the single exception is a break-glass grant, which is a
             different screen precisely so that taking it is a deliberate act.
-          </p>
-        </div>
-        {health.ok ? (
-          <span className="stat">
-            <span className="stat__label">Checked</span>
-            <span className="stat__note">
-              <DateTime value={health.value.checked_at} format="datetime" />
+          </>
+        }
+        /*
+          NOT a `Stat`. The instant this page was read is a caveat about the figures below
+          it, not one of them — `.stat__value` is a 28px display figure and a timestamp set
+          at that size would read as the most important number on the screen, which is
+          exactly backwards. It is a muted line beside the title, where a dateline goes.
+        */
+        actions={
+          health.ok ? (
+            <span className="muted">
+              Checked <DateTime value={health.value.checked_at} format="datetime" />
             </span>
-          </span>
-        ) : null}
-      </div>
+          ) : undefined
+        }
+      />
 
       {!health.ok ? (
-        <div className="grid">
-          <Notice tone="bad" icon="activity" title="Health could not be read">
-            {health.message
-              ?? 'The request to /v1/platform/health did not complete. Nothing can be '
-                + 'concluded from that about the platform itself — only that this screen '
-                + 'could not ask.'}
-          </Notice>
-        </div>
+        <Notice tone="bad" icon="activity" title="Health could not be read">
+          {health.message
+            ?? 'The request to /v1/platform/health did not complete. Nothing can be '
+              + 'concluded from that about the platform itself — only that this screen '
+              + 'could not ask.'}
+        </Notice>
       ) : (
-        <div className="grid">
+        <Stack gap="6">
           {/* ---- The headline. See the note at the top of this file. ---- */}
-          <Card as="section" aria-labelledby="overview-break-glass">
-            <div className="stack" style={{ gap: 'var(--space-5)' }}>
-              <div className="row-wrap" style={{ gap: 'var(--space-8)' }}>
-                <span className="stat">
-                  <span className="stat__label" id="overview-break-glass">
-                    Break-glass grants live now
-                  </span>
-                  <span className="stat__value" style={{ fontSize: 44 }}>
-                    {health.value.break_glass.active_grants}
-                  </span>
-                </span>
-                <div className="grow" style={{ minWidth: 260 }}>
-                  <p className="muted">
-                    Read this as a measure of the SUPPORT TOOLING, not of access control. A
-                    rising count means ordinary metadata-based diagnosis is inadequate and
-                    the correct response is to build better diagnosis — not to conclude that
-                    break-glass is working well.
-                  </p>
-                </div>
-              </div>
+          <Card as="section" aria-label="Break-glass grants live now">
+            <Stack gap="5">
+              <Grid cols={2} gap="6">
+                <Stat
+                  label="Break-glass grants live now"
+                  value={health.value.break_glass.active_grants}
+                />
+                <p className="muted">
+                  Read this as a measure of the SUPPORT TOOLING, not of access control. A
+                  rising count means ordinary metadata-based diagnosis is inadequate and the
+                  correct response is to build better diagnosis — not to conclude that
+                  break-glass is working well.
+                </p>
+              </Grid>
 
-              <div className="row-wrap">
+              <Inline gap="3">
                 <Button variant="primary" href={paths.breakGlass}>
                   Break-glass register
                 </Button>
-              </div>
-            </div>
+              </Inline>
+            </Stack>
           </Card>
 
           {/* ---- The one security assertion this endpoint makes. ---- */}
@@ -121,20 +139,26 @@ export async function OverviewScreen({ paths }: { paths: PlatformPaths }) {
 
           {/* ---- Clinics by state. This is the commercial surface, in full. ---- */}
           <Card as="section" aria-labelledby="overview-tenants">
-            <div className="stack" style={{ gap: 'var(--space-5)' }}>
+            <Stack gap="5">
               <h2 id="overview-tenants">Clinics by state</h2>
 
-              <div className="row-wrap" style={{ gap: 'var(--space-8)' }}>
+              {/*
+                `Inline` and not `Grid`, because the number of states is not fixed. There
+                are five today and `knownStatus()` exists precisely because the API may grow
+                a sixth before this build hears about it — `Grid` takes a column count and
+                would have to be told, in this file, a fact only the API knows. A wrapping
+                row takes however many arrive.
+              */}
+              <Inline gap="7" align="start">
                 {tenantCounts(health.value.tenants, STATUSES).map((row) => (
-                  <span className="stat" key={row.status}>
-                    <span className="stat__label">{row.status}</span>
-                    <span className="stat__value">{row.count}</span>
-                    {!row.recognised ? (
-                      <span className="stat__note">a state this build does not know</span>
-                    ) : null}
-                  </span>
+                  <Stat
+                    key={row.status}
+                    label={row.status}
+                    value={row.count}
+                    note={row.recognised ? undefined : 'a state this build does not know'}
+                  />
                 ))}
-              </div>
+              </Inline>
 
               <p className="muted">
                 Counts only. No patient numbers, no consultation numbers and no revenue —
@@ -143,14 +167,14 @@ export async function OverviewScreen({ paths }: { paths: PlatformPaths }) {
                 product has.
               </p>
 
-              <div className="row-wrap">
+              <Inline gap="3">
                 <Button variant="quiet" href={paths.register}>
                   Tenant register
                 </Button>
-              </div>
-            </div>
+              </Inline>
+            </Stack>
           </Card>
-        </div>
+        </Stack>
       )}
     </>
   )

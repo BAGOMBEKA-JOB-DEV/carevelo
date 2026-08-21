@@ -1,4 +1,4 @@
-import { Button, Field, Icon, Input, Notice } from '@carevelo/ui'
+import { Button, Field, Icon, Input, Notice, PageHeader } from '@carevelo/ui'
 import { signInWithPassword } from '../api/session'
 
 /**
@@ -55,12 +55,7 @@ export function SignInScreen({
       </header>
 
       <main className="fieldview__main" id="signin">
-        <div className="page-head">
-          <div className="grow">
-            <h1>Sign in</h1>
-            <p>Use the phone number your clinic has for you.</p>
-          </div>
-        </div>
+        <PageHeader title="Sign in" description="Use the phone number your clinic has for you." />
 
         {error ? (
           /* role="alert" comes from Notice's `bad` tone. This arrives after a navigation

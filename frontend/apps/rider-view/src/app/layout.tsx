@@ -2,6 +2,11 @@ import type { ReactNode } from 'react'
 import { headers } from 'next/headers'
 import type { Metadata } from 'next'
 import '@carevelo/ui/tokens.css'
+/* AFTER the token layer, because it corrects two values in it. See rider.css: the whole
+   file is four rules, each scoped to `.fieldview`, and three of them are stopgaps for
+   things that belong in packages/ui — which this change does not own. The arithmetic
+   behind each is written out there rather than asserted here. */
+import './rider.css'
 
 /**
  * Carevelo-branded, behind authentication. No tenant resolution and no --brand-*

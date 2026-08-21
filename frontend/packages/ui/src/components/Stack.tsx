@@ -54,10 +54,24 @@ export type StackElement = 'div' | 'section' | 'article' | 'ul' | 'ol' | 'li' | 
 
 export type StackAlign = 'stretch' | 'start' | 'center' | 'end'
 
+/*
+ * `gap` IS REQUIRED, AND THAT IS NOT AN OVERSIGHT.
+ *
+ * A default here would be actively dangerous during the sweep this component exists for.
+ * `.stack` in reset.css is `gap: var(--space-2)` — 6px — and the obvious default for new
+ * code is `'5'`, which is 16px. There are 207 elements carrying `className="stack"` in the
+ * apps and only 85 of them state a gap; converting the other 122 to a defaulted `<Stack>`
+ * would have TRIPLED their spacing, silently, with no diff to read and nothing failing.
+ *
+ * Requiring the prop turns that from a regression nobody notices into a decision somebody
+ * makes. Converting an existing `.stack` with no inline gap? It was 6px, so `gap="2"`.
+ * Writing something new? `gap="5"` is the sensible starting point. Either way the value is
+ * on the page, where a reviewer can see it.
+ */
 export type StackProps = {
   as?: StackElement | undefined
   /** A step on the space scale. `5` (16px) is the page's ordinary paragraph rhythm. */
-  gap?: Space | undefined
+  gap: Space
   /**
    * Cross-axis alignment. `stretch` is the default and is nearly always right: children
    * fill the column's width, which is what a card, a field and a table all want.
@@ -83,7 +97,7 @@ const ALIGN: Record<StackAlign, string | undefined> = {
 
 export function Stack({
   as: Tag = 'div',
-  gap = '5',
+  gap,
   align = 'stretch',
   id,
   className,

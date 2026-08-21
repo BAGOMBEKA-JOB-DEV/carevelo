@@ -2,6 +2,10 @@ import type { ReactNode } from 'react'
 import { headers } from 'next/headers'
 import type { Metadata } from 'next'
 import '@carevelo/ui/tokens.css'
+/* AFTER the token layer, because it corrects two values in it. See admin.css: two rules,
+   both scoped to `.layout`, one of them a stopgap for a contrast failure that belongs in
+   packages/ui — which this change does not own. The arithmetic is written out there. */
+import './admin.css'
 
 /**
  * Carevelo-branded, behind authentication. No tenant resolution and no --brand-*

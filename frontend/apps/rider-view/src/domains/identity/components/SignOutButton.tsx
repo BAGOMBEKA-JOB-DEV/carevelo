@@ -17,10 +17,16 @@ import { signOut } from '../api/session'
  *
  * The name is beside it because a rider may be using a shared handset, and "signed in as
  * somebody else" is otherwise invisible until a delivery they do not recognise appears.
+ *
+ * IT NO LONGER PUSHES ITSELF DOWN THE PAGE. This carried `marginTop: var(--space-7)`, which
+ * is the row deciding how far it sits from whatever happens to be above it — and there are
+ * three different things above it depending on the route and the session state. `FieldShell`
+ * wraps the main column in a `Stack`, so the gap between siblings is one decision made once
+ * by the column rather than a margin each sibling remembers to carry.
  */
 export function SignOutButton({ name }: { name: string }) {
   return (
-    <form action={submitSignOut} className="row-wrap" style={{ marginTop: 'var(--space-7)' }}>
+    <form action={submitSignOut} className="row-wrap">
       <span className="muted grow">Signed in as {name}</span>
       <Button type="submit" variant="quiet">
         Sign out

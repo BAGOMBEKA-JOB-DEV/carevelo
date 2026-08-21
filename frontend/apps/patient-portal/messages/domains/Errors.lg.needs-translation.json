@@ -1,0 +1,27 @@
+{
+  "note": "Every string in Errors.lg.json is still the ENGLISH text. Nothing here was guessed. These are the sentences a patient reads at the exact moment the portal has stopped working, and each one of them tells them what is and is not true about their own booking or their own payment. A fluent-sounding mistranslation of 'do not pay again on the strength of this page' is not a cosmetic defect — it is money sent twice. A visibly English paragraph is an honest gap; a confidently wrong Luganda one is not.",
+  "translateFirst": [
+    "Errors.payment.body",
+    "Errors.booking.body",
+    "Errors.generic.body"
+  ],
+  "translateFirstWhy": "The payment sentence is the only thing standing between a failed page and a second payment: it says the page read nothing, so the screen is not evidence either way. The booking sentence does the same job for a held time — a patient who books again because this page broke holds two slots and the clinic loses one. The generic body carries the single fact that keeps somebody from starting over destructively: nothing they did has been lost, and nothing has been changed.",
+  "needsTranslation": [
+    "Errors.generic.title",
+    "Errors.generic.body",
+    "Errors.generic.retry",
+    "Errors.generic.hub",
+    "Errors.generic.home",
+    "Errors.generic.reachClinic",
+    "Errors.generic.referenceLabel",
+    "Errors.generic.referenceNote",
+    "Errors.booking.title",
+    "Errors.booking.body",
+    "Errors.booking.appointments",
+    "Errors.booking.services",
+    "Errors.payment.title",
+    "Errors.payment.body",
+    "Errors.payment.appointments"
+  ],
+  "identicalOnPurpose": []
+}

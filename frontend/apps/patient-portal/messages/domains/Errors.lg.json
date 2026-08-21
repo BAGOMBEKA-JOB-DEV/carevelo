@@ -1,0 +1,25 @@
+{
+  "Errors": {
+    "generic": {
+      "title": "This page did not load",
+      "body": "Something failed at our end while this page was being put together. Nothing you have done has been lost and nothing has been changed. Try once more, and if it still will not open, telephone the clinic.",
+      "retry": "Try again",
+      "hub": "Go to your care",
+      "home": "The clinic's home page",
+      "reachClinic": "The clinic's telephone number is at the foot of every page.",
+      "referenceLabel": "If you telephone about this, read them this code",
+      "referenceNote": "It points our engineers at this one failure. It holds nothing about you and nothing about your care."
+    },
+    "booking": {
+      "title": "The booking page did not load",
+      "body": "This page failed while it was being put together, so it cannot tell you whether a time was taken. Look at your appointments before you book again: a time that is yours will be listed there, and booking a second one would hold two.",
+      "appointments": "Check your appointments",
+      "services": "Start again from services"
+    },
+    "payment": {
+      "title": "This page did not load",
+      "body": "The page failed before it could read anything, so nothing on this screen tells you what state this payment is in. Do not pay again on the strength of this page. Try once more, and if it still will not open, telephone the clinic and give them the code below.",
+      "appointments": "Your appointments"
+    }
+  }
+}

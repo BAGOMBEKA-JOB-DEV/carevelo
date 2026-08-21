@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { Stack } from '@carevelo/ui'
 import { SECTION_IDS, SECTIONS, type SectionId } from './sections'
 
 /**
@@ -26,6 +27,13 @@ import { SECTION_IDS, SECTIONS, type SectionId } from './sections'
  *
  * The two navs are the same list rendered twice — the sidebar above 900px, the tab bar
  * below it — so they cannot drift apart from each other or from the screens behind them.
+ *
+ * THE CONTENT COLUMN IS A `Stack`, WHICH IS WHY NO SCREEN IN THIS APP SETS A MARGIN.
+ * Every route renders a page header and then one or more blocks into it, and each of those
+ * blocks used to own the space above itself — as a `gap` written inline on a `.stack` or a
+ * `.grid`, twenty-five times across this app. One `gap` on the column is one decision, it
+ * cannot be got wrong by inserting a sibling, and it cannot disagree with itself between
+ * two screens that are meant to have the same rhythm.
  */
 export function ControlPlaneShell({
   title,
@@ -80,7 +88,9 @@ export function ControlPlaneShell({
             <img className="topbar__logo" src={logoUrl} alt="" />
           ) : null}
         </header>
-        <main className="content" id="main">{children}</main>
+        <main className="content" id="main">
+          <Stack gap="7">{children}</Stack>
+        </main>
         <nav className="tabbar" aria-label="Sections">
           {SECTION_IDS.map((id) => (
             <a
