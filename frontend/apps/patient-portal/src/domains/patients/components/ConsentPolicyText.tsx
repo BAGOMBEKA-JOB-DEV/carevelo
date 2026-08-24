@@ -54,7 +54,13 @@ export function ConsentPolicyText({
   const document = parsePolicyText(text)
 
   return (
-    <div className="site-doc" lang={lang} style={{ maxWidth: 'none', padding: 0 }}>
+    /* `.site-doc--inline`: the same prose treatment as /privacy and /terms, without the
+       820px measure and the 88px tail those pages get from standing alone. This policy is
+       rendered INSIDE a card that already owns both, and a second copy of each inset the
+       policy from its own heading. It is a modifier rather than a second class so that the
+       text a patient reads before consenting and the text they read afterwards cannot
+       drift apart — see tokens/site.css. */
+    <div className="site-doc site-doc--inline" lang={lang}>
       {document.title ? <TitleTag id={titleId}>{document.title}</TitleTag> : null}
 
       {document.sections.map((section, sectionIndex) => (

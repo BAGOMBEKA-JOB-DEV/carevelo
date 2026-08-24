@@ -40,21 +40,19 @@ export async function PrescriptionList({
 
   return (
     <section aria-labelledby="prescriptions-title">
-      <div className="page-head">
-        <div className="grow">
-          <span className="site-eyebrow">{t('detailEyebrow')}</span>
-          {/* SURVIVING INLINE STYLE. This header's two distances are different — 12px from
-              the eyebrow down to the title, 6px from the title down to the lede — and the
-              second one is not ours to move: `.page-head p` in the token layer sets it on
-              every descendant paragraph, so a `<Stack>` here would ADD its gap on top of
-              that 6px rather than replace it. One `marginTop` states the one distance the
-              markup actually owns. */}
-          <h1 id="prescriptions-title" style={{ marginTop: 'var(--space-4)' }}>
-            {t('listTitle')}
-          </h1>
-          <p>{t('listLede', { clinic })}</p>
-        </div>
-      </div>
+      {/* `SitePageHeader` owns both of this header's distances, and owns them separately,
+          which is the reason it exists: 12px from the eyebrow to the `<h1>` comes from a
+          `<Stack gap="4">` inside it, while the 6px from the title to the lede is left to
+          `.page-head p` in the token layer by keeping the description OUTSIDE that Stack.
+          Written by hand here it was a `marginTop` for the first and a silent dependency
+          for the second. `id` goes on the `<h1>` so the `<section>` above stays named by
+          it. */}
+      <SitePageHeader
+        id="prescriptions-title"
+        eyebrow={t('detailEyebrow')}
+        title={t('listTitle')}
+        description={t('listLede', { clinic })}
+      />
 
       {!result.ok ? (
         /* The API's own sentence when there is one — it is phrased so that it never
@@ -119,14 +117,17 @@ export async function PrescriptionList({
             ))}
           </Stack>
 
-          {/* SURVIVING INLINE STYLE. 18px between the list and its pager, and the list
-              above is a `<Stack>` whose gap is the distance between ROWS — a different
-              decision that must not follow this one. Neither element has a column of its
-              own to hold the space, so it stays a margin on the pager. */}
-          <nav
+          {/* 18px between the list and its pager. The list above is a `<Stack>` whose gap
+              is the distance between ROWS — a different decision that must not follow this
+              one — and neither element has a column of its own to hold the space, so it is
+              a margin still: `.card__section`, the token layer's name for the distance
+              above the controls that close a block. `<Inline justify="between">` is the row
+              itself, wrapping rather than pushing "Older" off a 360px screen. */}
+          <Inline
+            as="nav"
+            justify="between"
             aria-label={t('paginationLabel')}
-            className="row-wrap between"
-            style={{ marginTop: 'var(--space-6)' }}
+            className="card__section"
           >
             {/*
              * CURSORS, NEVER PAGE NUMBERS. The backend pages this queue by cursor

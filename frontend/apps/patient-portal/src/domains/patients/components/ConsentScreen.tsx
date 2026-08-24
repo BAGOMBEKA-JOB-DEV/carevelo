@@ -452,13 +452,15 @@ export async function ConsentScreen({
                   </Stack>
 
                   <form action={submitDecision.bind(null, decisionFor('data_processing', false))}>
-                    {guardian ? (
-                      <GuardianFields idPrefix="decline" strings={guardianStrings} />
-                    ) : null}
+                    <Stack gap="6">
+                      {guardian ? (
+                        <GuardianFields idPrefix="decline" strings={guardianStrings} />
+                      ) : null}
 
-                    <Button variant="quiet" type="submit">
-                      {t('consent.declineButton')}
-                    </Button>
+                      <Button variant="quiet" type="submit">
+                        {t('consent.declineButton')}
+                      </Button>
+                    </Stack>
                   </form>
                 </Stack>
               </Card>
