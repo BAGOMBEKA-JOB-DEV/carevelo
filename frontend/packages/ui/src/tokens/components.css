@@ -482,6 +482,19 @@
    every other supporting figure in the product rather than a size chosen once here. */
 .hash { overflow-wrap: anywhere; font-size: 12.5px; }
 
+/* A term column wide enough that its values line up. On a prescription item the four
+   terms — Form, Strength, Quantity, Directions — sit beside their values in a row each,
+   and without a floor under the term the values step in and out down the card, which is
+   the one thing a column of related facts must not do.
+
+   A CONTENT measure in `ch`, and that is why it is not on the space scale: `ch` is the
+   width of the words themselves, so the column widens with the type and with a
+   translation, where a pixel or a `--space-*` step would be a number chosen against
+   English at one size. The scale is this product's vocabulary for distances BETWEEN
+   things; the size of a thing is a different question, and Skeleton's block heights draw
+   the same line for the same reason. */
+.term-col { min-width: 9ch; }
+
 /* ---- A stat standing alone inside a block card ----
 
    `.card` is a plain block with no gap of its own — deliberately, because a card holds
