@@ -32,7 +32,7 @@
  *   <WorkingHoursScreen        paths saved problem />
  *   <StaffScreen               paths cursor saved problem />
  *   <StaffMemberScreen         paths userId saved problem />
- *   <PaymentConnectionScreen   paths saved problem aggregatorMessage />
+ *   <PaymentConnectionScreen   paths provider saved problem aggregatorMessage />
  *
  * `paths` is `TENANT_PATHS` — where the route layer has mounted these screens. This domain
  * hard-codes no URL, so it can be mounted anywhere and, more importantly, a Server Action
@@ -43,6 +43,11 @@
  * screens own the meaning; the route only carries the values. `saved`, `problem`, `advice`
  * and `aggregator` are how a Server Action reports back — a redirect cannot return a value,
  * and the alternative would make every form a client component. See `components/screen.ts`.
+ *
+ * `provider` on the payment screen is the one that is not a report. It selects which
+ * aggregator's vocabulary the credential panel wears — Flutterwave issues a secret key,
+ * Pesapal a consumer key and a consumer secret — and it lives on the URL for the same
+ * reason the others do: changing it must not require a bundle to have arrived.
  *
  * `userId` on `StaffMemberScreen` is the route's `[user]` segment, handed over raw. The
  * screen resolves it — there is no `GET /v1/tenant/users/{user}`, so it walks the clinic's

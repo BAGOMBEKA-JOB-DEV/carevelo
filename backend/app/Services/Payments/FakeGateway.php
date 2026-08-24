@@ -62,6 +62,24 @@ final class FakeGateway implements PaymentGateway
         return $this;
     }
 
+    /**
+     * Refused, exactly as FlutterwaveGateway refuses it.
+     *
+     * This fake stands in for the read-only half of the port -- the half
+     * reconciliation uses -- and a fake that answered a call the real thing
+     * refuses would let a test pass against behaviour production does not have.
+     * Pesapal's initiation is faked by FakePesapal, which is a different fake
+     * because it is a different flow.
+     */
+    public function initiateCollection(AggregatorAccount $account, PaymentIntent $intent): CollectionHandoff
+    {
+        $this->accountsUsed[] = $account->id;
+
+        throw new AggregatorUnavailable(
+            'This aggregator does not offer a server-side handoff.'
+        );
+    }
+
     public function fetchStatus(AggregatorAccount $account, PaymentIntent $intent): GatewayStatus
     {
         $this->accountsUsed[] = $account->id;

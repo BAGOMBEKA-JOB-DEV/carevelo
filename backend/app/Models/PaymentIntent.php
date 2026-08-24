@@ -37,6 +37,8 @@ use Illuminate\Support\Facades\Date;
  * @property ?Carbon $next_poll_at
  * @property PaymentMethod $method
  * @property ?string $aggregator_reference
+ * @property ?string $aggregator_tracking_id
+ * @property ?string $redirect_url
  * @property ?string $failure_message
  * @property ?Carbon $resolved_at
  * @property ?Carbon $initiated_at
@@ -56,6 +58,10 @@ class PaymentIntent extends Model implements RestrictableToPatient
         'request_fingerprint', 'stored_response', 'status', 'initiated_at',
         'resolved_at', 'next_poll_at', 'poll_attempts', 'failure_code',
         'failure_message', 'raw_callback_payload',
+        // The aggregator's own identifier for a server-side handoff, and the
+        // page it sent the patient to. Both are written by us after an
+        // initiation and neither is a request field.
+        'aggregator_tracking_id', 'redirect_url',
     ];
 
     /**

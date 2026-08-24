@@ -23,6 +23,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property string $id
  * @property string $provider
  * @property string $status
+ * @property ?string $ipn_id
  */
 class AggregatorAccount extends Model
 {
@@ -32,6 +33,11 @@ class AggregatorAccount extends Model
     protected $fillable = [
         'provider', 'public_key', 'secret_key', 'webhook_secret',
         'merchant_reference', 'environment', 'status', 'last_verified_at',
+        // Pesapal's id for the notification URL registered against THIS
+        // account. Written by the system after a successful registration, never
+        // by a request: UpdateAggregatorAccountRequest has no rule for it and
+        // rejects unknown fields, so it cannot arrive from outside.
+        'ipn_id',
     ];
 
     /**

@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { getTranslations } from 'next-intl/server'
 import { Button, Card, Choice, Money, Notice, formatMoney, type ChoiceOption } from '@carevelo/ui'
 import type { Tenant } from '@/lib/tenant'
-import { startPayment } from '../api/paymentIntents'
+import { handoffFor, startPayment } from '../api/paymentIntents'
 import type { MoneyAmount, Payable, PaymentMethodValue } from '../api/types'
 import { clinicName } from './screen'
 
@@ -62,6 +62,16 @@ export type PaymentMethodChooserProps = {
    * would create a real record, show a real waiting screen, and wait for something that will
    * never be asked of anybody. That is precisely the dishonest wait the PRD forbids. A route
    * may pass `card` explicitly the day the contract returns somewhere to send them.
+   *
+   * HALF OF THAT IS NOW BUILT, AND THE DEFAULT STILL DOES NOT CHANGE. This action redirects
+   * to a hosted checkout when the created intent carries one, so there IS somewhere to send
+   * a 3-D Secure authorisation at last. What is still missing is the other half: whether a
+   * given clinic's aggregator hosts a card page at all. That is a property of the clinic's
+   * merchant account — `AggregatorAccountResource.accepts_online_payment` — which is an
+   * administrator-only field this portal cannot read, so offering `card` by default would
+   * offer it to every clinic on a push-only aggregator as well, and each of those attempts
+   * would be the dishonest wait above with a redirect that never arrives. A route that KNOWS
+   * its clinic takes cards may still pass `card` explicitly.
    */
   methods?: readonly PaymentMethodValue[] | undefined
   /** A sentence from a failed attempt, arriving back as a search parameter. */
@@ -209,6 +219,40 @@ async function submitPayment(context: SubmitContext, formData: FormData): Promis
           : result.message
 
     redirect(withError(back, message))
+  }
+
+  /*
+   * ------------------------------------------------------------------
+   * THE FORK. Two payment models, and the ANSWER decides which one this is.
+   *
+   * A clinic whose merchant account is with a hosted-checkout aggregator gets back a page
+   * of the aggregator's own to finish on, and the patient goes there NOW — not to a screen
+   * that says "check your handset" for a handset nothing has been asked of. A clinic on a
+   * push aggregator gets back no such page and the patient goes to the status screen, which
+   * is exactly what happened before this fork existed. See `handoffFor` in
+   * api/paymentIntents.ts for why the method chosen on this form cannot decide it.
+   *
+   * `redirect()` TO ANOTHER ORIGIN IS THE ONE PLACE THIS FILE DOES THAT, and the docblock
+   * above is emphatic that an open redirect on a payment screen is a phishing kit with the
+   * clinic's branding on it. Nothing about that has been relaxed. `samePath()` guards the
+   * values that came from the PAGE — the paths, which are bound arguments a patient cannot
+   * reach — and this value came from somewhere else entirely: a server-to-server response
+   * to a call this action just made. It never passes through the browser, so there is no
+   * form field, query string or bound argument to tamper with. It is still checked twice
+   * before it gets here: the backend refuses any URL that is not https on the aggregator's
+   * own host, and `handoffFor` refuses anything that is not an absolute http(s) URL. A
+   * `samePath()` on it would be the wrong control anyway — leaving this origin is the
+   * entire point of a hosted checkout.
+   *
+   * WHAT HAPPENS IF THEY DO NOT FINISH THERE. Nothing here has to care. The intent exists,
+   * it is unresolved, and `/payments/{id}` renders PaymentCheckoutReturn for exactly that
+   * state — the same page offered back, rather than a second order submitted against their
+   * name.
+   */
+  const handoff = handoffFor(result.intent)
+
+  if (handoff.kind === 'hosted_checkout') {
+    redirect(handoff.url)
   }
 
   redirect(

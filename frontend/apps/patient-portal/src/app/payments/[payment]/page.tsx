@@ -10,8 +10,9 @@ import { PageBody } from '@/components/PageBody'
  * One payment attempt, for as long as it is unresolved — and the receipt once it is not.
  *
  * ONE PAGE FOR EVERY STATE, AND THAT IS THE DOMAIN'S RULE RATHER THAN A ROUTING SHORTCUT.
- * `PaymentStatusPanel` chooses between the waiting screen, the not-started screen, the
- * failure, the reversal, the honest "we cannot tell" and the receipt. Which status deserves
+ * `PaymentStatusPanel` chooses between the waiting screen, the not-started screen, the way
+ * back to an unfinished payment page, the failure, the reversal, the honest "we cannot tell"
+ * and the receipt. Which status deserves
  * which screen IS the business rule the payments domain owns — exactly one status means
  * paid, a timeout is not a failure, an unrecognised status is never success — and a route
  * picking its own would be that rule restated in the routing tree, free to drift from the
@@ -27,6 +28,16 @@ import { PageBody } from '@/components/PageBody'
  *
  * `null` IS 404 AND 403 ALIKE, collapsed by the domain on purpose so that this route
  * renders one not-found page for both and never leaks which clinic holds which record.
+ *
+ * THIS IS ALSO WHERE A HOSTED CHECKOUT COMES BACK TO. A patient paying at an aggregator that
+ * hosts its own page is returned here by the aggregator's callback, and an aggregator appends
+ * identifiers of its own to that URL when it does — Pesapal sends `OrderTrackingId` and
+ * `OrderMerchantReference`. Nothing here reads them and nothing here should: they are the
+ * aggregator's word for what happened, and the only account of a payment this portal will
+ * render is the one it just read from `GET /v1/payment-intents/{id}`. Unlisted search
+ * parameters are ignored, so a callback that arrives with three of them renders the same page
+ * as a patient who typed the URL — which is also why an abandoned checkout, where the patient
+ * comes back with no parameters at all, lands somewhere truthful rather than nowhere.
  *
  * ---------------------------------------------------------------------------------------
  * `?payable=` EXISTS BECAUSE THE CONTRACT DOES NOT CARRY THE PAYABLE, and this is a gap in

@@ -38,6 +38,32 @@ class AggregatorAccountFactory extends Factory
         ];
     }
 
+    /**
+     * A clinic that banks with Pesapal.
+     *
+     * The credential names differ from Flutterwave's in kind, not just in
+     * value: Pesapal's consumer key lives in public_key and its consumer secret
+     * in secret_key, and there is NO webhook secret at all -- Pesapal signs
+     * nothing, which is the whole subject of ADR-0012. Leaving it null here is
+     * a statement of that, not an omission.
+     */
+    public function pesapal(): static
+    {
+        return $this->state(fn (): array => [
+            'provider' => 'pesapal',
+            'public_key' => 'PESAPAL_TEST_CONSUMER_KEY_'.Str::random(16),
+            'secret_key' => 'PESAPAL_TEST_CONSUMER_SECRET_'.Str::random(16),
+            'webhook_secret' => null,
+            'ipn_id' => null,
+        ]);
+    }
+
+    /** A Pesapal account whose notification URL is already registered. */
+    public function withIpnId(string $ipnId): static
+    {
+        return $this->state(fn (): array => ['ipn_id' => $ipnId]);
+    }
+
     public function withWebhookSecret(string $secret): static
     {
         return $this->state(fn () => ['webhook_secret' => $secret]);

@@ -12,8 +12,9 @@ import { PageBody } from '@/components/PageBody'
  * THIS FALLBACK IS DELIBERATELY THE VAGUEST ONE IN THE PORTAL, AND THAT IS THE CORRECT
  * DESIGN RATHER THAN A SHORTCUT.
  *
- * `PaymentStatusPanel` resolves into one of six quite different screens — succeeded with a
- * receipt, waiting, not started, failed, reversed, or unresolved — and which one it is is
+ * `PaymentStatusPanel` resolves into one of seven quite different screens — succeeded with a
+ * receipt, waiting on a handset, back from an unfinished payment page, not started, failed,
+ * reversed, or unresolved — and which one it is is
  * the ONLY thing a patient came here to find out. A skeleton has no way of knowing, and any
  * shape specific enough to be useful would also be specific enough to be read as an answer:
  * a receipt-shaped placeholder says "paid" to somebody glancing at their phone, and a
@@ -25,7 +26,7 @@ import { PageBody } from '@/components/PageBody'
  * argument for the case where the read fails outright: a payments screen that has read
  * nothing must say it knows nothing, in as many words.
  *
- * NO HEADING TEXT EITHER. Each of the six panels writes its own <h1>, in the patient's
+ * NO HEADING TEXT EITHER. Each of the seven panels writes its own <h1>, in the patient's
  * language, and several of them name the clinic. `loading.tsx` is passed no props and
  * cannot resolve a tenant — see services/loading.tsx for why a fetch inside a fallback
  * defeats the fallback — so there is no honest sentence to put there. The line is reserved
@@ -57,7 +58,7 @@ export default function PaymentStatusLoading(): ReactElement {
             <Skeleton lines={1} className="title-lg" />
 
             {/*
-             * One card, sized for the middle of the six outcomes. `block="lg"` reserves the
+             * One card, sized for the middle of the seven outcomes. `block="lg"` reserves the
              * room the fuller panels need — a receipt, or a waiting screen with its "check
              * again" and "try another way" controls — so that the commoner cases fill the
              * space rather than grow into it. Where a shorter panel arrives the page settles
@@ -71,7 +72,7 @@ export default function PaymentStatusLoading(): ReactElement {
               </Stack>
             </Card>
 
-            {/* The way back into the portal that every one of the six panels offers. */}
+            {/* The way back into the portal that every one of the seven panels offers. */}
             <Skeleton lines={1} />
           </Stack>
         </PageBody>

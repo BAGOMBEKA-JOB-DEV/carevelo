@@ -30,6 +30,21 @@ class PaymentIntentResource extends JsonResource
             'amount' => $this->amount,
             'method' => $this->method->value,
             'aggregator_reference' => $this->aggregator_reference,
+            /*
+             * The aggregator's hosted payment page, where one exists.
+             *
+             * Present only for a provider that is initiated server-side --
+             * Pesapal today. Null is the ordinary answer for Flutterwave, whose
+             * collection the client starts itself, and for cash at the clinic,
+             * where nobody is going anywhere.
+             *
+             * It is a place to send the patient, NOT a confirmation of
+             * anything. A client that treats the presence of this URL as a paid
+             * booking has confirmed a booking nobody has paid for: the intent
+             * is `initiated` at this point, and only the aggregator can say
+             * what happens next.
+             */
+            'redirect_url' => $this->redirect_url,
             // Surfaced verbatim: only the aggregator knows why a collection
             // failed, and paraphrasing loses the actionable part.
             'failure_message' => $this->failure_message,

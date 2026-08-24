@@ -30,7 +30,11 @@ final class PaymentIntentResolver
     public function __construct(private readonly AuditLog $audit) {}
 
     /**
-     * @param  string  $source  'webhook' or 'reconciliation' -- for the audit trail
+     * @param  string  $source  'webhook', 'pesapal_ipn' or 'reconciliation' --
+     *                          for the audit trail. Three inbound paths, one
+     *                          set of rules; the label says which door a report
+     *                          came in by, and changes nothing about how it is
+     *                          treated once it is here.
      */
     public function apply(PaymentIntent $intent, GatewayStatus $reported, string $source): ResolutionOutcome
     {

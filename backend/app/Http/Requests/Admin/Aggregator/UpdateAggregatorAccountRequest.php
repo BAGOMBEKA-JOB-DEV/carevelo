@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Admin\Aggregator;
 
 use App\Http\Requests\Concerns\RejectsUnknownFields;
+use App\Services\Payments\AggregatorGateways;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -30,14 +31,18 @@ class UpdateAggregatorAccountRequest extends FormRequest
     use RejectsUnknownFields;
 
     /**
-     * Only Flutterwave is implemented. Pesapal is named in the regulatory
-     * documents and is accepted here so a clinic can record the account it
-     * actually holds; verification will refuse it until a client exists, which
-     * is a truthful answer rather than a silent one.
+     * The BoU-licensed aggregators a clinic may name here.
+     *
+     * DERIVED from the providers a client actually exists for, rather than
+     * listed again. The two lists were separate while Pesapal was accepted at
+     * onboarding and refused at verification, and a clinic could therefore
+     * store credentials the system could not use -- a truthful answer, but a
+     * confusing one to receive after typing a key. Now the API accepts exactly
+     * what the resolver can talk to, by construction.
      *
      * @var list<string>
      */
-    public const PROVIDERS = ['flutterwave', 'pesapal'];
+    public const PROVIDERS = AggregatorGateways::PROVIDERS;
 
     /** @var list<string> */
     public const ENVIRONMENTS = ['sandbox', 'live'];
