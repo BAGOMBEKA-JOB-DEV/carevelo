@@ -5,12 +5,13 @@
  * importable: reaching into ./components or ./api from another domain is a build failure,
  * not a code-review note. Cross-domain composition belongs in the route layer.
  *
- * WHAT THIS DOMAIN DOES: two screens, joined by one decision. The patient says whether
- * they are collecting their medicines or having them brought, and then — if they chose
- * delivery — watches the package move. The fulfilment endpoint hangs off a dispense order
- * rather than a delivery, and it is still filed here, because everything that matters
- * about that choice is a delivery concern: the controlled-item exclusion, the service
- * area, and the consent that decides whether a patient's address may reach a rider.
+ * WHAT THIS DOMAIN DOES: three screens now, joined by one decision. The patient says
+ * whether they are collecting their medicines or having them brought, then finds the
+ * package in a list of their own deliveries, and then watches it move. The fulfilment
+ * endpoint hangs off a dispense order rather than a delivery, and it is still filed here,
+ * because everything that matters about that choice is a delivery concern: the
+ * controlled-item exclusion, the service area, and the consent that decides whether a
+ * patient's address may reach a rider.
  *
  * ------------------------------------------------------------------------------------
  * WHAT THIS DOMAIN NEEDS FROM THE PATIENTS DOMAIN — PRECISELY
@@ -69,6 +70,20 @@
  *     error={typeof fulfilmentError === 'string' ? fulfilmentError : undefined}
  *   />
  *
+ * Finding one, at `/deliveries`:
+ *
+ *   const { cursor } = await searchParams          // Next 16: searchParams is a promise
+ *   const result = await listDeliveries({ cursor })
+ *
+ *   <DeliveryList result={result} clinic={clinic} />
+ *
+ * `DeliveryList` links each row to `${basePath}/{id}` and pages by CURSOR — it emits
+ * `?cursor=…` and nothing else. There is no page number to plumb through, deliberately:
+ * the dispatcher is assigning and riders are moving packages through the same table while
+ * the patient reads it, which is precisely the traffic under which an offset paginator
+ * duplicates and skips rows, and a skipped row here is a delivery nobody goes to the gate
+ * for.
+ *
  * Watching, at `/deliveries/[id]`:
  *
  *   const result = await getDeliveryTracking(id)
@@ -86,25 +101,42 @@
  * are behind a policy that admits the patient of the record and nobody else.
  *
  * ------------------------------------------------------------------------------------
- * TWO THINGS THE API DOES NOT YET LET A PATIENT DO, WHICH SHAPE EVERY ROUTE HERE
+ * WHAT THE API LETS A PATIENT DO HERE, AND THE ONE THING IT STILL DOES NOT
  *
- *   1. THERE IS NO PATIENT-FACING LISTING of dispense orders or of deliveries.
- *      `DispenseOrderController::index()` and `DeliveryController::index()` both authorise
- *      `viewAny`, which is clinic staff only, and neither uses `AuthorisesPatientReads` —
- *      although `viewOwn` exists on both policies, unused. So a patient can open an order
- *      or a delivery they hold the identifier for, and cannot discover that identifier
- *      from any endpoint they are allowed to call. Until that is closed, the id has to
- *      reach the route from outside — a link the clinic sent, or a message.
- *   2. THERE IS NO PATIENT-CALLABLE RESCHEDULE. A failed delivery is sent out again by a
- *      dispatcher reassigning it on the clinic's own board. The tracking screen therefore
- *      offers the clinic's telephone number rather than a button that would do nothing.
+ *   1. THE LISTING GAP IS CLOSED, and this note is kept rather than deleted because every
+ *      route in this domain was shaped by it and a reader should be able to see why.
+ *      `DeliveryController::index()` and `DispenseOrderController::index()` both authorised
+ *      `viewAny` — clinic staff only — while `viewOwn` sat unused on both policies. So a
+ *      patient could open a delivery they held the identifier for and could not discover
+ *      that identifier from any endpoint they were allowed to call: the id had to arrive
+ *      from outside, in a message. Both controllers now branch on `AuthorisesPatientReads`,
+ *      which authorises and narrows in one call, and the patient branch renders
+ *      `PatientDeliveryResource` — the TRACKING shape, not the dispatcher's record. See
+ *      `api/deliveries.ts` for exactly what a row may say and what it must never grow.
+ *   2. THERE IS STILL NO PATIENT-CALLABLE RESCHEDULE. A failed delivery is sent out again
+ *      by a dispatcher reassigning it on the clinic's own board. The tracking screen
+ *      therefore offers the clinic's telephone number rather than a button that would do
+ *      nothing.
  * ------------------------------------------------------------------------------------
  */
 export { FulfilmentChoice } from './components/FulfilmentChoice'
+export { DeliveryList } from './components/DeliveryList'
 export { DeliveryTracking } from './components/DeliveryTracking'
 
 export { getDispenseOrder } from './api/fulfilment'
 export type { DispenseOrder, FulfilmentMethod, OrderResult } from './api/fulfilment'
 
+export { listDeliveries } from './api/deliveries'
+export type { DeliveryListResult, DeliveryPage, PatientDelivery } from './api/deliveries'
+
 export { getDeliveryTracking } from './api/tracking'
 export type { DeliveryMilestone, DeliveryStatus, TrackingResult } from './api/tracking'
+
+/*
+ * DELIBERATELY NOT EXPORTED: `toMilestones` and `lastMovedAt`.
+ *
+ * Both are readings of the milestone thread, and the thread is this domain's own. A route
+ * that could parse milestones is a route that could decide what a status means, which is
+ * the decision `components/status.ts` exists to keep in one place — the two screens here
+ * must not be able to drift into describing the same package differently.
+ */

@@ -61,12 +61,16 @@ export type OrderResult =
  * which admits the patient of the order, and loads `prescription.items` — which is what
  * makes the controlled-item question answerable below.
  *
- * A KNOWN GAP, STATED HERE BECAUSE IT SHAPES EVERY CALLER. There is no patient-facing
- * LISTING of dispense orders: `index()` authorises `viewAny`, which is clinic staff only,
- * and it does not use `AuthorisesPatientReads`. So a patient can open an order they have
- * the identifier for and cannot discover the identifier from anywhere in the API. Until
- * that is closed, the route layer must be handed the id — from a URL the clinic sent, or
- * from whatever surface eventually links the two.
+ * THE GAP THAT SHAPED EVERY CALLER OF THIS FILE IS CLOSED. There used to be no
+ * patient-facing LISTING of dispense orders: `index()` authorised `viewAny`, clinic staff
+ * only, and did not use `AuthorisesPatientReads` — so a patient could open an order they
+ * held the identifier for and could not discover that identifier from anywhere in the API.
+ * The route layer had to be handed the id, from a URL the clinic sent. That controller now
+ * branches on the trait, and the DISPENSING domain owns the listing — `listDispenseOrders()`
+ * on `domains/dispensing`, filed there because it reads orders rather than because it
+ * decides anything about delivery. This function is unchanged: `show` is still the read
+ * that loads `prescription.items`, which is what makes the controlled-item question
+ * answerable before a patient chooses.
  */
 export async function getDispenseOrder(id: string): Promise<OrderResult> {
   try {

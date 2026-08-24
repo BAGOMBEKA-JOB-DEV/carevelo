@@ -12,10 +12,15 @@ import { patientApi } from './gateway'
  * a patient may see. A component in this domain that wanted a medicine name would have to
  * fetch it from somewhere else; there is nowhere else, and that is the design working.
  *
- * A KNOWN GAP, STATED HERE BECAUSE IT SHAPES EVERY CALLER. There is no patient-facing
- * listing of deliveries — `DeliveryController::index()` authorises `viewAny`, which is
- * clinic staff only — so the route layer must be handed the delivery identifier. A patient
- * cannot discover it from any endpoint they are allowed to call.
+ * THE GAP THAT SHAPED EVERY CALLER OF THIS FILE IS CLOSED. There used to be no
+ * patient-facing listing of deliveries at all — `DeliveryController::index()` authorised
+ * `viewAny`, which is clinic staff only — so the route layer had to be HANDED a delivery
+ * identifier from a message, because a patient could not discover one from any endpoint
+ * they were allowed to call. That controller now branches on `AuthorisesPatientReads`, and
+ * `./deliveries.ts` is the listing; this screen is reachable from inside the portal rather
+ * than only from a link. Nothing about the projection below changed, and nothing should:
+ * discovering a delivery and reading its address are different permissions, and
+ * `DeliveryPolicy` still gives the patient only the first.
  *
  * @see backend/app/Http/Controllers/Api/V1/DeliveryController.php — `tracking()`
  * @see backend/app/Policies/DeliveryPolicy.php — why `track` is not `view`
@@ -121,8 +126,15 @@ export function isSettled(status: string): boolean {
  * Dropping rather than rendering: an unparseable entry on this screen would print raw
  * server data into a patient's page, and the one thing this endpoint promises is that
  * nothing unexpected reaches it.
+ *
+ * EXPORTED WITHIN THE DOMAIN, AND NOT PAST IT. `api/deliveries.ts` reads the same
+ * `milestones` array off `PatientDeliveryResource` — the list endpoint renders the tracking
+ * shape for every row — and a second parser would be a second set of rules about which
+ * server values are safe to put on a patient's page. It is not on index.ts: nothing outside
+ * this domain has a milestone to parse, and exporting it would invite somebody to acquire
+ * one.
  */
-function toMilestones(value: unknown): DeliveryMilestone[] {
+export function toMilestones(value: unknown): DeliveryMilestone[] {
   if (!Array.isArray(value)) {
     return []
   }

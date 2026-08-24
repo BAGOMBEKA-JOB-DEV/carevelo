@@ -1,0 +1,43 @@
+{
+  "Dispensing": {
+    "listEyebrow": "Your medicines",
+    "listTitle": "Orders from the pharmacy",
+    "listLede": "Everything {clinic}'s pharmacy is filling for you, newest first. What each order contains is on the order's own page, not in this list.",
+    "emptyTitle": "Nothing at the pharmacy yet",
+    "emptyBody": "When a clinician at {clinic} prescribes something and the pharmacy takes it up, the order appears here — what it costs, whether anything is owed, and whether you are collecting it or having it brought.",
+    "unavailableTitle": "Your orders could not be loaded",
+    "unreachable": "Your orders could not be reached just now. Try again in a moment, or call {clinic}.",
+    "orderReference": "Order {reference}",
+    "totalLabel": "Total",
+    "dispensedLabel": "Filled",
+    "open": "Open it",
+    "pay": "Pay for this",
+    "paginationLabel": "More orders",
+    "newer": "Newer",
+    "older": "Older",
+    "handover": {
+      "pickup": "You are collecting this from the pharmacy.",
+      "delivery": "This is being brought to you.",
+      "undecided": "Nobody has recorded yet whether you are collecting this or having it brought."
+    },
+    "status": {
+      "received": "With the pharmacy",
+      "under_review": "Being checked by a pharmacist",
+      "awaiting_substitution": "Waiting on a decision about a substitute",
+      "priced": "Priced",
+      "partially_priced": "Partly priced",
+      "awaiting_payment": "Waiting for payment",
+      "paid": "Paid",
+      "dispensed": "Filled by the pharmacist",
+      "ready_for_pickup": "Ready to collect",
+      "out_for_delivery": "On its way to you",
+      "collected": "Collected",
+      "completed": "Completed",
+      "returned": "Back at the pharmacy",
+      "refund_pending": "A refund is being arranged",
+      "cancelled": "Cancelled",
+      "rejected": "The pharmacy did not fill this",
+      "unknown": "Status not available"
+    }
+  }
+}

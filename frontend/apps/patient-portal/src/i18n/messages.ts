@@ -5,6 +5,7 @@ import paymentsEn from '../../messages/domains/Payments.en.json'
 import consultationsEn from '../../messages/domains/Consultations.en.json'
 import prescriptionsEn from '../../messages/domains/Prescriptions.en.json'
 import deliveryEn from '../../messages/domains/Delivery.en.json'
+import dispensingEn from '../../messages/domains/Dispensing.en.json'
 import routesEn from '../../messages/domains/Routes.en.json'
 import errorsEn from '../../messages/domains/Errors.en.json'
 import type { Locale } from './locales'
@@ -65,6 +66,7 @@ const EN = {
   ...consultationsEn,
   ...prescriptionsEn,
   ...deliveryEn,
+  ...dispensingEn,
   ...routesEn,
   ...errorsEn,
 }
