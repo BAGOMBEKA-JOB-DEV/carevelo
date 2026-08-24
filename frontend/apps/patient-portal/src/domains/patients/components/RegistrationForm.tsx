@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react'
 import { getTranslations } from 'next-intl/server'
-import { Button, Card, Notice } from '@carevelo/ui'
+import { Button, Card, Notice, Stack } from '@carevelo/ui'
 import type { Tenant } from '@/lib/tenant'
 import { registerPatient, requiresGuardian } from '../api/patients'
 import { rememberRegistration } from '../api/handoff'
@@ -175,7 +175,12 @@ export async function RegistrationForm({
 
   return (
     <PageBody>
-      <div className="grid" style={{ gap: 'var(--space-7)', maxWidth: 640 }}>
+      {/* `.site-form` caps the column at 640px. `.site-wrap` is 1280px, which is right for
+          a marketing band and wrong for a text input — a `Field` stretched that wide gives
+          a patient a 1200px box to type a phone number into. This was
+          `style={{ maxWidth: 640 }}` here and on three other screens; it is one class in
+          tokens/site.css now, beside the measure it differs from. */}
+      <Stack gap="7" className="site-form">
         <div className="site-sec-head">
           <span className="site-eyebrow">{t('register.eyebrow')}</span>
           <h1 className="site-h1">{t('register.title', { clinic })}</h1>
@@ -189,57 +194,94 @@ export async function RegistrationForm({
         ) : null}
 
         <Card as="section" aria-labelledby="register-heading">
-          <h2 className="title" id="register-heading">
-            {t('register.aboutYouHeading')}
-          </h2>
+          {/* 18px from the card's heading down to the form, stated on the column instead of
+              on the form's first child — where it was a `marginTop` that belonged to the
+              relationship between two elements rather than to either of them. */}
+          <Stack gap="6">
+            <h2 className="title" id="register-heading">
+              {t('register.aboutYouHeading')}
+            </h2>
 
-          <form action={submitRegistration.bind(null, { returnHref, consentHref })}>
-            <div className="stack" style={{ gap: 'var(--space-5)', marginTop: 'var(--space-6)' }}>
-              <IdentityFields fault={fault} />
-            </div>
+            <form action={submitRegistration.bind(null, { returnHref, consentHref })}>
+              {/*
+               * THREE NESTED COLUMNS, AND THE NESTING IS THE FORM'S OWN SHAPE RATHER THAN A
+               * TRICK TO REACH THREE DIFFERENT NUMBERS. The distances used to be four
+               * `marginTop`s — 24px, 16px, 16px, 30px — spread across four elements, and
+               * reading them meant reading all four.
+               *
+               * Outermost: 30px, which is the gap before the submit button. A form's
+               * primary action wants visible air above it, so that the last field and the
+               * irreversible tap are not one continuous run of things to touch.
+               *
+               * Middle: 24px, between what the API requires and what it does not. That gap
+               * is the fold in the form and it is deliberately the second-largest.
+               *
+               * Innermost: 16px, twice — between the required fields, and between the two
+               * `<details>`, which are a PAIR (optional details, then guardian details) and
+               * are spaced as one.
+               */}
+              <Stack gap="8">
+                <Stack gap="7">
+                  <Stack gap="5">
+                    <IdentityFields fault={fault} />
+                  </Stack>
 
-            {/*
-              OPTIONAL, AND IT LOOKS OPTIONAL. A `<details>` needs no JavaScript to open, and
-              collapsing these keeps the required part of the form to one screen on a phone.
-              It is opened by default when the failure was in one of them, so a patient is
-              never told something is wrong on a field they cannot see.
-            */}
-            <details
-              style={{ marginTop: 'var(--space-7)' }}
-              open={DETAIL_FIELDS.includes(errorField ?? '')}
-            >
-              <summary style={SUMMARY} >{t('register.moreDetails')}</summary>
+                  <Stack gap="5">
+                    {/*
+                      OPTIONAL, AND IT LOOKS OPTIONAL. A `<details>` needs no JavaScript to
+                      open, and collapsing these keeps the required part of the form to one
+                      screen on a phone. It is opened by default when the failure was in one
+                      of them, so a patient is never told something is wrong on a field they
+                      cannot see.
 
-              <p className="subtitle" style={{ marginTop: 'var(--space-4)', fontSize: 13 }}>
-                {t('register.moreDetailsNote', { clinic })}
-              </p>
+                      `.disclosure` and `.disclosure__summary` from the token layer. A
+                      `<summary>` is a CONTROL — clicked, tabbed to, toggling state — so it
+                      answers to the same 44px touch floor as `.btn`, and the user agent
+                      gives it the height of one line of text. That geometry was a `SUMMARY`
+                      style constant in this file and a second copy of it in
+                      ConsentHistory.tsx; both are gone. `.disclosure` also supplies the
+                      column inside the `<details>`, which is the one column a `<Stack>` can
+                      never be: `<summary>` must be the first child of `<details>`, and
+                      Stack renders a div.
+                    */}
+                    <details
+                      className="disclosure"
+                      open={DETAIL_FIELDS.includes(errorField ?? '')}
+                    >
+                      <summary className="disclosure__summary">{t('register.moreDetails')}</summary>
 
-              <div className="stack" style={{ gap: 'var(--space-5)', marginTop: 'var(--space-5)' }}>
-                <DetailFields fault={fault} />
-              </div>
-            </details>
+                      <Stack gap="5">
+                        <p className="subtitle subtitle--sm">
+                          {t('register.moreDetailsNote', { clinic })}
+                        </p>
 
-            <details
-              style={{ marginTop: 'var(--space-5)' }}
-              open={GUARDIAN_FIELDS.includes(errorField ?? '')}
-            >
-              <summary style={SUMMARY}>{t('register.guardianSummary')}</summary>
+                        <DetailFields fault={fault} />
+                      </Stack>
+                    </details>
 
-              <p className="subtitle" style={{ marginTop: 'var(--space-4)', fontSize: 13 }}>
-                {t('register.guardianNote')}
-              </p>
+                    <details
+                      className="disclosure"
+                      open={GUARDIAN_FIELDS.includes(errorField ?? '')}
+                    >
+                      <summary className="disclosure__summary">
+                        {t('register.guardianSummary')}
+                      </summary>
 
-              <div className="stack" style={{ gap: 'var(--space-5)', marginTop: 'var(--space-5)' }}>
-                <GuardianContactFields fault={fault} />
-              </div>
-            </details>
+                      <Stack gap="5">
+                        <p className="subtitle subtitle--sm">{t('register.guardianNote')}</p>
 
-            <div style={{ marginTop: 'var(--space-8)' }}>
-              <Button variant="brand" size="lg" block type="submit">
-                {t('register.submit')}
-              </Button>
-            </div>
-          </form>
+                        <GuardianContactFields fault={fault} />
+                      </Stack>
+                    </details>
+                  </Stack>
+                </Stack>
+
+                <Button variant="brand" size="lg" block type="submit">
+                  {t('register.submit')}
+                </Button>
+              </Stack>
+            </form>
+          </Stack>
         </Card>
 
         {/*
@@ -251,7 +293,7 @@ export async function RegistrationForm({
         <Notice tone="neutral" icon="shield" title={t('register.nextTitle')}>
           {t('register.nextBody', { clinic })}
         </Notice>
-      </div>
+      </Stack>
     </PageBody>
   )
 }
@@ -271,12 +313,3 @@ const GUARDIAN_FIELDS: readonly string[] = [
   'guardian_phone',
   'guardian_relationship',
 ]
-
-/** The disclosure row is a control, so it answers to the same 44px touch floor. */
-const SUMMARY = {
-  cursor: 'pointer',
-  minHeight: 'var(--touch-min)',
-  display: 'flex',
-  alignItems: 'center',
-  fontWeight: 600,
-} as const

@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { getTranslations } from 'next-intl/server'
 import { clinicMetadata } from '@/lib/metadata'
-import { Icon, type IconName } from '@carevelo/ui'
+import { Icon, Notice, type IconName } from '@carevelo/ui'
 import { resolveTenant } from '@/lib/tenant'
 import { currentUser } from '@/lib/session'
 import { signOut } from '@/domains/identity'
@@ -109,7 +109,9 @@ export default async function AccountPage() {
 
   return (
     <SiteShell tenant={tenant} signedIn>
-      <PageBody>
+      {/* `.site-hub` is what carries this page's vertical rhythm — see the docblock on
+          the heading below, and the rules in tokens/site.css beside `.cellgrid`'s 52px. */}
+      <PageBody className="site-hub">
         <SitePageHeader
           eyebrow={t('eyebrow')}
           title={t('welcome', { firstName: firstName(user.name) })}
@@ -130,21 +132,16 @@ export default async function AccountPage() {
         />
 
         {/*
-         * SURVIVING INLINE STYLE, AND THE ONE PATTERN THE LAYOUT SWEEP COULD NOT ANSWER.
-         *
          * `.stat__value` is 28px, sized for a COUNT — "1,240", "6", a shilling total. Both
          * values here are a NAME, and a clinic's trading name at 28px in the display face
-         * wraps to three lines inside a `.cell` on a 360px phone. 21px is what fits, and
-         * 21px is not on the type scale: `.title` is 21px but in the BODY face at weight
-         * 600, so borrowing it would change the face as well as the size and put a stat
-         * value in a different typeface from every other stat value in the product.
+         * wraps to three lines inside a `.cell` on a 360px phone. `--md` is 21px, which is
+         * a size this product already sets in the display face, and it keeps the face, the
+         * weight and the tabular figures that make a stat value a stat value.
          *
-         * The right fix is a size modifier — `.stat__value--sm` and friends — in
-         * tokens/components.css beside the rule it modifies, where the console's ~15
-         * matching overrides can use it too. That file is not this sweep's to write, and
-         * inventing a second mechanism in the app to avoid one style property would be
-         * worse than the property. So it stays, with this comment, and the modifier is the
-         * follow-up.
+         * This used to be `style={{ fontSize: 21 }}` with a paragraph explaining that the
+         * modifier was the right answer and did not exist yet. It exists now — see
+         * `.stat__value--sm` / `--md` in tokens/components.css, where the console's own
+         * fourteen matching overrides can reach it too.
          */}
         <div className="cellgrid cellgrid--2">
           <div className="cell">
@@ -169,21 +166,25 @@ export default async function AccountPage() {
         </div>
 
         {/*
-         * SURVIVING INLINE STYLE. This page's vertical rhythm is a BLOCK formatting
-         * context and has to stay one: `.cellgrid` carries a 52px `margin-top` of its own
-         * from the token layer, and wrapping these children in a `<Stack>` would stop that
-         * margin collapsing against `.page-head`'s 24px `margin-bottom` and add the
-         * Stack's gap on top of both — see PageBody's docblock, which is where that
-         * reasoning is kept. The four gaps down this page are 30px, 52px, 24px and 18px;
-         * no single Stack gap absorbs them, and a nest per pair would be four wrappers to
-         * retire four properties.
+         * NO INLINE STYLE, AND NO `<Stack>` EITHER, WHICH IS THE POINT.
+         *
+         * This page's vertical rhythm is a BLOCK formatting context and has to stay one:
+         * `.cellgrid` carries a 52px `margin-top` of its own from the token layer and
+         * `.page-head` a 24px `margin-bottom`, and in a block container those COLLAPSE to
+         * 52px. Wrapping these children in a `<Stack>` stops the collapse, applies both,
+         * and lands the Stack's gap on top — the page loosens by up to 76px with nothing
+         * failing and nothing to see in a diff.
+         *
+         * So the three distances that were `style={{ marginTop: … }}` here are margins
+         * still, but named ones: `.site-hub` on the PageBody above, and three rules in
+         * tokens/site.css beside the 52px they complete. All four gaps down this page —
+         * 30px, 52px, 24px, 18px — are now readable in one place instead of three
+         * elements and a stylesheet.
          *
          * `.site-h2` sets its own 14px `margin-top` for the marketing sections it was
-         * written for. 30px is the working page's step, and it is on the scale.
+         * written for; 30px is the working page's step, and it is on the scale.
          */}
-        <h2 className="site-h2" style={{ marginTop: 'var(--space-8)' }}>
-          {routes('hub.doHeading')}
-        </h2>
+        <h2 className="site-h2">{routes('hub.doHeading')}</h2>
 
         <div className="cellgrid cellgrid--2">
           {destinations.map((destination) => (
@@ -208,25 +209,25 @@ export default async function AccountPage() {
         {/* Not a card, because it is not somewhere to go. Stated plainly instead, where a
             patient looking for their delivery will read it.
 
-            SURVIVING INLINE STYLES, both for the block-context reason above, and one of
-            them is load-bearing in a way that is worth flagging rather than tidying:
-            `.notice` is `display: flex` in ROW direction, so the `<strong>` and the `<p>`
-            here sit side by side as two columns and the 6px is what stops the second
-            column sitting on the first one's baseline. `<Notice tone="info" title={…}>`
-            would stack them — that component puts its title and body in a `.stack grow` —
-            and that is very probably what this markup meant. It is a LAYOUT CHANGE, not a
-            sweep, so it is reported rather than made here. */}
-        <div className="notice notice-info" style={{ marginTop: 'var(--space-7)' }}>
-          <strong>{routes('hub.byLinkHeading', { clinic })}</strong>
-          <p style={{ marginTop: 'var(--space-2)' }}>{routes('hub.byLinkBody', { clinic })}</p>
-        </div>
+            A `<Notice>` NOW, AND THAT IS A REAL FIX RATHER THAN A SWEEP. This was a
+            hand-written `.notice notice-info` holding a `<strong>` and a `<p>`. `.notice`
+            is `display: flex` in ROW direction, so those two sat SIDE BY SIDE as two
+            columns, and the 6px `marginTop` on the paragraph was doing nothing but
+            stopping the second column resting on the first one's baseline. Nobody writing
+            a heading and a sentence means them to be two columns. `<Notice title={…}>`
+            puts both in a `.stack grow` — heading above sentence, 6px between them, the
+            same 6px by a mechanism that says what it is — which is what this markup meant
+            all along. Checked at 390px, where the two-column version had the heading and
+            the sentence sharing a 150px column each. */}
+        <Notice tone="info" title={routes('hub.byLinkHeading', { clinic })}>
+          {routes('hub.byLinkBody', { clinic })}
+        </Notice>
 
         {/* Two whole sentences rather than one with a fragment glued on where the phone
             number goes. A translator handed "on {phone}" in isolation has no way to know
             what it attaches to, and in a language whose word order differs from English it
             may not attach there at all. */}
-        {/* SURVIVING INLINE STYLE — the block-context reason above. */}
-        <p className="fine" style={{ marginTop: 'var(--space-6)' }}>
+        <p className="fine">
           {phone ? t('contactWithPhone', { clinic, phone }) : t('contact', { clinic })}
         </p>
       </PageBody>

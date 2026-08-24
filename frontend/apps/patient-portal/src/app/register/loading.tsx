@@ -40,7 +40,14 @@ export default async function RegisterLoading(): Promise<ReactElement> {
     <div className="site-root">
       <main>
         <PageBody>
-          <div className="grid" style={{ gap: 'var(--space-7)', maxWidth: 640 }}>
+          {/* The same column the real screen uses, at the same measure and the same gap —
+              `<Stack gap="7" className="site-form">` in RegistrationForm.tsx. A fallback that
+              reserves a different width or a different rhythm from the page it stands in for
+              is a fallback that makes the page jump when it arrives, which is the one thing
+              a skeleton exists to prevent. It is stated the same way in both files so that
+              changing one and not the other is a visible difference rather than a silent
+              6px of reflow. */}
+          <Stack gap="7" className="site-form">
             <div className="site-sec-head">
               <Stack gap="4">
                 <span className="site-eyebrow">{t('register.eyebrow')}</span>
@@ -63,7 +70,7 @@ export default async function RegisterLoading(): Promise<ReactElement> {
                 <Skeleton block="sm" />
               </Stack>
             </Card>
-          </div>
+          </Stack>
         </PageBody>
       </main>
     </div>

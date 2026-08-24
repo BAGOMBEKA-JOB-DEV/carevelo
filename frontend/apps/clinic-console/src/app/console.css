@@ -348,6 +348,11 @@
   gap: var(--space-2);
   min-height: var(--touch-min);
   list-style: none;
+  /* Six of the seven wear `.lnk` as well, which already sets this. The seventh — the
+     version-and-fingerprint disclosure on the consent desk — is not a link and was setting
+     it inline, and a summary is a control whichever way it is painted. Stating it here is a
+     no-op for the six and the whole of what the seventh needed. */
+  cursor: pointer;
 }
 
 .layout .disclose::-webkit-details-marker {
@@ -521,8 +526,194 @@
   margin-top: 2px;
 }
 
+
 /* ------------------------------------------------------------
-   15. THE PORTAL PREVIEW — THE ONE PLACE ON THIS SURFACE THAT PAINTS --brand-*
+   15. THE TWO ELEMENTS THE LAYOUT PRIMITIVES DELIBERATELY WILL NOT TAKE
+
+   Stack's and Grid's `as` unions stop at the elements that are layout, and they stop there
+   on purpose. `<dl>` promises a screen reader that what follows is term-and-definition
+   pairs and its only legal children are `<dt>`, `<dd>` and the `<div>`s that group them;
+   `<fieldset>` owns a `<legend>` whose position is measured against the fieldset's OWN
+   border box, so moving the column onto an inner wrapper moves the box the legend is laid
+   against. Neither can take a primitive on it and neither can take one inside it.
+
+   That left eight call sites writing `className="grid"` or `className="stack"` and then
+   restating a gap inline, which is the exact shape — the token was right, the mechanism was
+   missing — that the layout layer was built to end. These two classes are that mechanism for
+   the two elements the layer cannot reach. The values are the scale's, not pixels.
+
+   `.pairs` is a grid rather than a flex column because that is what four of the five sites
+   already were, and a single-column grid with a gap and a flex column with the same gap
+   render identically here — the pairs are `<div>`s, so nothing is being placed in a track.
+   Going the other way would have meant changing four to match one.
+   ------------------------------------------------------------ */
+.layout .pairs {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.layout .field-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* ------------------------------------------------------------
+   16. THE BODY OF A DISCLOSURE, HELD OFF THE CONTROL THAT OPENED IT
+
+   `<summary>` has to be the FIRST child of `<details>` or the disclosure does not work at
+   all, which means the summary and the body it opens are ALWAYS siblings inside `<details>`
+   and never two children of a container a `gap` could go on. Putting `display: flex` on the
+   `<details>` itself is not the way out: Chrome renders the content while the disclosure is
+   CLOSED once you do. So the offset has to be a margin on the body, and it was a margin on
+   the body at six call sites — amend a note, add an addendum, cancel an appointment, confirm
+   one without payment, correct a dispense order, edit a service.
+
+   The six had drifted to three different values (8px, 12px, 16px), each of them matching
+   whatever the gap of the Stack inside it happened to be. That is not a rhythm anybody
+   chose; it is six people making the same decision separately. 12px is the middle one and
+   the one four of the six already used. Named for what it is, so the seventh disclosure
+   somebody writes gets it without having to notice.
+   ------------------------------------------------------------ */
+.layout .disclose-body {
+  margin-top: var(--space-4);
+}
+
+/* ------------------------------------------------------------
+   17. THE HALF-STEPS AROUND BODY SIZE THAT THIS APP ACTUALLY USES
+
+   `--text-base-size` is 14.5px and `.fine` is 12px, and there is nothing between them. Six
+   call sites had each picked their own way across that gap — 13, 13.5, 14, 14.5, 15 and
+   15.5 — and every one of them was a number typed where a scale was not to hand. Four of the
+   six are the SAME IDEA said four ways: a muted line that qualifies the thing above it. They
+   are one class now, at 13.5px, which is where two of the four already were and within half
+   a pixel of a third.
+
+   These live here rather than in the shared type scale because they are the console's
+   answer. A patient reading a booking confirmation once does not need a step below body
+   size; a receptionist reading forty appointment rows does, because the qualifier under each
+   record name has to be subordinate to it at a glance and not merely darker.
+   ------------------------------------------------------------ */
+
+/* The line under an answer or a record name that says what it is OF — the service and
+   clinician under a patient's name, the date a consent was last answered, the note under a
+   fingerprint. `.muted` at the call site carries the colour; this carries only the step. */
+.layout .qualifier {
+  font-size: 13.5px;
+}
+
+/* The one line a clinician reads back before signing a prescription. A half-step ABOVE body
+   size rather than below it, and the only thing on this surface set that way: everything
+   else on the screen is being scanned and this one line is being checked. */
+.layout .read-back {
+  font-size: 15.5px;
+}
+
+/* The consent policy, which is the only block of continuous PROSE in the console. The size
+   is the base size stated rather than inherited, because this block is read aloud across a
+   counter and must not shrink if it is ever nested somewhere that sets its own; the line
+   height is the part that actually differs — 1.6 against the interface's 1.5, because prose
+   read start to finish needs more leading than a label glanced at. */
+.layout .policy-doc {
+  font-size: var(--text-base-size);
+  line-height: 1.6;
+}
+
+/* A clinical note that is a SUPERSEDED draft, and one that is current. `.verbatim` is 14px
+   flat, and the two states were separated inline by size alone. Kept as size, because the
+   colour is already doing work here (`.muted` on the earlier ones) and a second signal that
+   is structural rather than chromatic survives a reader who cannot use the first. */
+.layout .verbatim--sm {
+  font-size: 13px;
+}
+
+.layout .verbatim--lg {
+  font-size: 15px;
+}
+
+/* ------------------------------------------------------------
+   18. WEIGHT 600, WHICH THE TYPE SCALE HAS NO STEP FOR
+
+   `.title-sm` is 700 in the display face and `.record-name` is 600 at 16px, and between them
+   there is nothing that says "this line is the important one of the two" at body size. Four
+   call sites wrote the weight inline. `<strong>` is not the answer for any of them: it is
+   700, and it announces an emphasis that nobody put on a clinician's own name or on the
+   first line of a checkbox label.
+
+   Two names for one declaration, on purpose. They are two different things — a control's own
+   label, and the name of the person a document is signed by — and they will not stay one
+   declaration: the signatory line is the more likely of the two to want its own colour the
+   day a prescription is previewed on paper. Naming them apart now costs nothing and means
+   that change does not have to start by splitting a class.
+   ------------------------------------------------------------ */
+.layout .control-label,
+.layout .signatory {
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------
+   19. THE FOUR REMAINING NAMED SHAPES, EACH OF WHICH WAS AN INLINE STYLE
+
+   Small, and each one is the whole of what a call site was setting by hand.
+   ------------------------------------------------------------ */
+
+/* A `.card` that is ITSELF the link — the five settings tiles, and the forty patient cards a
+   receptionist picks a caller from. Two things were being set inline and both are floors
+   rather than decoration. `display: flex` because an `<a>` is inline by default and would
+   break its own padding and border across line boxes at the first wrap, and the column
+   direction so a card that also carries `.stack` keeps the direction it already had rather
+   than having it silently reversed by a later rule. `min-height` because the whole card is
+   one tap target for a thumb; `.card`'s 24px of padding happens to clear 44px today, which
+   is precisely the accident that stops being true the first time somebody tries a tighter
+   card here. A floor that is currently satisfied is still the thing keeping it satisfied. */
+.layout .card-link {
+  display: flex;
+  flex-direction: column;
+  min-height: var(--touch-min);
+}
+
+/* An appointment that is a HOLD rather than a booking. Structural and not chromatic, so it
+   survives a colour-blind reader and a printed rota; the badge beside it says the same thing
+   in words. It was a conditional inline style, which is the one case where the conditional
+   belongs on the CLASS LIST instead — the condition is a state of the record, and a state of
+   a record is what a modifier class is for. */
+.layout .card-held {
+  border-style: dashed;
+}
+
+/* A checkbox and the two lines that label it. The `<label>` is the control's extended hit
+   area, which is why the 44px floor is on it and not on an inner wrapper: putting the row on
+   a child and the floor on the parent is two places to get one target wrong. `.row`'s own
+   gap is 12px and a box beside its own label wants 8. */
+.layout .check-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--touch-min);
+}
+
+/* The hairline between WHAT is being prescribed and WHO is prescribing it, on the document a
+   clinician reads back before signing. Not a space-scale step and not a border anything else
+   on this surface draws, so there was nothing for a layout primitive to take — but there is
+   something for a name to take, because the rule and the space under it only mean anything
+   together. */
+.layout .signed-off {
+  border-top: 1px solid var(--hairline);
+  padding-top: var(--space-4);
+}
+
+/* `.stat__note` is an inline span everywhere else it is used, because everywhere else it
+   sits in a `.stat` flex column that has already put it on its own line. Inside a `<dd>` it
+   sits beside the value and runs on after an aggregator reference as if it were part of it,
+   which on a payment record is a hint being read as digits. A modifier of the shared class
+   rather than a new one, and here rather than in the shared layer because it serves one
+   `<dd>` in one console and four apps should not download it. */
+.layout .stat__note--block {
+  display: block;
+}
+
+/* ------------------------------------------------------------
+   20. THE PORTAL PREVIEW — THE ONE PLACE ON THIS SURFACE THAT PAINTS --brand-*
 
    PortalPreview draws a picture of the PATIENT-facing portal inside the branding settings
    screen, so that the administrator choosing a colour can see what their patients will see.

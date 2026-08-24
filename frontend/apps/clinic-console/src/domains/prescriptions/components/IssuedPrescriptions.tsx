@@ -155,7 +155,7 @@ function CancelPrescription({
         one declaration holds the form off the control that opened it; the column inside it
         is a Stack.
       */}
-      <form action={action} style={{ marginTop: 'var(--space-4)' }}>
+      <form action={action} className="disclose-body">
         <Stack gap="4">
           <input type="hidden" name="prescription_id" value={id} />
 

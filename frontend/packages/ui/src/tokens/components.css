@@ -378,3 +378,61 @@
 .notice-warn { background: var(--warn-soft); border-color: transparent; color: var(--warn); }
 .notice-bad  { background: var(--bad-soft);  border-color: transparent; color: var(--bad); }
 .notice-info { background: var(--info-soft); border-color: transparent; color: var(--info); }
+
+/* ---- Subtitle, sized down ----
+
+   `.subtitle` is 16px, which is a LEDE: the sentence under a card heading that a reader
+   is meant to read. Six call sites on the patient surface were using it for something
+   else — the parenthetical under a `<summary>`, the note above a field group, the line
+   that says what a consent decision covered — and every one of them had written
+   `style={{ fontSize: 13 }}` or `13.5` to stop a 16px sentence competing with the
+   heading it sits under.
+
+   Four sites said 13 and two said 13.5, which is the same decision taken twice by two
+   people three weeks apart, and is exactly the drift `.stat__value--md` was added to
+   stop. One step absorbs both, and it is 13.5 rather than 13 because 13.5 is a size this
+   product already sets — `.stat-band__l` and `.feat-card .more` in site.css — while 13
+   appears nowhere else in the token layer. Half a pixel is not a difference anybody
+   chose; a size that exists in one place and nowhere else is.
+
+   It inherits the weight and the muted ink from `.subtitle`, because a small subtitle is
+   still a subtitle: the thing that changes is how loudly it speaks, not what it is. */
+.subtitle--sm { font-size: 13.5px; }
+
+/* ============================================================
+   DEFINITION LISTS
+
+   The name/value pairs on a receipt, a prescription item and a payment reference. A
+   `<dl>` and not a table, because these are pairs rather than a grid: there is no column
+   to compare down, and a table announced as "table, 2 columns, 6 rows" tells a screen
+   reader user to expect one.
+
+   WHY THIS CLASS EXISTS AT ALL: reset.css normalises `h1`–`h4`, `p` and the layout
+   utilities, and deliberately stops there — it is downloaded by all four apps and every
+   element rule in it is a rule nobody can opt out of. It does not touch `dl`/`dd`, so
+   every `<dd>` in the product arrives with the user agent's 40px `margin-inline-start`
+   and every `<dl>` with a block margin, and four call sites had answered that with
+   `style={{ margin: 0 }}` written once per list and once per value.
+
+   An opt-in class rather than a bare `dd { margin: 0 }` in the reset, for the reason
+   above: a definition list on a page nobody has written yet should still get the
+   browser's own indent until somebody decides otherwise. Here, the layout is a `.stack`
+   or a `.row` and the indent is a hanging 40px that puts the value out of line with
+   everything else in the card.
+   ============================================================ */
+.deflist,
+.deflist dt,
+.deflist dd { margin: 0; }
+
+/* A `<dl>` whose pairs are DIRECT children needs the term to sit nearer its own value
+   than it does to the pair above, or four lines of alternating label and value read as
+   one block of eight. `.stack`'s 6px sets the first distance and this adds 8px to the
+   second, which is the 14px the consent history's evidence list was writing by hand on
+   its second `<dt>` — where it was one `<dt>` away from being forgotten. Written as a
+   sibling rule it applies to the fifth pair somebody adds without them knowing it exists.
+
+   `> dt ~ dt` and not `dt:not(:first-child)`: a `<dl>` may also wrap each pair in a
+   `<div>`, which is the shape `Fact` in PaymentReceiptCard.tsx uses and the shape a
+   `.stack` column wants, and in that shape every `<dt>` is a first child of its own
+   wrapper and the spacing belongs to the column instead. This rule stays out of it. */
+.deflist > dt ~ dt { margin-top: var(--space-3); }

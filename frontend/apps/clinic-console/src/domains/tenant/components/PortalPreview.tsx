@@ -143,13 +143,24 @@ export function PortalPreview({
 
             <div className="preview__offer">
               {/*
-                SURVIVING INLINE STYLE. A service name inside the preview is set one step
-                heavier than body text and there is no class on the type scale at 600 —
-                `.title` is 21px/600 and far too large for a line inside a mock card. It is
-                not `<strong>` either: this subtree is inside `role="img"`, so the emphasis
-                would be announced to nobody while costing a visible jump to weight 700.
-                It belongs in console.css beside `.preview__offer`, and console.css is not
-                this task's to write — see the report.
+                SURVIVING INLINE STYLE, AND IT SURVIVES BECAUSE OF WHERE IT IS RATHER THAN
+                WHAT IT SETS.
+
+                Everything inside this element is a PICTURE OF THE PATIENT PORTAL, drawn on a
+                staff screen so an administrator can see what their patients will see. The
+                console's own type classes are console chrome — `.control-label` and
+                `.signatory` next door are 600 for reasons about clinical forms — and reaching
+                for one here would tie a picture of the portal to a scale the console is free
+                to change underneath it. The day somebody retunes `.control-label` for a
+                checkbox, this mock would move with it and nobody would connect the two.
+
+                It is not `<strong>` either: this subtree is inside `role="img"`, so the
+                emphasis would be announced to nobody while costing a visible jump to 700.
+
+                A `.preview__offer-name` beside `.preview__offer` in console.css is available
+                and is probably where this ends up; it is left as one declaration on one line
+                here so the whole mock reads as one block, which is the argument the file's
+                own header makes for `role="img"` in the first place. Named in the report.
               */}
               <p style={{ fontWeight: 600 }}>General consultation</p>
               {/* A price with no figure in it. This is a picture of a layout, and inventing a

@@ -90,7 +90,14 @@ export function AwaitingDispatch({
             </Notice>
           ) : null}
 
+          {/* `className="queue"` for the same reason the lanes on the board beside this one
+              carry it: this is the whole backlog of dispensed orders with no rider on them,
+              it is unbounded, and it is read by somebody scanning for one reference. Bounding
+              the scroll region is what turns the sticky heading from a declaration into a
+              fact — see console.css. On a short backlog the bound is never reached, so no
+              scroll region appears and nothing about the screen changes. */}
           <DataTable
+            className="queue"
             caption="Dispensed orders that have not left the pharmacy."
             rows={orders.value}
             rowKey={(order) => order.id}

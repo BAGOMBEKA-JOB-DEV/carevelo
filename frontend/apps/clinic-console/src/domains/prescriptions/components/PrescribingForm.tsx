@@ -229,7 +229,7 @@ function ItemRow({
       laying the legend against, and a legend's position relative to a card's hairline is
       not something to alter on the way past a spacing sweep.
     */
-    <fieldset className="card stack" style={{ gap: 'var(--space-4)' }}>
+    <fieldset className="card field-group">
       <legend className="eyebrow">Medicine {index + 1}</legend>
 
       <Field name={id('name')} label="Medicine">
@@ -330,14 +330,14 @@ function ItemRow({
         them is the right end state and it is a VISIBLE change to a clinical control, which
         is not something a spacing sweep gets to make on the way past. Flagged in the report.
       */}
-      <label className="row" style={{ gap: 'var(--space-3)', minHeight: 'var(--touch-min)' }}>
+      <label className="check-row">
         <input
           type="checkbox"
           checked={item.isControlled}
           onChange={(event) => onChange({ isControlled: event.target.checked })}
         />
         <span className="stack">
-          <span style={{ fontWeight: 600 }}>This is a controlled medicine</span>
+          <span className="control-label">This is a controlled medicine</span>
           <span className="fine">
             Handled in person at the pharmacy and never routed to delivery. Carevelo does not
             classify medicines — this is your judgement.
@@ -403,26 +403,26 @@ function Confirmation({
           {items.map((item, index) => (
             <Stack as="li" key={index} gap="2">
               {/*
-                SURVIVING INLINE STYLE. 15.5px is a deliberate half-step above the 14.5px body
-                size for the ONE line a clinician reads back before signing, and there is no
-                class on the type scale between `.fine` at 12px and `.title` at 21px. It
-                belongs in the token layer beside the sizes it sits between, and the token
-                layer is not this task's to write — see the report.
+                A half-step ABOVE the 14.5px body size — the only thing on this surface set
+                that way, because everything else here is being scanned and this one line is
+                being checked. `.read-back` in console.css is that step, and it is named for
+                the act rather than the size so the next person does not have to guess why
+                one line on a form is bigger than the rest of it.
               */}
-              <span style={{ fontSize: 15.5 }}>{documentLine(item)}</span>
+              <span className="read-back">{documentLine(item)}</span>
               {item.isControlled ? <Badge tone="warn">Controlled — in person only</Badge> : null}
             </Stack>
           ))}
         </Stack>
 
         {/*
-          SURVIVING INLINE STYLE, and what is left of it is a rule and the space under it —
-          the hairline that separates what is being prescribed from who is prescribing it.
-          Neither is a step on the space scale and neither has a class in the token layer, so
-          there is nothing for a primitive to take. The column INSIDE it is a Stack, which is
-          the part that was a layout decision.
+          The hairline that separates WHAT is being prescribed from WHO is prescribing it, and
+          the space under it. The two only mean anything together, which is why they are one
+          named class — `.signed-off` in console.css — rather than two declarations a call site
+          could keep half of. The column INSIDE it is a Stack, which is the part that was a
+          layout decision.
         */}
-        <div style={{ borderTop: '1px solid var(--hairline)', paddingTop: 'var(--space-4)' }}>
+        <div className="signed-off">
           <Stack gap="2">
             <span className="eyebrow">Issued by</span>
             <PrescriberBlock prescriber={prescriber} />
@@ -465,11 +465,12 @@ function PrescriberBlock({ prescriber }: { prescriber: Prescriber }) {
   if (prescriber.kind === 'known') {
     return (
       <Stack gap="1">
-        {/* SURVIVING INLINE STYLE, and it is the same missing weight utility as the
-            controlled-medicine label above: 600 is a step the type scale has no class for.
-            Not `<strong>`, which is 700 and would also announce an emphasis nobody put on a
-            clinician's own name. See the report. */}
-        <span style={{ fontWeight: 600 }}>{prescriber.profile.name}</span>
+        {/* `.signatory` in console.css: 600 is a step the type scale has no class for, and
+            `<strong>` is not it — that is 700, and it would announce an emphasis nobody put
+            on a clinician's own name. Named apart from `.control-label`, which is the same
+            declaration today, because a signatory line on a printed prescription is the more
+            likely of the two to want its own treatment later. */}
+        <span className="signatory">{prescriber.profile.name}</span>
         <span className="tnum">
           {prescriber.profile.registration_body.toUpperCase()}{' '}
           {prescriber.profile.registration_number}
@@ -495,8 +496,8 @@ function PrescriberBlock({ prescriber }: { prescriber: Prescriber }) {
 
   return (
     <Stack gap="1">
-      {/* The same 600 as above, for the same reason. */}
-      <span style={{ fontWeight: 600 }}>
+      {/* The same `.signatory` as above, for the same reason. */}
+      <span className="signatory">
         {prescriber.kind === 'unreadable' ? prescriber.name : 'You'}
       </span>
       <span className="fine note-warn">

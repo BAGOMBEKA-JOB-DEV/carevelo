@@ -357,15 +357,14 @@ function Detail({
       <dd>
         {children}
         {hint === undefined ? null : (
-          /* KEPT, AND IT IS A DISPLAY DECISION RATHER THAN A SPACING ONE. `.stat__note` is
-             an inline span everywhere else it is used — under a figure in a `.stat`, where
-             the flex column already puts it on its own line. Here it sits inside a `<dd>`
-             beside the value, so it needs to be a block or it runs on after the aggregator
-             reference as if it were part of it. There is no layout primitive for "make this
-             one inline element a block", and a `.stat__note--block` rule in the shared token
-             layer would be a class four apps download to serve one `<dd>` in this console.
-             PageHeader makes the identical trade for its own `.eyebrow`, and says so. */
-          <span className="stat__note" style={{ display: 'block' }}>
+          /* A DISPLAY DECISION RATHER THAN A SPACING ONE. `.stat__note` is an inline span
+             everywhere else it is used — under a figure in a `.stat`, where the flex column
+             already puts it on its own line. Here it sits inside a `<dd>` beside the value, so
+             it has to be a block or it runs on after the aggregator reference as if it were
+             part of it, which is a hint being read as digits. `.stat__note--block` is that
+             modifier, and it lives in console.css rather than the shared layer because it
+             serves one `<dd>` in one console and four apps should not download it. */
+          <span className="stat__note stat__note--block">
             {hint}
           </span>
         )}

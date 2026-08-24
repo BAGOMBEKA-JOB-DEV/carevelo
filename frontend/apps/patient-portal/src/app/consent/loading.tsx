@@ -47,7 +47,11 @@ export default async function ConsentLoading(): Promise<ReactElement> {
     <div className="site-root">
       <main>
         <PageBody>
-          <div className="grid" style={{ gap: 'var(--space-8)' }}>
+          {/* 30px between the blocks, which is the gap ConsentScreen.tsx states on its own
+              `<Stack gap="8">`. Same column, same step: a skeleton whose rhythm differs from
+              the screen it reserves space for hands the patient a page that resettles the
+              moment it loads. */}
+          <Stack gap="8">
             <div className="site-sec-head">
               <Stack gap="4">
                 <span className="site-eyebrow">{t('consent.eyebrow')}</span>
@@ -72,7 +76,7 @@ export default async function ConsentLoading(): Promise<ReactElement> {
 
             {/* The row of controls that ends the step. */}
             <Skeleton block="sm" />
-          </div>
+          </Stack>
         </PageBody>
       </main>
     </div>

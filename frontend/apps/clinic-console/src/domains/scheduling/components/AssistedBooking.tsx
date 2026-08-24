@@ -483,18 +483,19 @@ function SlotPicker({
   clinicians: readonly Clinician[]
 }) {
   /*
-   * KEPT, AND IT IS THE ONE PLACE A PRIMITIVE WOULD FIT AND CANNOT BE REACHED.
+   * `.field-group` in console.css, which is the column at 12px that `<fieldset>` cannot get
+   * from a primitive.
    *
    * Stack renders its element directly and does not wrap its children, so `as="fieldset"`
    * would be exactly right here — the `<legend>` would still be the fieldset's FIRST CHILD,
    * which is the whole requirement for it to name the group, and wrapping the children in
    * anything is what would break that. `StackElement` simply has no `fieldset` in its union,
-   * and that union lives in packages/ui, which is not this task's to write. Named in the
-   * report: the day the union gains it, this becomes `<Stack as="fieldset" gap="4">` and the
-   * style goes with no other edit.
+   * and that union lives in packages/ui, which this round belongs to somebody else. Named in
+   * the report: the day the union gains it, this becomes `<Stack as="fieldset" gap="4">` and
+   * the class goes with no other edit.
    */
   return (
-    <fieldset className="stack" style={{ gap: 'var(--space-4)' }}>
+    <fieldset className="field-group">
       <legend className="field__label">Times</legend>
 
       <Grid cols={4} gap="3">

@@ -54,16 +54,15 @@ export function ConsentPolicyText({
 
   return (
     /*
-      SURVIVING INLINE STYLE, and what survives is the READING SIZE, not the layout. This is
-      the only block of continuous prose in the console — everything else here is scanned,
-      and this is read aloud to a patient across a counter or read by them off the screen —
-      so it is set a step larger than the interface at a looser line height. There is no
-      class for a reading measure in the token layer; `.fine` is 12px and `.title` is 21px
-      and neither is body copy. It belongs in the token layer as the prose size it is, and
-      the token layer is not this task's to write. The COLUMN, which was the other half of
-      this style, is now a Stack.
+      `.policy-doc` in console.css, and what it carries is the READING SETTING rather than a
+      layout. This is the only block of continuous prose in the console — everything else here
+      is scanned, and this is read aloud to a patient across a counter or read by them off the
+      screen — so it takes 1.6 leading against the interface's 1.5. The `14.5` that used to sit
+      beside it was `--text-base-size` restated; the class states the token rather than the
+      number, so it cannot drift from the base the day the base moves. The COLUMN, which was
+      the other half of this style, is now a Stack.
     */
-    <div lang={lang} style={{ fontSize: 14.5, lineHeight: 1.6 }}>
+    <div lang={lang} className="policy-doc">
       <Stack gap="5">
         {document.title ? (
           <h3 id={titleId} className="title-sm">

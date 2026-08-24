@@ -325,103 +325,102 @@ function ServiceRow({ service, paths }: { service: Service; paths: TenantPaths }
           <summary className="lnk">Edit this service</summary>
 
           {/*
-            SURVIVING INLINE STYLE, and it is the one space on this screen no Stack can own.
-            `<summary>` has to be the FIRST child of `<details>` for the disclosure to work
-            at all, so the summary and the body it opens are not two children of a container
+            `<summary>` has to be the FIRST child of `<details>` for the disclosure to work at
+            all, so the summary and the body it opens are not two children of a container
             anybody can put a `gap` on — the gap would have to include the summary itself and
-            close up when the disclosure is shut. This one margin holds the body off the
-            control that opened it; everything below it is a Stack.
+            close up when the disclosure is shut. So the space below the summary is a margin
+            on the body, and `.disclose-body` in console.css is that margin, shared with the
+            five other disclosures in this app. The wrapper `<div>` that used to carry it has
+            gone: the class rides on the Stack that was already inside it.
           */}
-          <div style={{ marginTop: 'var(--space-5)' }}>
-            <Stack gap="5">
-              <form action={editService.bind(null, { selfPath: paths.services, id: service.id })}>
-                <Stack gap="5">
-              <Field name="name" id={`name-${service.id}`} label="Name">
-                {(control) => (
-                  <Input {...control} type="text" maxLength={120} defaultValue={service.name} required />
-                )}
-              </Field>
-
-              <Field name="description" id={`description-${service.id}`} label="Description">
-                {(control) => (
-                  <Textarea {...control} rows={2} maxLength={2000} defaultValue={service.description ?? ''} />
-                )}
-              </Field>
-
-              <div className="grid g-2">
-                <Field
-                  name="duration_minutes"
-                  id={`duration-${service.id}`}
-                  label="Length in minutes"
-                >
+          <Stack gap="5" className="disclose-body">
+            <form action={editService.bind(null, { selfPath: paths.services, id: service.id })}>
+              <Stack gap="5">
+                <Field name="name" id={`name-${service.id}`} label="Name">
                   {(control) => (
-                    <Input
-                      {...control}
-                      type="number"
-                      inputMode="numeric"
-                      min={5}
-                      max={480}
-                      step={5}
-                      defaultValue={service.duration_minutes}
-                      required
-                    />
+                    <Input {...control} type="text" maxLength={120} defaultValue={service.name} required />
                   )}
                 </Field>
 
-                <Field
-                  name="price"
-                  id={`price-${service.id}`}
-                  label="Price in Ugandan shillings"
-                  hint="Changing this changes what the next patient is asked for. It does not touch an appointment already booked."
-                >
+                <Field name="description" id={`description-${service.id}`} label="Description">
                   {(control) => (
-                    <Input
-                      {...control}
-                      type="text"
-                      inputMode="numeric"
-                      autoComplete="off"
-                      defaultValue={priceToForm(service.price.amount_minor)}
-                      required
-                    />
+                    <Textarea {...control} rows={2} maxLength={2000} defaultValue={service.description ?? ''} />
                   )}
                 </Field>
-              </div>
 
-              <Choice
-                name="modes"
-                id={`modes-${service.id}`}
-                legend="How this service can be delivered"
-                multiple
-                options={modeOptions()}
-                defaultValue={modes}
-              />
+                <div className="grid g-2">
+                  <Field
+                    name="duration_minutes"
+                    id={`duration-${service.id}`}
+                    label="Length in minutes"
+                  >
+                    {(control) => (
+                      <Input
+                        {...control}
+                        type="number"
+                        inputMode="numeric"
+                        min={5}
+                        max={480}
+                        step={5}
+                        defaultValue={service.duration_minutes}
+                        required
+                      />
+                    )}
+                  </Field>
 
-              <div className="row-wrap">
-                <Button type="submit" variant="primary">
-                  Save changes
-                </Button>
-              </div>
-                </Stack>
-              </form>
+                  <Field
+                    name="price"
+                    id={`price-${service.id}`}
+                    label="Price in Ugandan shillings"
+                    hint="Changing this changes what the next patient is asked for. It does not touch an appointment already booked."
+                  >
+                    {(control) => (
+                      <Input
+                        {...control}
+                        type="text"
+                        inputMode="numeric"
+                        autoComplete="off"
+                        defaultValue={priceToForm(service.price.amount_minor)}
+                        required
+                      />
+                    )}
+                  </Field>
+                </div>
 
-              <form action={withdraw.bind(null, { selfPath: paths.services, id: service.id })}>
-                {/* The button keeps a block wrapper so it stays its own width rather than
-                    stretching to the column, which is what a Stack child does by default and
-                    what a destructive control should never do. */}
-                <Stack gap="2">
-                  <div>
-                    <Button type="submit" variant="danger">
-                      Stop offering this
-                    </Button>
-                  </div>
-                  <p className="fine">
-                    It disappears from the patient&rsquo;s list immediately. Nothing is deleted, and
-                    appointments already booked for it are unaffected.
-                  </p>
-                </Stack>
-              </form>
-            </Stack>
-          </div>
+                <Choice
+                  name="modes"
+                  id={`modes-${service.id}`}
+                  legend="How this service can be delivered"
+                  multiple
+                  options={modeOptions()}
+                  defaultValue={modes}
+                />
+
+                <div className="row-wrap">
+                  <Button type="submit" variant="primary">
+                    Save changes
+                  </Button>
+                </div>
+              </Stack>
+            </form>
+
+            <form action={withdraw.bind(null, { selfPath: paths.services, id: service.id })}>
+              {/* The button keeps a block wrapper so it stays its own width rather than
+                  stretching to the column, which is what a Stack child does by default and
+                  what a destructive control should never do. */}
+              <Stack gap="2">
+                <div>
+                  <Button type="submit" variant="danger">
+                    Stop offering this
+                  </Button>
+                </div>
+                <p className="fine">
+                  It disappears from the patient&rsquo;s list immediately. Nothing is deleted, and
+                  appointments already booked for it are unaffected.
+                </p>
+              </Stack>
+            </form>
+          </Stack>
         </details>
       </Stack>
     </Card>

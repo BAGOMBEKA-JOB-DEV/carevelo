@@ -167,11 +167,11 @@ export async function PatientRecordScreen({
                 union nor Grid's includes a description list, deliberately: `<dl>` promises a
                 screen reader that its children are term-and-definition pairs, and the only
                 legal children are `<dt>`, `<dd>` and the `<div>`s grouping them — so a
-                primitive can go neither on it nor inside it without breaking that. `.grid`'s
-                own gap is 18px and these pairs want 12, so the step is stated beside the class.
-                It is still the token's value and never a pixel.
+                primitive can go neither on it nor inside it without breaking that. That is what
+                `.pairs` in console.css now is: the single-column grid at 12px these five call
+                sites were each restating inline, named for the thing it lays out.
               */}
-              <dl className="grid" style={{ gap: 'var(--space-4)' }}>
+              <dl className="pairs">
                 <Detail label="Phone">
                   <span className="tnum">{patient.phone}</span>
                   {/* See the note at the top of this file: only TRUE is worth saying. */}
@@ -257,11 +257,11 @@ export async function PatientRecordScreen({
                   union nor Grid's includes a description list, deliberately: `<dl>` promises a
                   screen reader that its children are term-and-definition pairs, and the only
                   legal children are `<dt>`, `<dd>` and the `<div>`s grouping them — so a
-                  primitive can go neither on it nor inside it without breaking that. `.grid`'s
-                  own gap is 18px and these pairs want 12, so the step is stated beside the class.
-                  It is still the token's value and never a pixel.
+                  primitive can go neither on it nor inside it without breaking that. That is what
+                  `.pairs` in console.css now is: the single-column grid at 12px these five call
+                  sites were each restating inline, named for the thing it lays out.
                 */
-                <dl className="grid" style={{ gap: 'var(--space-4)' }}>
+                <dl className="pairs">
                   {(['data_processing', 'telemedicine', 'delivery_disclosure'] as const).map((type) => {
                     const record = latest[type]
                     const display = consentDisplay(type)

@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { getTranslations } from 'next-intl/server'
 import { clinicMetadata } from '@/lib/metadata'
-import { Icon } from '@carevelo/ui'
+import { Icon, Inline, Stack } from '@carevelo/ui'
 import { resolveTenant } from '@/lib/tenant'
 import { currentUser } from '@/lib/session'
 import { SiteShell } from '@/components/SiteShell'
@@ -329,51 +329,40 @@ export default async function HomePage() {
               </div>
 
               <div className="mockup__body">
-                <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    gap: 'var(--space-4)',
-                    paddingBottom: 'var(--space-4)',
-                    borderBottom: '1px solid var(--hairline)',
-                  }}
-                >
+                {/* THE MOCKUP'S OWN BANDS, NOW DRAWN WHERE THE MOCKUP IS DRAWN. Two ruled
+                    rows and the block between them were eleven inline style properties
+                    here — two hand-built flex rows each restating `display: flex`, a
+                    `justify-content` and a gap, and four `marginTop`s. The LAYOUT half is
+                    `<Inline justify="between">`, which is the primitive for a row whose
+                    last child goes to the far edge; the PAINT half — a hairline and the
+                    air either side of it — is `.mockup__row--head` / `--foot` in
+                    tokens/site.css, beside the frame that contains them. */}
+                <Inline justify="between" gap="4" className="mockup__row--head">
                   <span className="stat__label">{t('mockup.label')}</span>
                   <span className="fine">{t('mockup.writtenBy')}</span>
-                </div>
+                </Inline>
 
-                <div style={{ marginTop: 'var(--space-5)' }}>
-                  <div className="title-sm">{t('mockup.drug')}</div>
-                  <div className="fine" style={{ marginTop: 'var(--space-2)' }}>
-                    {t('mockup.form')}
-                  </div>
-                  <p style={{ marginTop: 'var(--space-3)', color: 'var(--ink-muted)' }}>
-                    {t('mockup.dose')}
-                  </p>
-                </div>
+                {/* Two distances here, not one, so they nest: the medicine and its form are
+                    one label at 6px, and the dose sits 8px below the pair as a separate
+                    line to read. */}
+                <Stack gap="3" className="mockup__line">
+                  <Stack gap="2">
+                    <div className="title-sm">{t('mockup.drug')}</div>
+                    <div className="fine">{t('mockup.form')}</div>
+                  </Stack>
 
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: 'var(--space-4)',
-                    marginTop: 'var(--space-5)',
-                    paddingTop: 'var(--space-4)',
-                    borderTop: '1px solid var(--hairline)',
-                  }}
-                >
-                  <span style={{ color: 'var(--ink-muted)' }}>
-                    {t('mockup.dispensedBy', { clinic })}
-                  </span>
+                  <p className="muted">{t('mockup.dose')}</p>
+                </Stack>
+
+                <Inline justify="between" gap="4" className="mockup__row--foot">
+                  <span className="muted">{t('mockup.dispensedBy', { clinic })}</span>
+
                   <span className="badge badge-good">
                     <Icon name="check" /> {t('mockup.collected')}
                   </span>
-                </div>
+                </Inline>
 
-                <p className="fine" style={{ marginTop: 'var(--space-4)' }}>
-                  {t('mockup.disclaimer')}
-                </p>
+                <p className="fine mockup__note">{t('mockup.disclaimer')}</p>
               </div>
             </div>
           </div>
@@ -386,7 +375,7 @@ export default async function HomePage() {
           on the exact page where somebody is hunting for the one answer they came for. */}
       <section className="site-section" id="questions">
         <div className="site-wrap">
-          <div className="site-sec-head" style={{ marginInline: 'auto', textAlign: 'center' }}>
+          <div className="site-sec-head site-sec-head--center">
             <span className="site-eyebrow">{t('faq.eyebrow')}</span>
             <h2 className="site-h2">{t('faq.title')}</h2>
           </div>

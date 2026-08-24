@@ -68,16 +68,16 @@ export function AppointmentRow({
 
   return (
     /*
-     * THE DASHED EDGE IS THE SURVIVOR HERE AND IT IS GENUINELY CONDITIONAL — it depends on
-     * the appointment's own state, which no class in the token layer knows about. It is the
-     * one visual difference between a hold and a booking, and it is deliberately structural
-     * rather than a colour: a dashed edge survives a colour-blind reader and a printed rota,
-     * and the badge beside it says the same thing in words. The gap that shared this object
-     * has moved to the Stack, so what is left states one thing.
+     * THE DASHED EDGE IS CONDITIONAL, AND THAT IS AN ARGUMENT FOR A CLASS RATHER THAN
+     * AGAINST ONE. The condition is a STATE OF THE RECORD — this appointment is a hold and
+     * not a booking — and a state of a record is exactly what a modifier class is for; what
+     * varies is which name is on the list, not what the name means. `.card-held` in
+     * console.css is that name. It is deliberately structural rather than chromatic, so it
+     * survives a colour-blind reader and a printed rota, and the badge beside it says the
+     * same thing in words. The gap that shared the old style object has moved to the Stack.
      */
     <article
-      className="card"
-      style={held ? { borderStyle: 'dashed' } : undefined}
+      className={held ? 'card card-held' : 'card'}
       aria-label={`${clinicTime(appointment.scheduled_start_at)} — ${describe(patient)}`}
     >
       <Stack gap="4">
@@ -109,14 +109,12 @@ export function AppointmentRow({
 
         <Stack gap="2">
           <p className="record-name">{describe(patient)}</p>
-          {/* KEPT, AND WORTH LOOKING AT RATHER THAN COPYING. `--text-base-size` is 14.5px, so
-              this overrides the body size by half a pixel — which is not a decision anybody
-              made, it is a `14` typed where the scale was not to hand. There is no 14px class
-              to move it to: `.record-name` above it lives in console.css because this same
-              "the name of the record" idea was written five different ways, and the line under
-              a record name wants the same treatment there. console.css is not this task's file,
-              so the number stays visible instead of being quietly deleted. Named in the report. */}
-          <p className="muted" style={{ fontSize: 14 }}>
+          {/* The `14` here was a number typed where the scale was not to hand — half a pixel
+              under `--text-base-size`, which is not a decision anybody made. It is `.qualifier`
+              now: the console's one step below body size, for a line that says what the record
+              above it is OF. The same class carries the two lines on the consent desk that had
+              picked 13 and 13.5 for the same job. */}
+          <p className="muted qualifier">
             {service?.name ?? 'Service could not be resolved'}
             {clinician ? ` · ${clinician.name}` : null}
           </p>
@@ -230,10 +228,10 @@ function CancelBooking({
       {/* The margin is the space between a disclosure's summary and its content, and it
           cannot become a gap: `<details>` shows and hides its own non-summary children, and
           giving it `display: flex` is the one change that breaks that — Chrome renders the
-          content while the disclosure is CLOSED. So the offset stays a margin on the form and
-          the column inside it is a Stack. Same reasoning as NoteThread; one `.disclose`
-          content rule in console.css would retire all four. */}
-      <form action={action} style={{ marginTop: 'var(--space-4)' }}>
+          content while the disclosure is CLOSED. So the offset stays a margin on the body, and
+          `.disclose-body` in console.css is now that margin — one class for the six disclosures
+          in this app that were each stating it inline. The column inside it is a Stack. */}
+      <form action={action} className="disclose-body">
         <Stack gap="4">
           <input type="hidden" name="appointment_id" value={appointment.id} />
 
@@ -286,8 +284,8 @@ function ConfirmOnAuthority({
         <Icon name="check" /> Confirm without payment
       </summary>
 
-      {/* The same disclosure offset, kept for the same reason as the cancel form above. */}
-      <form action={action} style={{ marginTop: 'var(--space-4)' }}>
+      {/* The same disclosure offset, from the same class as the cancel form above. */}
+      <form action={action} className="disclose-body">
         <Stack gap="4">
           <input type="hidden" name="appointment_id" value={appointment.id} />
 

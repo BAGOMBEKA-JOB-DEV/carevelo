@@ -108,6 +108,24 @@
    gutter still tapers to 18px below 480px, from `.site-wrap` itself. */
 .site-wrap--page { padding-block: var(--space-8); }
 
+/* THE FORM COLUMN'S MEASURE, WHICH IS NOT `.site-wrap`'s.
+
+   `.site-wrap` is 1280px, and 1280px is right for a marketing band and for a grid of
+   cards. It is wrong for a column of text inputs: a `Field` stretched to 1280px gives a
+   patient a 1200px-wide box to type a phone number into, and gives their eye 1280px to
+   travel back along between the label and the control below it. Four screens had said so
+   by hand — registration, its loading fallback, the profile form and the consent
+   screen's decision list all wrote `style={{ maxWidth: 640 }}` — and 640px is the number
+   all four picked, because it is about 70 characters of this app's 14.5px body face,
+   which is the measure the rest of this file already works to (`.site-lede` caps at 60ch,
+   `.site-doc` at 820px of 15.5px prose).
+
+   A MEASURE AND NOTHING ELSE. It sets no gap and no padding, so it composes with whatever
+   `<Stack>` the screen puts inside it rather than competing with one — which is the same
+   division of labour `.site-wrap` keeps, and the reason both are a `max-width` and a
+   margin rather than a layout. */
+.site-form { max-width: 640px; }
+
 .site-section { padding-block: 88px; }
 .site-section--tint { background: var(--surface-2); border-block: 1px solid var(--hairline-soft); }
 
@@ -170,6 +188,12 @@
   max-width: 60ch;
 }
 .site-sec-head { max-width: 66ch; }
+/* A section head centred over the full band. The 66ch measure above is what makes the
+   centring worth a modifier rather than a `text-align` on the element: without the auto
+   margins the block stays hard left inside a 1280px wrap and only its TEXT centres, which
+   reads as a mistake at any width past about 900px. Both halves of that belong together
+   and neither is a decision the page should be able to take one of. */
+.site-sec-head--center { margin-inline: auto; text-align: center; }
 .site-sec-head .site-lede { margin-top: 14px; }
 
 /* ==================== BUTTONS AND LINKS ====================
@@ -738,6 +762,36 @@
 @media (max-width: 768px) { .cellgrid { margin-top: 32px; } }
 @media (max-width: 680px) { .cellgrid--2, .cellgrid--3, .cellgrid--4 { grid-template-columns: 1fr; } }
 
+/* ---- The account hub's vertical rhythm ----
+
+   THIS PAGE IS A BLOCK FORMATTING CONTEXT AND HAS TO STAY ONE, which is why its spacing
+   is here in a stylesheet rather than in a `<Stack>` in the page.
+
+   `.cellgrid` carries the 52px `margin-top` above, and `.page-head` carries a 24px
+   `margin-bottom` from components.css. In a block container those two COLLAPSE, and the
+   distance from the heading block to the first panel is 52px — the larger of the pair,
+   which is what margin collapsing means and what the two values were chosen against.
+   Wrap the same children in a flex `<Stack>` and collapsing stops: the 24px and the 52px
+   both apply, the Stack's own gap lands on top of them, and the page silently opens up by
+   somewhere between 24 and 76px depending on the step chosen. Nothing fails, nothing
+   shows in a diff, and the page is simply wrong afterwards. `PageBody`'s docblock is
+   where that reasoning is kept; this is the other half of it.
+
+   So the four distances down the hub — 30px, 52px, 24px, 18px — stay margins. Three of
+   them were inline styles on the elements themselves, which is the version of margins
+   that cannot be revisited; they are named here instead, scoped to the one page that has
+   this shape, so that the next person changing the hub's rhythm changes it in one place
+   and can see all four distances at once. The fourth is `.cellgrid`'s 52px, ten lines up.
+
+   SCOPED TO `.site-hub` RATHER THAN TO `.site-wrap--page` deliberately. A rule reading
+   `.site-wrap--page > .notice` would reach into every working page in the app and add
+   24px above a notice that some future screen puts at the top of its column — a spacing
+   change nobody asked for, arriving from a file they were not editing. The hub opts in by
+   name; every other page is untouched. */
+.site-hub > .site-h2 { margin-top: var(--space-8); }
+.site-hub > .notice  { margin-top: var(--space-7); }
+.site-hub > .fine    { margin-top: var(--space-6); }
+
 .cell {
   background: var(--surface);
   padding: 30px 28px;
@@ -836,6 +890,26 @@ a.feat-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
   padding: 20px;
 }
 
+/* The two ruled bands inside that body, and the block between them.
+
+   These were eleven inline style properties on the landing page — two hand-built flex
+   rows that each restated `display: flex`, a `justify-content` and a gap, plus their own
+   borders, plus four `marginTop`s between the lines of the middle block. The LAYOUT half
+   of that is `<Inline justify="between">`, which is a primitive and belongs in the page;
+   what is left here is only the PAINT — a rule and the air either side of it — because
+   that is what the mockup looks like, and the mockup is drawn in this file beside the
+   frame that contains it. A landing page should describe the fake prescription, not draw
+   a border.
+
+   No colour, size or radius is invented: the rules are `--hairline`, the same token the
+   frame and body above already use, and every piece of type is inherited. */
+.mockup__row--head { padding-bottom: var(--space-4); border-bottom: 1px solid var(--hairline); }
+.mockup__row--foot { margin-top: var(--space-5); padding-top: var(--space-4); border-top: 1px solid var(--hairline); }
+.mockup__line { margin-top: var(--space-5); }
+/* The disclaimer under the footer rule sits closer than the bands do: it is a footnote to
+   the card rather than another band of it. */
+.mockup__note { margin-top: var(--space-4); }
+
 /* ==================== CTA BAND ==================== */
 
 .cta-band {
@@ -932,6 +1006,18 @@ a.feat-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
 /* ==================== LEGAL PROSE (/privacy, /terms) ==================== */
 
 .site-doc { max-width: 820px; margin-inline: auto; padding: 0 24px 88px; }
+
+/* The same prose treatment, EMBEDDED rather than standing alone. `/privacy` and `/terms`
+   are whole documents and get the 820px measure and the 88px tail; the consent policy is
+   the same prose rendered INSIDE a card on the consent screen, where the card already owns
+   the measure and the padding and a second copy of each inset the policy from its own
+   heading. Both call sites had said so with `style={{ maxWidth: 'none', padding: 0 }}`.
+
+   A modifier rather than a second `.site-doc-ish` class, because everything that makes
+   the policy readable — the 15.5px at 1.7, the 36px above an h2, the muted ink — has to
+   stay identical between the page a patient reads before consenting and the page they
+   read afterwards. Two classes could disagree about that; a modifier cannot. */
+.site-doc--inline { max-width: none; padding: 0; }
 .site-doc h1 { font-family: var(--head); font-size: 38px; font-weight: 700; letter-spacing: -0.02em; color: var(--ink); }
 .site-doc .updated { color: var(--ink-faint); font-size: 14px; margin-top: 10px; }
 .site-doc h2 { font-size: 20px; font-weight: 700; color: var(--ink); margin: 36px 0 10px; }

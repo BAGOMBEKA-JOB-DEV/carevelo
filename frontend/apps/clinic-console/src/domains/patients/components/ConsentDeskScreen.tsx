@@ -362,45 +362,52 @@ export async function ConsentDeskScreen({
             )}
 
             <details>
-              <summary style={SUMMARY}>The version and fingerprint recorded with the decision</summary>
+              {/* `.disclose` is the shape every other disclosure summary in this console
+                  wears: the 44px touch floor a control answers to, the flex box that keeps
+                  the icon-less label on one line, and the native marker removed. This one is
+                  not a link, which is why it does not also wear `.lnk` — but it is still a
+                  control, so it takes the same floor and the same weight. */}
+              <summary className="disclose control-label">
+                The version and fingerprint recorded with the decision
+              </summary>
 
               {/*
-                THREE SURVIVING INLINE STYLES IN THIS DISCLOSURE, and each one is a case a
-                primitive genuinely cannot take.
-
                 `<summary>` has to be the FIRST child of `<details>` for the disclosure to work
                 at all, so the summary and the body it opens are never two children of a
                 container a `gap` could go on — the space under the summary has to be stated on
-                the body. That is the `marginTop` on the paragraph.
+                the body. `.disclose-body` is that space; the Stack it rides on is what holds
+                the paragraph and the list apart, which used to be a second margin.
 
-                13px is a footnote size the type scale has no class for; `.fine` is 12px and the
-                body is 14.5px, and this is deliberately between them. It belongs in the token
-                layer, which is not this task's to write — see the report.
-
-                And the `<dl>` takes no primitive at all: neither Stack's element union nor
-                Grid's includes a description list, because `<dl>` promises a screen reader that
-                its children are term-and-definition pairs and the only legal children are
-                `<dt>`, `<dd>` and the `<div>`s grouping them. Its margin and the extra step
-                before the second term stay with it.
+                The `<dl>` takes no primitive at all: neither Stack's element union nor Grid's
+                includes a description list, because `<dl>` promises a screen reader that its
+                children are term-and-definition pairs and the only legal children are `<dt>`,
+                `<dd>` and the `<div>`s grouping them. `.pairs` in console.css is the column
+                for exactly that, and grouping each term with its own definition is what
+                retires the hand-set step before the second `<dt>` — the space now belongs to
+                the pair rather than to whichever term happened to be second.
               */}
-              <p className="muted" style={{ marginTop: 'var(--space-3)', fontSize: 13 }}>
-                Every consent record pins these. Months later the versioned wording can be
-                re-rendered and checked against the fingerprint, which is how the clinic proves
-                nothing was quietly changed after the patient agreed to it.
-              </p>
+              <Stack gap="4" className="disclose-body">
+                <p className="muted qualifier">
+                  Every consent record pins these. Months later the versioned wording can be
+                  re-rendered and checked against the fingerprint, which is how the clinic proves
+                  nothing was quietly changed after the patient agreed to it.
+                </p>
 
-              <dl className="stack" style={{ marginTop: 'var(--space-4)' }}>
-                <dt className="field__label">Version</dt>
-                <dd className="tnum">{policy.value.version}</dd>
-                <dt className="field__label" style={{ marginTop: 'var(--space-3)' }}>
-                  Fingerprint
-                </dt>
-                {/* Whole, not truncated: a shortened hash cannot be checked against anything,
-                    which would make showing it theatre. */}
-                <dd className="identifier">
-                  <code>{policy.value.text_hash}</code>
-                </dd>
-              </dl>
+                <dl className="pairs">
+                  <div className="stack">
+                    <dt className="field__label">Version</dt>
+                    <dd className="tnum">{policy.value.version}</dd>
+                  </div>
+                  <div className="stack">
+                    <dt className="field__label">Fingerprint</dt>
+                    {/* Whole, not truncated: a shortened hash cannot be checked against
+                        anything, which would make showing it theatre. */}
+                    <dd className="identifier">
+                      <code>{policy.value.text_hash}</code>
+                    </dd>
+                  </div>
+                </dl>
+              </Stack>
             </details>
           </Stack>
         </Card>
@@ -510,11 +517,11 @@ function ConsentQuestion({
           <p className="muted">{display.purpose}</p>
 
           {asked && latest.occurred_at !== null ? (
-            /* SURVIVING INLINE STYLE. 13.5px is a deliberate half-step under the 14.5px body
-               size for a line that qualifies the answer above it rather than being part of
-               it, and the type scale has no class between `.fine` at 12px and the body. It
-               belongs in the token layer — see the report. */
-            <p className="muted" style={{ fontSize: 13.5 }}>
+            /* A half-step under the 14.5px body size, for a line that qualifies the answer
+               above it rather than being part of it. `.qualifier` in console.css is that step,
+               shared with the appointment row and the fingerprint note, which had each picked
+               their own way across the gap between `.fine` at 12px and the body. */
+            <p className="muted qualifier">
               Last answered <DateTime value={latest.occurred_at} format="datetime" />
               {latest.granted_by === 'guardian' ? (
                 <> by {latest.guardian_name ?? 'a guardian'}
@@ -862,12 +869,3 @@ function languageName(code: string): string {
       return code
   }
 }
-
-/** The disclosure row is a control, so it answers to the same 44px touch floor. */
-const SUMMARY = {
-  cursor: 'pointer',
-  minHeight: 'var(--touch-min)',
-  display: 'flex',
-  alignItems: 'center',
-  fontWeight: 600,
-} as const

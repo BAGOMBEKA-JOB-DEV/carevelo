@@ -1,6 +1,7 @@
 import { refresh } from 'next/cache'
 import { getTranslations } from 'next-intl/server'
-import { Badge, Button, Card, DateTime, EmptyState, Icon, Notice } from '@carevelo/ui'
+import { Badge, Button, Card, DateTime, EmptyState, Icon, Inline, Notice, Stack } from '@carevelo/ui'
+import { SitePageHeader } from '@/components/SitePageHeader'
 import { isSettled } from '../api/tracking'
 import { deliveryStatusTone, deliveryStatusWord } from './status'
 import { TrackingAutoRefresh } from './TrackingAutoRefresh'
@@ -55,22 +56,34 @@ export async function DeliveryTracking({
   const settled = isSettled(tracking.status)
 
   return (
-    <div className="stack" style={{ gap: 'var(--space-7)' }}>
+    <Stack gap="7">
       {/* Mounted only while the package is still moving. A delivered or failed delivery
           cannot change, and polling it spends a patient's data bundle for nothing. */}
       {settled ? null : <TrackingAutoRefresh />}
 
-      <div className="page-head">
-        <div className="grow">
-          <span className="site-eyebrow">{t('trackingEyebrow')}</span>
-          <h1 style={{ marginTop: 'var(--space-4)' }}>{t('trackingTitle')}</h1>
-          <p className="tnum">{t('trackingReference', { reference: tracking.reference })}</p>
-        </div>
+      {/* The app's own page header rather than a tenth hand-rolled `.page-head`. It owns
+          the 12px between the eyebrow and the `<h1>` — which was the `marginTop` here — and
+          it guarantees the one `<h1>`: `title` is typed as a string, so nothing that could
+          contain a second heading can be passed to it.
 
-        <Badge tone={deliveryStatusTone(tracking.status)}>
-          {t(deliveryStatusWord(tracking.status))}
-        </Badge>
-      </div>
+          The reference goes through `description` as a `.tnum` SPAN rather than as a
+          paragraph of its own, because `.page-head p` in the token layer already owns the
+          size, the ink and the 6px above that paragraph. Tabular figures because a
+          reference read down a telephone is read digit by digit. */}
+      <SitePageHeader
+        eyebrow={t('trackingEyebrow')}
+        title={t('trackingTitle')}
+        description={
+          <span className="tnum">
+            {t('trackingReference', { reference: tracking.reference })}
+          </span>
+        }
+        actions={
+          <Badge tone={deliveryStatusTone(tracking.status)}>
+            {t(deliveryStatusWord(tracking.status))}
+          </Badge>
+        }
+      />
 
       {tracking.status === 'failed' ? (
         <Notice tone="bad" title={t('failedDeliveryTitle')}>
@@ -87,7 +100,7 @@ export async function DeliveryTracking({
 
       {tracking.status === 'failed' || tracking.status === 'returned_to_pharmacy' ? (
         <Card as="section" aria-labelledby="delivery-next" padding="tight">
-          <div className="stack" style={{ gap: 'var(--space-3)' }}>
+          <Stack gap="3">
             <h2 id="delivery-next" className="stat__label">
               {t('rescheduleHeading')}
             </h2>
@@ -110,11 +123,11 @@ export async function DeliveryTracking({
              * days. The terms of use say the same thing in the same words.
              */}
             <p className="fine">{t('refundHonesty', { clinic })}</p>
-          </div>
+          </Stack>
         </Card>
       ) : null}
 
-      <section aria-labelledby="delivery-milestones" className="stack" style={{ gap: 'var(--space-4)' }}>
+      <Stack as="section" gap="4" aria-labelledby="delivery-milestones">
         <h2 id="delivery-milestones" className="stat__value stat__value--md">
           {t('milestonesHeading')}
         </h2>
@@ -126,7 +139,11 @@ export async function DeliveryTracking({
         ) : (
           /* An ORDERED list: these are steps in sequence, and the element says so to a
              screen reader without the visual order having to be inferred. */
-          <ol className="stack" style={{ listStyle: 'none', padding: 0, gap: 'var(--space-3)' }}>
+          /* `as="ol"` and not a styled `<ol>`: Stack strips the user agent's markers and
+             indent AND puts `role="list"` back, because Safari drops list semantics from a
+             list whose `list-style` is `none` — which is the version of this that was
+             written by hand here, marker removed and semantics with it. */
+          <Stack as="ol" gap="3">
             {tracking.milestones.map((milestone, index) => (
               <li
                 className="row-wrap between"
@@ -135,19 +152,21 @@ export async function DeliveryTracking({
                 // and this list is append-only and never reordered.
                 key={`${milestone.status}-${milestone.occurred_at ?? index}`}
               >
-                <span className="row" style={{ gap: 'var(--space-3)' }}>
+                {/* `wrap={false}`: the tick and the word it marks are one atom, and a
+                    milestone whose icon has fallen onto the line above is not a milestone. */}
+                <Inline as="span" gap="3" wrap={false}>
                   <Icon name="check" className="ico" />
                   {t(deliveryStatusWord(milestone.status))}
-                </span>
+                </Inline>
 
                 {milestone.occurred_at === null ? null : (
                   <DateTime value={milestone.occurred_at} format="datetime" />
                 )}
               </li>
             ))}
-          </ol>
+          </Stack>
         )}
-      </section>
+      </Stack>
 
       {/* The disclosure, stated on the screen it is about. */}
       <Notice tone="neutral" icon="shield">
@@ -155,7 +174,7 @@ export async function DeliveryTracking({
       </Notice>
 
       {settled ? null : (
-        <div className="stack" style={{ gap: 'var(--space-3)' }}>
+        <Stack gap="3">
           {/*
            * A FORM, NOT A LINK. Checking for an update is a POST to a Server Action, so it
            * works with no JavaScript at all: the browser posts, Next re-renders the page
@@ -170,9 +189,9 @@ export async function DeliveryTracking({
           </form>
 
           <p className="fine">{t('refreshNote')}</p>
-        </div>
+        </Stack>
       )}
-    </div>
+    </Stack>
   )
 }
 

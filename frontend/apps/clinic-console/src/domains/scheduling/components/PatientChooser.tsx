@@ -114,16 +114,17 @@ export function PatientChooser({
       <div className="grid g-2">
         {matches.slice(0, 40).map((patient) => (
           /* `gap: var(--space-2)` was `.stack`'s own 6px said twice, and has gone. The
-             minimum height stays: this whole card is one tap target for a receptionist
-             choosing a caller from a list of forty, and `--touch-min` is the floor that
-             makes it hittable. `.card`'s padding happens to clear it today, which is
-             exactly the kind of accident that stops being true the first time somebody
-             tries `padding="tight"` here. A floor that is currently satisfied is still
-             the thing that keeps it satisfied. */
+             minimum height stays and is now `.card-link` in console.css, alongside the
+             settings tiles that are the same shape: this whole card is one tap target for a
+             receptionist choosing a caller from a list of forty, and `--touch-min` is the
+             floor that makes it hittable. `.card`'s padding happens to clear it today, which
+             is exactly the kind of accident that stops being true the first time somebody
+             tries `padding="tight"` here. A floor that is currently satisfied is still the
+             thing that keeps it satisfied. `.stack` stays for its own 6px gap, which
+             `.card-link` does not set. */
           <a
             key={patient.id}
-            className="card stack"
-            style={{ minHeight: 'var(--touch-min)' }}
+            className="card stack card-link"
             href={href(paths.book, { ...carry, patient: patient.id })}
           >
             <span className="record-name">

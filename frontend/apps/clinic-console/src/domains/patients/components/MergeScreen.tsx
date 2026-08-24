@@ -504,10 +504,10 @@ function RecordColumn({
           union nor Grid's includes a description list, deliberately: `<dl>` promises a
           screen reader that its children are term-and-definition pairs, and the only legal
           children are `<dt>`, `<dd>` and the `<div>`s grouping them — so a primitive can go
-          neither on it nor inside it. `.grid`'s own gap is 18px and these pairs want 12, so
-          the step has to be stated. It is still the token's value, not a pixel.
+          neither on it nor inside it. `.pairs` in console.css is the single-column grid at 12px
+          that five call sites were each restating inline, named for what it lays out.
         */}
-        <dl className="grid" style={{ gap: 'var(--space-4)' }}>
+        <dl className="pairs">
           <Row label="Phone">
             <span className="tnum">{patient.phone}</span>
           </Row>

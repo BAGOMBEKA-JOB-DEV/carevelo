@@ -147,25 +147,22 @@ function SectionRecord({
             * that breaks that — Chrome renders the content while the disclosure is CLOSED,
             * which on this control would put every earlier auto-save of a clinical note on
             * screen unasked. So the offset below the summary stays a margin on the content
-            * wrapper, where it is one declaration rather than one per child: the three
-            * `marginTop`s that were here are now this one plus the Stack's own gap.
-            *
-            * A `.disclose` + content rule in console.css would retire it. That file is not
-            * this task's to write — see the report.
+            * wrapper — and `.disclose-body` in console.css is now that declaration, shared
+            * with the five other disclosures in this app that were each writing it inline.
+            * The wrapper `<div>` it used to need has gone with it: the class rides on the
+            * Stack that was already inside it, so this is one element where it was two.
             */}
-          <div style={{ marginTop: 'var(--space-3)' }}>
-            <Stack gap="3">
-              <p className="fine">
-                These are the part-written versions saved automatically while the note was being
-                typed. They are kept because nothing in a clinical record is ever removed, not
-                because anybody needs to read them.
-              </p>
+          <Stack gap="3" className="disclose-body">
+            <p className="fine">
+              These are the part-written versions saved automatically while the note was being
+              typed. They are kept because nothing in a clinical record is ever removed, not
+              because anybody needs to read them.
+            </p>
 
-              {earlier.map((note) => (
-                <Entry key={note.id} note={note} tone="earlier" />
-              ))}
-            </Stack>
-          </div>
+            {earlier.map((note) => (
+              <Entry key={note.id} note={note} tone="earlier" />
+            ))}
+          </Stack>
         </details>
       ) : null}
 
@@ -183,7 +180,7 @@ function SectionRecord({
         {/* The same disclosure offset as above, and kept for the same reason. The column
             inside it is a Stack, so the form is a plain block again — which is what a form
             should be, since the element it renders as is decided by what it submits. */}
-        <form action={addendumAction} style={{ marginTop: 'var(--space-4)' }}>
+        <form action={addendumAction} className="disclose-body">
           <Stack gap="4">
             <input type="hidden" name="note_id" value={current.id} />
 
@@ -242,11 +239,14 @@ function Entry({
           THE SIZE IS THE ONE THING LEFT, AND IT IS LEFT ON PURPOSE. `.verbatim` is 14px flat
           while these two tones are 13px and 15px — an earlier auto-save is deliberately
           quieter than the entry that stands. Collapsing all three to 14px is a visual change
-          to how a clinical record reads, and `.verbatim--sm`/`--lg` belong beside the rule
-          they modify in console.css, which is not this task's file. Named in the report. */}
+          to how a clinical record reads. `.verbatim--sm` and `--lg` now sit beside the rule
+          they modify in console.css, so what varies at this call site is which NAME is on the
+          list — which is what a modifier class is for — rather than a number computed into a
+          style object. */}
       <pre
-        className={tone === 'earlier' ? 'verbatim muted' : 'verbatim'}
-        style={{ fontSize: tone === 'earlier' ? 13 : 15 }}
+        className={
+          tone === 'earlier' ? 'verbatim muted verbatim--sm' : 'verbatim verbatim--lg'
+        }
       >
         {note.body}
       </pre>

@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { getTranslations } from 'next-intl/server'
-import { Badge, Button, Card, Choice, Icon, Money, Notice, formatMoney } from '@carevelo/ui'
+import { Badge, Button, Card, Choice, Icon, Money, Notice, Stack, formatMoney } from '@carevelo/ui'
+import { SitePageHeader } from '@/components/SitePageHeader'
 import { fulfilmentIsStillOpen, hasControlledItem, recordFulfilment } from '../api/fulfilment'
 import { localPath } from './localPath'
 import type { FulfilmentMethod, OrderResult } from '../api/fulfilment'
@@ -97,18 +98,20 @@ export async function FulfilmentChoice({
       : t('deliveryNote')
 
   return (
-    <div className="stack" style={{ gap: 'var(--space-7)' }}>
-      <div className="page-head">
-        <div className="grow">
-          <span className="site-eyebrow">{t('fulfilmentEyebrow')}</span>
-          <h1 style={{ marginTop: 'var(--space-4)' }}>{t('fulfilmentTitle')}</h1>
-          <p>{t('fulfilmentLede', { clinic })}</p>
-        </div>
-
-        <Badge tone="neutral" icon="box">
-          {t('orderReference', { reference: order.reference })}
-        </Badge>
-      </div>
+    <Stack gap="7">
+      {/* `SitePageHeader` rather than an eleventh hand-rolled `.page-head`: it owns the
+          12px between the eyebrow and the `<h1>` that was a `marginTop` here, and its
+          `title` is typed as a string, so this screen cannot grow a second `<h1>`. */}
+      <SitePageHeader
+        eyebrow={t('fulfilmentEyebrow')}
+        title={t('fulfilmentTitle')}
+        description={t('fulfilmentLede', { clinic })}
+        actions={
+          <Badge tone="neutral" icon="box">
+            {t('orderReference', { reference: order.reference })}
+          </Badge>
+        }
+      />
 
       {error === undefined ? null : (
         /*
@@ -127,7 +130,7 @@ export async function FulfilmentChoice({
       )}
 
       <Card as="section" aria-labelledby="order-total" padding="tight">
-        <div className="stack" style={{ gap: 'var(--space-3)' }}>
+        <Stack gap="3">
           <h2 id="order-total" className="stat__label">
             {t('totalLabel')}
           </h2>
@@ -152,7 +155,7 @@ export async function FulfilmentChoice({
           {/* Said plainly on the screen where money first appears. The clinic sets the
               price and receives the payment; Carevelo is not in that path at all. */}
           <p className="fine">{t('pricedByClinic', { clinic })}</p>
-        </div>
+        </Stack>
       </Card>
 
       {controlled ? (
@@ -168,66 +171,73 @@ export async function FulfilmentChoice({
       ) : null}
 
       {fulfilmentIsStillOpen(order) ? (
-        <form action={submitFulfilment} className="stack" style={{ gap: 'var(--space-6)' }}>
-          <input type="hidden" name="order" value={order.id} />
-          <input type="hidden" name="back" value={selfHref} />
+        <form action={submitFulfilment}>
+          {/* The column is a `<Stack>` INSIDE the form rather than the form itself:
+              `Stack`'s element union has no `form` on purpose, and a block form wrapping a
+              full-width Stack lays out identically to the `.stack` this was. The hidden
+              inputs are `display: none` from the user agent, so they are not flex items and
+              cost no gap — which is also true of the `.stack` they used to sit in. */}
+          <Stack gap="6">
+            <input type="hidden" name="order" value={order.id} />
+            <input type="hidden" name="back" value={selfHref} />
 
-          {/*
-           * Present ONLY while delivery is genuinely on offer and the consent is genuinely
-           * missing. Its presence is what tells the action to send the patient to the
-           * consent step instead of posting — so once consent has been given this field is
-           * gone, and a controlled-item refusal can no longer bounce anybody back to a
-           * consent page they have already completed.
-           */}
-          {deliveryPossible && !deliveryConsent.granted ? (
-            <input type="hidden" name="consent" value={deliveryConsent.href} />
-          ) : null}
+            {/*
+             * Present ONLY while delivery is genuinely on offer and the consent is genuinely
+             * missing. Its presence is what tells the action to send the patient to the
+             * consent step instead of posting — so once consent has been given this field is
+             * gone, and a controlled-item refusal can no longer bounce anybody back to a
+             * consent page they have already completed.
+             */}
+            {deliveryPossible && !deliveryConsent.granted ? (
+              <input type="hidden" name="consent" value={deliveryConsent.href} />
+            ) : null}
 
-          <Choice
-            name="method"
-            legend={t('methodLegend')}
-            required
-            options={
-              deliveryPossible
-                ? [
-                    { value: 'pickup', label: t('pickupLabel'), note: t('pickupNote', { clinic }) },
-                    {
-                      value: 'delivery',
-                      label: t('deliveryLabel'),
-                      note: deliveryConsent.granted
-                        ? deliveryNote
-                        : `${deliveryNote} ${t('deliveryNeedsConsent')}`,
-                    },
-                  ]
-                : [
-                    {
-                      value: 'pickup',
-                      label: t('pickupLabel'),
-                      note: t('pickupNote', { clinic }),
-                    },
-                  ]
-            }
-            hint={deliveryPossible ? undefined : t('onlyPickupOffered')}
-          />
+            <Choice
+              name="method"
+              legend={t('methodLegend')}
+              required
+              options={
+                deliveryPossible
+                  ? [
+                      { value: 'pickup', label: t('pickupLabel'), note: t('pickupNote', { clinic }) },
+                      {
+                        value: 'delivery',
+                        label: t('deliveryLabel'),
+                        note: deliveryConsent.granted
+                          ? deliveryNote
+                          : `${deliveryNote} ${t('deliveryNeedsConsent')}`,
+                      },
+                    ]
+                  : [
+                      {
+                        value: 'pickup',
+                        label: t('pickupLabel'),
+                        note: t('pickupNote', { clinic }),
+                      },
+                    ]
+              }
+              hint={deliveryPossible ? undefined : t('onlyPickupOffered')}
+            />
 
-          {/* What the rider is and is not told, next to the option that involves one —
-              not in a policy page, and not after the fact. */}
-          {deliveryPossible ? (
-            <Notice tone="neutral" icon="truck">
-              {t('riderKnowsNothing')}
-            </Notice>
-          ) : null}
+            {/* What the rider is and is not told, next to the option that involves one —
+                not in a policy page, and not after the fact. */}
+            {deliveryPossible ? (
+              <Notice tone="neutral" icon="truck">
+                {t('riderKnowsNothing')}
+              </Notice>
+            ) : null}
 
-          {/* `brand`: a patient surface paints with the CLINIC's colour, and takes its
-              foreground from --brand-primary-fg, which the backend computed for AA. */}
-          <Button variant="brand" size="lg" type="submit">
-            <Icon name="check" /> {t('confirm')}
-          </Button>
+            {/* `brand`: a patient surface paints with the CLINIC's colour, and takes its
+                foreground from --brand-primary-fg, which the backend computed for AA. */}
+            <Button variant="brand" size="lg" type="submit">
+              <Icon name="check" /> {t('confirm')}
+            </Button>
+          </Stack>
         </form>
       ) : (
         <Decided fulfilment={order.fulfilment} clinic={clinic} />
       )}
-    </div>
+    </Stack>
   )
 }
 

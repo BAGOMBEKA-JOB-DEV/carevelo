@@ -55,15 +55,14 @@ export async function SettingsHub({ paths }: SettingsHubProps) {
             </Stack>
 
             {/*
-              SURVIVING INLINE STYLE, and it is the gap on a `<dl>`. Stack's element union
-              deliberately stops at the elements that are layout, and a description list is
-              not one of them: `<dl>` promises a screen reader that what follows is
-              term-and-definition pairs, and the only legal children are `<dt>`, `<dd>` and
-              the `<div>`s grouping them — so a Stack cannot go on it and cannot go inside it
-              either. The class and the step are still the token layer's; only the mechanism
-              is missing here.
+              Stack's element union deliberately stops at the elements that are layout, and a
+              description list is not one of them: `<dl>` promises a screen reader that what
+              follows is term-and-definition pairs, and the only legal children are `<dt>`,
+              `<dd>` and the `<div>`s grouping them — so a Stack cannot go on it and cannot go
+              inside it either. `.pairs` in console.css is the mechanism that was missing:
+              the same column at the same step, on the one element the layer cannot reach.
             */}
-            <dl className="stack" style={{ gap: 'var(--space-4)' }}>
+            <dl className="pairs">
               <div>
                 <dt className="stat__label">Address</dt>
                 <dd className="mono">{host}</dd>
@@ -95,18 +94,16 @@ export async function SettingsHub({ paths }: SettingsHubProps) {
         {SECTIONS.map((section) => (
           <a
             key={section.key}
-            className="card"
-            href={section.href(paths)}
             /*
-              SURVIVING INLINE STYLE, and it is one declaration with nowhere else to live.
               `.card` sets a surface, a border and 24px of padding and says nothing about
               display, because everything else that wears it is already a block. An `<a>` is
               not: left inline it would break its own padding and border across line boxes at
-              the first wrap. The fix belongs beside `.card` in the token layer as the tile
-              variant this grid of five links actually is, and the token layer is not this
-              task's to write — see the report.
+              the first wrap. `.card-link` in console.css is the tile variant this grid of
+              five links actually is — it gives the anchor a block box and holds it to the
+              44px touch floor, which `.card`'s padding satisfies today by accident.
             */
-            style={{ display: 'block' }}
+            className="card card-link"
+            href={section.href(paths)}
           >
             <Stack gap="3">
               <Inline as="span" gap="3" wrap={false}>
