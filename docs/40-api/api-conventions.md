@@ -64,7 +64,7 @@ Accept-Language: en
 ```
 
 - `Idempotency-Key` is **required on every mutating payment request** and accepted on all mutating requests (see below).
-- `Accept-Language` selects `en` or `lg`.
+- `Accept-Language` is accepted and has exactly one outcome today: `en`. It stays in the request contract because the language-keyed shapes behind it do — the consent policy is served as a map keyed by language code — so a second language becomes a value this header can carry rather than a new header and a new response shape. Luganda was withdrawn rather than shipped part-translated ([H2 §2](../10-product/prd-h2-patient-registration-consent.md)).
 - Unknown fields in a body are **rejected**, not ignored. A typo'd field name silently discarded is how a clinic discovers six weeks later that a price was never saved.
 
 ## Responses

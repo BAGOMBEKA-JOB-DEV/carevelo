@@ -80,12 +80,15 @@ it('publishes the current policy without authentication, in both languages', fun
     $response = $this->getJson(h2ConsentUrl($tenant, '/api/v1/consent-policies/current'))
         ->assertOk()
         ->assertJsonPath('data.version', ConsentController::POLICY_VERSION)
-        ->assertJsonStructure(['data' => ['version', 'text_hash', 'consent_types', 'text' => ['en', 'lg']]]);
+        ->assertJsonStructure(['data' => ['version', 'text_hash', 'consent_types', 'text' => ['en']]]);
 
     expect($response->json('data.consent_types'))
         ->toBe(['data_processing', 'telemedicine', 'delivery_disclosure'])
         ->and($response->json('data.text.en'))->toContain($tenant->trading_name)
-        ->and($response->json('data.text.lg'))->toContain($tenant->trading_name);
+        // English alone, and asserted as alone: the Luganda rendering was withdrawn
+        // rather than shipped unreviewed, and a structure assertion that tolerated an
+        // extra key would not notice a half-translated language creeping back in.
+        ->and(array_keys((array) $response->json('data.text')))->toBe(['en']);
 });
 
 // --- Granting ---------------------------------------------------------------

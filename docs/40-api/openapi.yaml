@@ -1041,7 +1041,7 @@ paths:
   /v1/consent-policies/current:
     get:
       operationId: v1.consent.policy
-      description: "KNOWN CONTRACT IMPRECISION, recorded rather than papered over. The generator infers\nthis response from the runtime shape, and PHP cannot distinguish a map from a list, so\ntwo fields come out wrong in openapi.yaml and therefore in the typed client:\n\n  - `text` publishes as an untyped array. It is a MAP keyed by language code\n    (`en`, `lg`), which is why the consent screen cannot ask for a language by key and\n    narrows it by hand instead.\n  - `version` publishes as the literal current value, because the constant is visible\n    and looks like a fixed part of the contract. It is the opposite — it is designed to\n    change, and a client that pinned it would break on the first policy revision.\n\nNeither is wrong on the wire; both are wrong in the type. Fixing it properly means\npublishing `text` as a list of `{language, body}` objects, which the generator can\ndescribe exactly — a small breaking change worth making before a second consumer\nexists, and deliberately not made mid-flight while the consent screen was being built\nagainst the current shape."
+      description: "KNOWN CONTRACT IMPRECISION, recorded rather than papered over. The generator infers\nthis response from the runtime shape, and PHP cannot distinguish a map from a list, so\ntwo fields come out wrong in openapi.yaml and therefore in the typed client:\n\n  - `text` publishes as an untyped array. It is a MAP keyed by language code (`en`\n    alone today, and the key is not promised to stay that), which is why the consent\n    screen cannot ask for a language by key and reads the key it finds instead. A\n    client that hard-coded `en` would break on the day a second language arrives, which\n    is the day this shape exists for.\n  - `version` publishes as the literal current value, because the constant is visible\n    and looks like a fixed part of the contract. It is the opposite — it is designed to\n    change, and a client that pinned it would break on the first policy revision.\n\nNeither is wrong on the wire; both are wrong in the type. Fixing it properly means\npublishing `text` as a list of `{language, body}` objects, which the generator can\ndescribe exactly — a small breaking change worth making before a second consumer\nexists, and deliberately not made mid-flight while the consent screen was being built\nagainst the current shape."
       summary: 'The current consent policy, in every language it is published in'
       tags:
         - Consent
@@ -1056,10 +1056,10 @@ paths:
                   data:
                     type: object
                     properties:
-                      version: { type: string, const: '2026-08-01' }
+                      version: { type: string, const: '2026-08-24' }
                       text_hash: { type: string }
                       consent_types: { type: array, prefixItems: [{ type: string, const: data_processing }, { type: string, const: telemedicine }, { type: string, const: delivery_disclosure }], minItems: 3, maxItems: 3, additionalItems: false }
-                      text: { type: array, description: 'Both languages together, because both are shown together.', items: {  } }
+                      text: { type: array, description: 'Every language the policy is published in, together, because a patient is shown all of them on the one screen. One entry today.', items: {  } }
                     required:
                       - version
                       - text_hash

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\V1\ConsentController;
 use App\Http\Middleware\RequirePasswordChange;
 use App\Models\ClinicalRole;
 use App\Models\Patient;
@@ -106,7 +107,7 @@ it('refuses the consent surface in particular', function () {
         ->postJson(gateUrl($tenant, '/api/v1/patients/'.$record->id.'/consents'), [
             'consent_type' => 'data_processing',
             'affirmed' => true,
-            'policy_version' => '2026-08-01',
+            'policy_version' => ConsentController::POLICY_VERSION,
         ])
         ->assertStatus(403)
         ->assertJsonPath('code', 'password_change_required');

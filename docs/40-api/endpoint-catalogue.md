@@ -58,7 +58,7 @@ While a patient's first password change is outstanding, `GET /v1/me`, `POST /v1/
 | GET | `/v1/patients/{id}/consents` | P self, S admin | Full history |
 | POST | `/v1/patients/{id}/consents` | P, guardian | Immutable record; never an update |
 | POST | `/v1/patients/{id}/consents/withdraw` | P self | Creates a new record |
-| GET | `/v1/consent-policies/current` | P | Text and version, English and Luganda |
+| GET | `/v1/consent-policies/current` | P | Text and version. Text is a map keyed by language code — `en` alone today |
 | POST | `/v1/patients/{id}/merge` | S front desk | **Within a tenant only.** Audited |
 
 ## Appointments & consultations — [H3](../10-product/prd-h3-teleconsultation.md)

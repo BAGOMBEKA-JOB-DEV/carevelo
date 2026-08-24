@@ -207,7 +207,8 @@ Aggregator errors are shown **verbatim from the aggregator**, since only the agg
 ## Accessibility and language
 
 - WCAG 2.1 AA. Contrast is computed rather than left to a clinic's colour choice ([White-Labeling](../10-product/white-labeling-and-branding.md)).
-- English and Luganda at minimum in the patient portal, including the consent text ([H2](../10-product/prd-h2-patient-registration-consent.md)). Structure for additional languages from the start; retrofitting internationalisation is far more expensive than allowing for it.
+- **English only in the patient portal, and that is a retreat rather than a plan.** Luganda shipped alongside it and has been withdrawn. It reached roughly 7% translated — 186 of the 201 portal keys held the English string verbatim under a Luganda label, waiting on a translator who is not coming — and English text wearing a Luganda label is worse than English text plainly presented, because it tells a reader the page speaks their language and then does not. On the consent text ([H2](../10-product/prd-h2-patient-registration-consent.md)) it is worse than shabby: consent is only valid if it is informed, and wording a patient believes they understood is precisely what informed consent is not.
+- **The `next-intl` structure stays regardless, and is the reason the retreat is cheap to reverse.** Structure for additional languages from the start; retrofitting internationalisation is far more expensive than allowing for it. That argument did not stop applying the day a locale was withdrawn — it is why the plumbing was kept rather than torn out, so restoring Luganda, or adding any other language, is a message file and an entry in `LOCALES` rather than a rewrite.
 - Touch targets sized for real thumbs; forms usable one-handed.
 - Every interactive element reachable by keyboard.
 
@@ -223,5 +224,5 @@ Aggregator errors are shown **verbatim from the aggregator**, since only the agg
    and turns the product off. Test by driving a client-side control (the theme toggle) and
    asserting the DOM changed, not by reading the header.
 7. No clinical data persists in client storage beyond the active note draft.
-8. Patient consent text renders in English and Luganda.
+8. Patient consent text renders in full on the decision screen, in every language the policy endpoint publishes it in — English alone today — and never behind a link. The portal reads the language key the API returns rather than assuming `en`, so a language added server-side appears without a client change.
 9. The revenue view excludes test data and never counts pending payments as earned.
