@@ -6,7 +6,24 @@ import { StatusRefresher } from './StatusRefresher'
 import { clinicName, type PaymentScreenProps } from './screen'
 
 /**
- * The patient is back, and they did not finish.
+ * The patient is back from the aggregator's page, and nobody has told us how it ended.
+ *
+ * ------------------------------------------------------------------
+ * THIS SCREEN MUST NOT SAY THEY DID NOT PAY, AND THE FIRST DRAFT OF IT DID.
+ *
+ * It is tempting to read "they are here rather than there" as "they gave up", and the copy
+ * originally did: "you are back here, so it did not finish. Nothing has been paid yet." That
+ * is a claim this app has no way to make. A Pesapal intent is created `initiated` and stays
+ * `initiated` until an IPN prompts the backend to re-read GetTransactionStatus — the
+ * notification carries no status of its own, by Pesapal's design — and the callback puts the
+ * patient's browser back here at once, typically ahead of that round trip.
+ *
+ * So `initiated` + a stored checkout URL is BOTH the abandoned checkout and the successful
+ * one whose confirmation has not caught up, and they are indistinguishable from here. Telling
+ * the second patient that nothing has been paid, under a heading saying they did not finish,
+ * with "Continue on the payment page" as the loudest button, is an instruction to pay twice.
+ * PaymentUnresolved's rule governs this screen for exactly the same reason it governs that
+ * one: where the answer is not known, say that, and never manufacture the negative.
  *
  * ------------------------------------------------------------------
  * WHY THIS IS NOT PaymentWaiting.tsx WITH DIFFERENT WORDS.
@@ -20,8 +37,8 @@ import { clinicName, type PaymentScreenProps } from './screen'
  * model in the other's words is the exact failure this domain's PRD calls out — an honest
  * wait is the requirement, and an honest wait about the wrong thing is not honest.
  *
- * So this screen says the true thing: you were sent to a payment page, you came back before
- * it finished, and here is that same page again.
+ * So this screen says the true thing: you were sent to a payment page, we have not been told
+ * how it ended, and here is that same page again if you still need it.
  *
  * ------------------------------------------------------------------
  * IT IS PaymentUnresolved.tsx'S SIBLING, AND THAT IS THE FAMILY IT BELONGS TO.
@@ -31,8 +48,9 @@ import { clinicName, type PaymentScreenProps } from './screen'
  * heading does not claim a result, the reference is on the screen because the patient may be
  * about to telephone the clinic with it, and "do not pay for this again" is said plainly
  * rather than implied. What differs is the CAUSE and therefore the next action. A timeout
- * has no page left to return to and its screen offers a telephone call; an abandoned
- * checkout has one, and the single most useful thing on this screen is the way back to it.
+ * has no page left to return to and its screen offers a telephone call; a checkout that may
+ * have been abandoned still has one, and offering it back — rather than a fresh order — is
+ * what this screen adds.
  *
  * THE SAME PAGE, NEVER A NEW ONE. `payment_intents.redirect_url` is stored server-side for
  * precisely this — "a patient who closes the tab can be sent back to the same page rather
@@ -110,10 +128,24 @@ export async function PaymentCheckoutReturn({
        * right edge of a 360px phone — and `.card__section` for the 18px above it, which is a
        * space AROUND the row and so is not a gap any column can hold.
        *
-       * THE PRIMARY ACTION SWAPS WITH THE STATE, the way PaymentNotStarted's does. Nothing
-       * has been collected yet on an `initiated` attempt, so finishing on the page is the
-       * useful act; once the aggregator is collecting, asking again is, and pressing on to a
-       * page that is already working would only invite a second attempt at it.
+       * "CHECK AGAIN" IS THE PRIMARY ACTION IN BOTH STATES, AND IT DID NOT USED TO BE.
+       *
+       * The obvious arrangement is the one PaymentNotStarted uses — lead with the useful
+       * next act, which for an unfinished checkout looks like the way back to the page. It
+       * is wrong here, because of WHICH STATUS a patient who has just paid actually arrives
+       * on. `PaymentIntentController::store` creates a Pesapal intent as `initiated` and
+       * NOTHING moves it until the IPN lands and the backend re-reads GetTransactionStatus;
+       * `show()` does not re-fetch. Pesapal's callback returns the browser immediately. So
+       * `initiated` + a checkout URL is the state of an abandoned checkout AND of a
+       * successful one whose confirmation is still in flight, and this screen cannot tell
+       * them apart — see the lede, which no longer pretends it can.
+       *
+       * Given that, the loudest control on the screen must be the one that is safe under
+       * both readings. Asking again resolves a payment that already succeeded and costs a
+       * patient who abandoned nothing but a tap. Leading with "Continue on the payment page"
+       * sends somebody who has already paid back to pay again, which is the one outcome this
+       * domain cannot undo. The way back is still here, full size and first in the row —
+       * it is simply not the thing shouting.
        *
        * IT IS A PLAIN ANCHOR TO ANOTHER ORIGIN, which is what `<Button href>` renders. No
        * `target="_blank"`: a patient returned by the aggregator's callback should land back
@@ -124,11 +156,11 @@ export async function PaymentCheckoutReturn({
        * browsing context to open.
        */}
       <Inline gap="4" className="card__section">
-        <Button href={checkoutUrl} variant={collecting ? 'quiet' : 'brand'} size="lg">
+        <Button href={checkoutUrl} variant="quiet" size="lg">
           {t('checkout.continue')}
         </Button>
 
-        <Button href={checkAgainHref ?? ''} variant={collecting ? 'brand' : 'quiet'} size="lg">
+        <Button href={checkAgainHref ?? ''} variant="brand" size="lg">
           {t('actions.checkAgain')}
         </Button>
       </Inline>

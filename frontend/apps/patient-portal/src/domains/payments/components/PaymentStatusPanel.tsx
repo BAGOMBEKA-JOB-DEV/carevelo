@@ -80,10 +80,13 @@ export async function PaymentStatusPanel({
 
     case 'initiated':
       /*
-       * Nothing has been collected. PaymentNotStarted says so in the two ways that are true
-       * without a hosted checkout — cash waiting at a desk, or an aggregator we could not
-       * reach — and neither is true of a patient who has an unfinished payment page waiting
-       * for them. That patient gets the way back to it instead.
+       * PaymentNotStarted reads `initiated` as "nothing has been collected", which is true
+       * in the two push-model ways it describes — cash waiting at a desk, or an aggregator
+       * we could not reach — and is NOT true where a hosted checkout is involved. There,
+       * `initiated` is simply the status an intent is created with and keeps until an IPN
+       * prompts the backend to go and ask; a patient who has paid in full sits in it for as
+       * long as that takes. So this arm must not assert a negative, and
+       * PaymentCheckoutReturn is written not to.
        */
       return handoff.kind === 'hosted_checkout' ? (
         <PaymentCheckoutReturn

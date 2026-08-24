@@ -56,9 +56,9 @@
       "noRequest": "If no request reaches your phone within a few minutes, you can try another way to pay."
     },
     "checkout": {
-      "titleUnfinished": "You have not finished on the payment page",
+      "titleUnfinished": "This payment is not confirmed yet",
       "titleCollecting": "Waiting for the payment page to confirm",
-      "ledeUnfinished": "We sent you to {clinic}'s payment page to pay {amount}. You are back here, so it did not finish. Nothing has been paid yet.",
+      "ledeUnfinished": "We sent you to {clinic}'s payment page to pay {amount}, and you are back here. {clinic}'s payment provider has not told us yet how it ended. If you did finish paying, that confirmation can take a little while to reach us. If you did not, the same page is still waiting for you below.",
       "ledeCollecting": "You have come back from {clinic}'s payment page. It has not told us that this payment is complete yet.",
       "continue": "Continue on the payment page",
       "doNotPayTwice": "Go back to the same payment page rather than starting a new one, and do not pay {clinic} another way until you know how this one ended. Otherwise the money could be taken twice.",
