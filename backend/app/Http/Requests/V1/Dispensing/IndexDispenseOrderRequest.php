@@ -34,6 +34,17 @@ class IndexDispenseOrderRequest extends FormRequest
             'patient_id' => ['sometimes', 'string', 'ulid'],
             'per_page' => ['sometimes', 'integer', 'min:1', 'max:'.self::MAX_PER_PAGE],
             'page' => ['sometimes', 'integer', 'min:1'],
+            /*
+             * `cursor` and `page` are both accepted because this route serves two
+             * listings. A patient's own orders page by CURSOR, which is the house
+             * rule; the pharmacy queue still pages by offset because the console
+             * reads `meta.total` off it to warn that a lane has overflowed, and a
+             * cursor paginator has no total to read. Whichever paginator runs
+             * ignores the other's parameter, so sending both is harmless rather
+             * than ambiguous — and `RejectsUnknownFields` means a client cannot
+             * send `cursor` at all unless it is declared here.
+             */
+            'cursor' => ['sometimes', 'string'],
         ];
     }
 

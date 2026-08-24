@@ -1,6 +1,8 @@
+import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import { AccessNotice, authoriseOperator } from '@/domains/identity'
 import { ControlPlaneShell } from '@/components/ControlPlaneShell'
+import { IDENTITY_PATHS } from '../paths'
 import { PlannedSection } from '@/components/PlannedSection'
 
 /**
@@ -39,10 +41,20 @@ export const metadata: Metadata = { title: 'Audit' }
 export default async function AuditPage() {
   const access = await authoriseOperator()
 
+  if (access.kind === 'guest') {
+    /*
+     * NOT a notice, and not a 404. There is a sign-in screen now, and the honest answer to
+     * a request with no session is to show it. `no-role` below is a different answer and
+     * stays one: that browser HAS a session, and flattening the two would leave an operator
+     * whose session simply idled out believing the console had been taken away from them.
+     */
+    redirect(IDENTITY_PATHS.signIn)
+  }
+
   if (access.kind !== 'operator') {
     return (
       <ControlPlaneShell title="Audit" active="audit">
-        <AccessNotice access={access} />
+        <AccessNotice operator={access.operator} paths={IDENTITY_PATHS} />
       </ControlPlaneShell>
     )
   }

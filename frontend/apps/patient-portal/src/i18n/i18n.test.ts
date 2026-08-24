@@ -1,160 +1,265 @@
+import { readdirSync, readFileSync, statSync } from 'node:fs'
+import { join, relative } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import en from '../../messages/en.json'
-import lg from '../../messages/lg.json'
-import worklist from '../../messages/lg.needs-translation.json'
-import { DEFAULT_LOCALE, LOCALES, negotiateLocale } from './locales'
+import { LOCALES } from './locales'
+import { MESSAGES } from './messages'
 
 /*
- * The catalogues, checked the way a translator will actually break them.
+ * The one check on the message layer that still earns its place.
  *
- * messages.ts already makes a key missing from either file a COMPILE error, and that is
- * the stronger gate — it cannot be skipped and it fails before anything runs. What it
- * cannot express is everything below: that the worklist telling a translator what is left
- * to do is still true, that a translated sentence did not lose the placeholder holding the
- * clinic's name, and that language negotiation prefers the choice a patient made over a
- * setting somebody made on their phone years ago.
+ * WHAT WAS HERE BEFORE, AND WHY IT WENT. This file used to police a three-state convention
+ * across two catalogues: every leaf key in messages/lg.json was either translated, or
+ * listed in a worklist as awaiting a translator, or listed as identical-on-purpose, and the
+ * suite failed if a key was in none of the three or in more than one. That convention
+ * existed to keep an honest account of how much of the Luganda catalogue was real prose and
+ * how much was English wearing a Luganda label. The answer settled at 7%, the translator
+ * did not come, and the locale was removed — see i18n/locales.ts for the argument. A
+ * convention that describes one file cannot outlive that file, so it went with it.
  *
- * THE PLACEHOLDER TEST IS THE ONE THAT WILL EARN ITS KEEP. `{clinic}` appears in about
- * half of these strings, and a translator working in a spreadsheet drops a brace far more
- * often than they drop a key. next-intl does not fail on a message whose placeholder was
- * deleted; it renders the sentence with the clinic's name simply absent, which on a
- * white-label product reads as a bug in somebody else's software.
+ * WHAT REPLACES IT IS THE CHECK THE TWO-CATALOGUE VERSION NEVER MADE. Both of the old gates
+ * — the `satisfies` pair in messages.ts and the key-set comparison here — asked whether the
+ * two CATALOGUES agreed with each other. Neither ever asked whether the catalogue agreed
+ * with the APP. That is the gap that actually reaches a patient: next-intl resolves a
+ * message it cannot find to the literal string `Namespace.key`, so a key renamed in the
+ * JSON while a screen still asks for the old one prints `Privacy.retentionRecords` into the
+ * middle of a privacy notice, renders fine, throws nothing, and is discovered by a user.
  *
- * NOTE FOR WHOEVER RUNS `pnpm typecheck` AND SEES THIS FILE FAIL TO RESOLVE `vitest`.
- * apps/patient-portal does not declare vitest, so tsc and dependency-cruiser cannot find
- * the import even though the suite runs — vitest resolves its own package. That gap is
- * pre-existing, it already affects domains/identity/api/session.test.ts, and vitest.config.ts
- * documents both the cause and the one-line fix:
+ * `app-config.d.ts` catches most of that at compile time, and it is the stronger gate where
+ * it reaches — but it reaches only as far as the literal argument of a `t()` call. It says
+ * nothing about the eight call sites that build a key from a value at runtime, and those
+ * are precisely the keys a catalogue edit is most likely to strand: `t(`methods.${method}.label`)`
+ * still compiles when one payment method loses its label, and fails on the screen of
+ * whoever paid that way. So the test below reads the SOURCE, collects every key the app
+ * asks for including the computed ones, and requires all of them to resolve.
  *
- *     pnpm --filter @carevelo/patient-portal add -D vitest@4.1.10
+ * WHAT IT DELIBERATELY DOES NOT CHECK is the other direction — a key in the catalogue that
+ * no screen reads. That is dead weight in a JSON file, not a defect on a patient's screen,
+ * and a test that failed on it would fail every time somebody wrote the copy before the
+ * component. Worth a periodic sweep; not worth a gate.
+ *
+ * THE SCANNER IS A REGEX OVER SOURCE TEXT RATHER THAN A TYPESCRIPT AST WALK, and that is a
+ * deliberate trade rather than laziness. An AST walk needs the compiler as a test-time
+ * dependency and a resolver good enough to follow a binding across a destructuring — for a
+ * codebase that spells this one thing exactly two ways, both matched below. The risk of a
+ * text scanner is that it silently matches NOTHING after some refactor and reports a green
+ * board on an empty set, which is the same class of failure this project keeps finding. So
+ * the first assertion is a floor on how many references it found: if a change to how this
+ * app calls `getTranslations` drops the scanner's hit rate off a cliff, that is a failure
+ * with the reason written on it rather than a suite that quietly stopped testing.
  */
 
-type Leaf = { path: string; value: string }
+/**
+ * This app's `src/`, resolved from this file rather than from the working directory —
+ * `pnpm test` runs the whole workspace from frontend/, so a relative path would be wrong.
+ *
+ * `join(..., '..', '..')` rather than the tidier `new URL('..', import.meta.url)`, and that
+ * is not a style choice. This project runs under jsdom, whose `URL` global SHADOWS Node's;
+ * `fileURLToPath` rejects the resulting object with "The URL must be of scheme file" even
+ * though the href is a perfectly good `file://` one. Converting the string first sidesteps
+ * a global that the test environment owns.
+ */
+const SOURCE_ROOT = join(fileURLToPath(import.meta.url), '..', '..')
 
-function leaves(node: unknown, prefix = ''): Leaf[] {
-  if (typeof node === 'string') {
-    return [{ path: prefix, value: node }]
-  }
+/**
+ * `const t = await getTranslations('Patients')` — the plain form, one namespace bound to
+ * one name.
+ */
+const DIRECT_BINDING =
+  /(?:const|let)\s+([A-Za-z_$][\w$]*)\s*=\s*await\s+getTranslations\(\s*'([A-Za-z]+)'\s*\)/g
 
-  if (node === null || typeof node !== 'object') {
-    return []
-  }
+/**
+ * `const [t, common] = await Promise.all([getTranslations('Patients'), getTranslations('Common')])`
+ * — the form most screens here use, because a page resolving its tenant, its session and
+ * two namespaces should do it in one round of awaits rather than four. The names and the
+ * calls are matched positionally; an element that is not a `getTranslations` call (a
+ * `resolveTenant()`, a `currentUser()`) simply binds no namespace and its name is skipped.
+ */
+const DESTRUCTURED_BINDING =
+  /(?:const|let)\s*\[([^\]]*)\]\s*=\s*await\s+Promise\.all\(\s*\[([\s\S]*?)\]\s*\)/g
 
-  return Object.entries(node).flatMap(([key, value]) =>
-    leaves(value, prefix ? `${prefix}.${key}` : key),
-  )
-}
+type Reference = { file: string; namespace: string; key: string }
 
-/** Every `{name}` an ICU message declares, which the translation has to keep. */
-function placeholders(message: string): string[] {
-  return [...message.matchAll(/\{(\w+)[,}]/g)].map((match) => match[1] ?? '').sort()
-}
+function sourceFiles(directory: string): string[] {
+  return readdirSync(directory).flatMap((entry) => {
+    const path = join(directory, entry)
 
-/** Every `<tag>` a rich message opens, which becomes a real element at render time. */
-function tags(message: string): string[] {
-  return [...message.matchAll(/<(\w+)>/g)].map((match) => match[1] ?? '').sort()
-}
-
-const english = leaves(en)
-const luganda = leaves(lg)
-
-describe('the message catalogues', () => {
-  it('hold exactly the same keys in both languages', () => {
-    // Sorted so the failure names the missing keys rather than reporting that two long
-    // arrays differ somewhere.
-    expect(luganda.map((leaf) => leaf.path).sort()).toEqual(
-      english.map((leaf) => leaf.path).sort(),
-    )
-  })
-
-  it('keep every placeholder and every rich tag through translation', () => {
-    const lugandaByPath = new Map(luganda.map((leaf) => [leaf.path, leaf.value]))
-
-    for (const { path, value } of english) {
-      const translation = lugandaByPath.get(path) ?? ''
-
-      expect({ path, placeholders: placeholders(translation), tags: tags(translation) })
-        .toEqual({ path, placeholders: placeholders(value), tags: tags(value) })
+    if (statSync(path).isDirectory()) {
+      return sourceFiles(path)
     }
+
+    // Test files are excluded: a fixture key invented by a test is not a key the app
+    // renders, and requiring one to exist in the catalogue would be backwards.
+    return /\.tsx?$/.test(path) && !/\.test\.tsx?$/.test(path) ? [path] : []
   })
-})
+}
 
-describe('the Luganda worklist', () => {
-  const lugandaByPath = new Map(luganda.map((leaf) => [leaf.path, leaf.value]))
-  const englishByPath = new Map(english.map((leaf) => [leaf.path, leaf.value]))
+/** Split an argument list on top-level commas, so a nested `f(a, b)` stays one element. */
+function topLevelElements(list: string): string[] {
+  const elements: string[] = []
+  let depth = 0
+  let current = ''
 
-  it('names only keys that exist', () => {
-    const named = [...worklist.needsTranslation, ...worklist.identicalOnPurpose]
+  for (const character of list) {
+    if (character === ',' && depth === 0) {
+      elements.push(current)
+      current = ''
+      continue
+    }
 
-    expect(named.filter((path) => !englishByPath.has(path))).toEqual([])
+    if ('([{'.includes(character)) depth += 1
+    if (')]}'.includes(character)) depth -= 1
+
+    current += character
+  }
+
+  if (current.trim() !== '') {
+    elements.push(current)
+  }
+
+  return elements
+}
+
+/** Which namespace each translator name in one file is bound to. */
+function bindingsIn(source: string): Map<string, string> {
+  const bindings = new Map<string, string>()
+
+  for (const match of source.matchAll(DIRECT_BINDING)) {
+    bindings.set(match[1] ?? '', match[2] ?? '')
+  }
+
+  for (const match of source.matchAll(DESTRUCTURED_BINDING)) {
+    const names = (match[1] ?? '').split(',').map((name) => name.trim())
+
+    topLevelElements(match[2] ?? '').forEach((element, index) => {
+      const namespace = /^getTranslations\(\s*'([A-Za-z]+)'\s*\)$/.exec(element.trim())?.[1]
+      const name = names[index]
+
+      if (namespace !== undefined && name !== undefined && name !== '') {
+        bindings.set(name, namespace)
+      }
+    })
+  }
+
+  return bindings
+}
+
+/** Every message key this app asks for, with the namespace it asks for it in. */
+function references(): Reference[] {
+  return sourceFiles(SOURCE_ROOT).flatMap((file) => {
+    const source = readFileSync(file, 'utf8')
+    const bindings = bindingsIn(source)
+
+    if (bindings.size === 0) {
+      return []
+    }
+
+    /*
+     * `t('key')`, `t.rich('key')` and the backtick form. Only the names actually bound in
+     * THIS file are matched, so an unrelated `format(...)` or `humanise(...)` call cannot
+     * be mistaken for a translation.
+     */
+    const call = new RegExp(
+      `\\b(${[...bindings.keys()].join('|')})(?:\\.rich)?\\(\\s*(['\`])((?:\\\\.|(?!\\2).)*)\\2`,
+      'g',
+    )
+
+    return [...source.matchAll(call)].map((match) => ({
+      file: relative(SOURCE_ROOT, file),
+      namespace: bindings.get(match[1] ?? '') ?? '',
+      key: match[3] ?? '',
+    }))
   })
+}
 
-  it('never lists a key twice', () => {
-    const named = [...worklist.needsTranslation, ...worklist.identicalOnPurpose]
+/**
+ * Resolve one dotted path against the catalogue, expanding `*` — an interpolated segment —
+ * over every child at that level.
+ *
+ * The expansion is what makes a computed key worth checking at all. `methods.${method}.label`
+ * does not name one message, it names a SHAPE: every payment method the catalogue holds must
+ * carry a label. Checking only that `methods` exists would pass a catalogue where four of
+ * the five methods had lost theirs.
+ *
+ * Returns the paths that failed to resolve, so a failure names the exact key rather than
+ * reporting that a boolean was false.
+ */
+function unresolved(path: string): string[] {
+  const walk = (node: unknown, segments: string[], trail: string): string[] => {
+    if (segments.length === 0) {
+      // A path that lands on an object rather than a string is a namespace, not a message.
+      // next-intl renders it as the literal key, which is the failure this test is about.
+      return typeof node === 'string' ? [] : [trail]
+    }
 
-    expect(named.length).toBe(new Set(named).size)
-  })
+    if (node === null || typeof node !== 'object') {
+      return [trail]
+    }
 
+    const [head = '', ...rest] = segments
+    const children = node as Record<string, unknown>
+
+    if (head.includes('*')) {
+      const names = Object.keys(children)
+
+      // An interpolated segment over an empty object resolves vacuously, which would make
+      // an emptied namespace pass. It is a failure.
+      return names.length === 0
+        ? [trail]
+        : names.flatMap((name) => walk(children[name], rest, `${trail}.${name}`))
+    }
+
+    return head in children ? walk(children[head], rest, `${trail}.${head}`) : [trail]
+  }
+
+  return walk(
+    MESSAGES.en,
+    path.replace(/\$\{[^}]*\}/g, '*').split('.'),
+    '',
+  ).map((failure) => (failure === '' ? path : failure.slice(1)))
+}
+
+const found = references()
+
+describe('the message keys this app asks for', () => {
   /*
-   * The invariant that makes the worklist worth having. An untranslated string is one
-   * whose Luganda value is still the English one, and every such string must be accounted
-   * for: either a translator has yet to reach it, or it is a brand name, a numeral or a
-   * drug name that is identical on purpose. Both directions are checked, so translating a
-   * string turns this red until its line is removed from the worklist — which is how the
-   * list stays honest instead of quietly describing last month's catalogue.
+   * The floor that stops a broken scanner reading as a clean suite. Roughly 750 references
+   * exist today across every screen in the portal; the number here is deliberately well
+   * under that, so ordinary churn never touches it and only a scanner that has stopped
+   * finding call sites can trip it.
    */
-  it('accounts for every string that still reads in English', () => {
-    const accountedFor = new Set([
-      ...worklist.needsTranslation,
-      ...worklist.identicalOnPurpose,
+  it('are actually being collected, rather than a regex quietly matching nothing', () => {
+    expect(found.length).toBeGreaterThan(400)
+
+    // Every namespace registered in messages.ts should be reachable from somewhere; a
+    // namespace nothing reads is copy paid for and never shown.
+    const namespaces = new Set(found.map((reference) => reference.namespace))
+
+    expect([...Object.keys(MESSAGES.en)].filter((name) => !namespaces.has(name))).toEqual([
+      // `Errors` is read by app/error.tsx, which is a client error boundary and imports
+      // its JSON directly rather than through getTranslations — messages.ts explains why.
+      'Errors',
     ])
+  })
 
-    const stillEnglish = english
-      .filter(({ path, value }) => lugandaByPath.get(path) === value)
-      .map(({ path }) => path)
+  it('every one resolves to a message in the catalogue', () => {
+    const missing = found.flatMap((reference) =>
+      unresolved(`${reference.namespace}.${reference.key}`).map(
+        (path) => `${path} (${reference.file})`,
+      ),
+    )
 
-    expect(stillEnglish.filter((path) => !accountedFor.has(path))).toEqual([])
-    expect([...accountedFor].filter((path) => !stillEnglish.includes(path))).toEqual([])
+    // Sorted and de-duplicated so a catalogue edit that stranded one key names that key,
+    // rather than printing the same path once per screen that reads it.
+    expect([...new Set(missing)].sort()).toEqual([])
   })
 })
 
-describe('choosing a language for a request', () => {
-  it('prefers the cookie, because it is the choice the patient actually made', () => {
-    // Even against a browser that asks for the other language at full weight: the setting
-    // in an Android menu is often years old and often not theirs.
-    expect(negotiateLocale('lg', 'en-GB,en;q=0.9')).toBe('lg')
-    expect(negotiateLocale('en', 'lg')).toBe('en')
-  })
-
-  it('ignores a cookie value that is not a language we hold', () => {
-    expect(negotiateLocale('sw', 'lg')).toBe('lg')
-    expect(negotiateLocale('', null)).toBe(DEFAULT_LOCALE)
-  })
-
-  it('reads Accept-Language by weight rather than by position', () => {
-    expect(negotiateLocale(undefined, 'sw;q=0.9,lg;q=0.8,en;q=0.1')).toBe('lg')
-    expect(negotiateLocale(undefined, 'lg;q=0.2,en;q=0.8')).toBe('en')
-  })
-
-  it('matches on the primary subtag, so lg-UG is Luganda', () => {
-    expect(negotiateLocale(undefined, 'lg-UG')).toBe('lg')
-    expect(negotiateLocale(undefined, 'en-US,en;q=0.9')).toBe('en')
-  })
-
-  it('treats an explicit q=0 as a refusal rather than a preference', () => {
-    expect(negotiateLocale(undefined, 'lg;q=0,en;q=0.5')).toBe('en')
-  })
-
-  it('falls back to English when the browser names nothing we hold', () => {
-    expect(negotiateLocale(undefined, 'sw-KE,fr;q=0.7')).toBe(DEFAULT_LOCALE)
-    expect(negotiateLocale(undefined, undefined)).toBe(DEFAULT_LOCALE)
-  })
-
-  it('takes * as permission to pick rather than as a preference', () => {
-    expect(negotiateLocale(undefined, '*')).toBe(DEFAULT_LOCALE)
-  })
-
-  it('offers exactly the languages the product promises', () => {
-    expect([...LOCALES]).toEqual(['en', 'lg'])
+describe('the catalogue', () => {
+  it('holds one for every language the portal claims to read', () => {
+    // `satisfies Record<Locale, ...>` in messages.ts already makes this a compile error.
+    // Asserted again at runtime because the two are edited in different files by different
+    // people, and this is the failure that would ship a locale with no words behind it.
+    expect(Object.keys(MESSAGES).sort()).toEqual([...LOCALES].sort())
   })
 })

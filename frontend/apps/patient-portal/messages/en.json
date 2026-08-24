@@ -6,14 +6,6 @@
   "Metadata": {
     "unavailable": "Not available"
   },
-  "Language": {
-    "heading": "Language",
-    "legend": "Choose the language this portal reads in",
-    "options": {
-      "en": "English",
-      "lg": "Oluganda"
-    }
-  },
   "NotFound": {
     "title": "Page not found",
     "body": "Check the address and try again."
@@ -65,7 +57,6 @@
     "seeHowItWorks": "See how it works",
     "chipMobileMoney": "MTN & Airtel money",
     "chipAnyPhone": "Works on any phone with a browser",
-    "chipLanguages": "English & Luganda",
     "stats": {
       "stepsValue": "4 <u>steps</u>",
       "stepsLabel": "from booking to medicine in hand",
@@ -102,9 +93,7 @@
       "receiptsTitle": "Keep every receipt",
       "receiptsBody": "Every payment you make to {clinic} is receipted and kept, so you can show what you paid and when.",
       "familyTitle": "Book for your family",
-      "familyBody": "A parent or guardian can book and consult on behalf of a child, with the consent recorded properly rather than assumed.",
-      "languageTitle": "Ask in your language",
-      "languageBody": "The portal reads in English and Luganda, and you choose which — including the consent you are asked to give."
+      "familyBody": "A parent or guardian can book and consult on behalf of a child, with the consent recorded properly rather than assumed."
     },
     "trust": {
       "eyebrow": "Safety and privacy",
@@ -177,7 +166,7 @@
     "accessBody": "You can ask {clinic} for a copy of what it holds about you, and you can ask it to correct anything that is wrong — a misspelled name, the wrong date of birth, a phone number that belongs to somebody else. Ask the clinic directly, using the contact details below.",
     "accessNote": "A clinical note cannot simply be deleted because you disagree with it, but you can ask for your disagreement to be recorded alongside it. That is the honest position rather than the comfortable one.",
     "cookiesHeading": "Cookies and your browser",
-    "cookiesBody": "Signing in sets one cookie, which is how the portal knows the next page you open is still you. It is not used to follow you anywhere else, and signing out ends it. Choosing a language sets a second cookie holding nothing but en or lg, so the portal opens in the language you chose the next time you visit. Your choice of light or dark theme is kept in your own browser and never sent to us at all. There are no advertising or tracking scripts on this portal, and there cannot be: the site's content security policy refuses to load a script from anywhere but this clinic's own address.",
+    "cookiesBody": "Signing in sets one cookie, which is how the portal knows the next page you open is still you. It is not used to follow you anywhere else, and signing out ends it. Your choice of light or dark theme is kept in your own browser and never sent to us at all. There are no advertising or tracking scripts on this portal, and there cannot be: the site's content security policy refuses to load a script from anywhere but this clinic's own address.",
     "wrongHeading": "If something goes wrong",
     "wrongBody": "Tell {clinic} first — it is the controller, and it can act. If you are not satisfied with the answer you can complain to the authority that supervises data protection in Uganda; <b>{clinic} should name that authority and its address here</b>, along with the person at the clinic who handles these questions.",
     "wrongBreach": "If a breach affects your information, {clinic} is the one who must tell you. Carevelo's obligation is to tell {clinic}, promptly and in full, and we treat that as a duty to the patient rather than a courtesy to a customer.",

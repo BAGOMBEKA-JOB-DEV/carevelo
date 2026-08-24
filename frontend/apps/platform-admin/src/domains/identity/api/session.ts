@@ -21,10 +21,25 @@ export async function currentOperator(): Promise<Operator | null> {
   try {
     const client = await readClient()
 
-    // UNWRAPPED. `MeResource` arrives nested under `data` like every other Eloquent API
-    // resource. The patient portal read it flat once and every field came back undefined,
-    // which rendered as a blank name rather than failing loudly.
-    const response = await client.get<{ data?: Operator }>('/v1/me')
+    /*
+     * `/v1/platform/me`, NOT `/v1/me`, and the difference is not cosmetic.
+     *
+     * `/v1/me` sits inside the `v1` group behind `ResolveTenant`, which reads a clinic
+     * from the request host and answers 404 when the host is not one. This app is served
+     * from `admin.carevelo.app`, which resolves to no clinic — so that endpoint answered
+     * 404 here, every time, and `authoriseOperator()` read it as "not signed in". A
+     * platform account has no tenant to be resolved, which is what makes it a platform
+     * account, so the platform surface carries its own identity endpoint outside tenant
+     * resolution.
+     *
+     * It returns the SAME `MeResource`, which is why the type below is unchanged and why
+     * nothing else in this domain had to move.
+     *
+     * UNWRAPPED. `MeResource` arrives nested under `data` like every other Eloquent API
+     * resource. The patient portal read it flat once and every field came back undefined,
+     * which rendered as a blank name rather than failing loudly.
+     */
+    const response = await client.get<{ data?: Operator }>('/v1/platform/me')
 
     return response.data ?? null
   } catch {
@@ -35,6 +50,13 @@ export async function currentOperator(): Promise<Operator | null> {
      * cannot be identified is that they are not signed in, because from this app's point
      * of view there is no way to tell the two apart, and guessing produces a screen that
      * says "something went wrong" when the answer is "sign in".
+     *
+     * A 403 `second_factor_required` lands here too, and reading it as "not signed in" is
+     * the RIGHT answer rather than a lossy one: a session that has passed a password and
+     * no code can reach nothing on this surface, so there is no state for this app to
+     * render other than the sign-in screen. `RequireSecondFactor` deliberately does not
+     * exempt this endpoint — handing an account's name, address and platform roles to
+     * whoever holds the password alone is a disclosure, not a convenience.
      *
      * The distinction is not lost: `attempt()` on the screens below reports the API's own
      * sentence for every read that fails AFTER identification succeeded.

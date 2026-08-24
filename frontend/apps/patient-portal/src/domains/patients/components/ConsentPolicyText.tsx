@@ -14,12 +14,15 @@ import { parsePolicyText } from './policyDocument'
  * on the same screen — not behind a link that nobody opens." That rules out a modal, a
  * `/policy` route and a PDF, and it is why this renders inline however long the text is.
  *
- * `lang` IS SET AND IT IS NOT DECORATION. This element carries an entire document in one
- * language inside a page that may be in the other. Without the attribute a screen reader
- * pronounces Luganda with English phonology, which for the one screen a patient must
- * genuinely understand before agreeing is not a cosmetic defect — it is the difference
- * between informed consent and a recording of one. Browsers use it for hyphenation and
- * spell-checking too, but the reason it is here is the first one.
+ * `lang` IS SET AND IT IS NOT DECORATION, EVEN NOW THAT THE POLICY ONLY ARRIVES IN ONE
+ * LANGUAGE. The clinic's policy is served as a map keyed by language code and this
+ * component is handed the key it was read out of, rather than assuming the page's own
+ * language: these are the clinic's words, not ours, and a clinic that one day publishes
+ * its policy under a different code must not have it announced as English. Without a
+ * correct attribute a screen reader applies the wrong phonology to every word, which for
+ * the one screen a patient must genuinely understand before agreeing is not a cosmetic
+ * defect — it is the difference between informed consent and a recording of one. Browsers
+ * use it for hyphenation and spell-checking too, but the reason it is here is the first one.
  *
  * NO `dangerouslySetInnerHTML`, ANYWHERE, EVER. The clinic's trading name is interpolated
  * into this text by the backend, which means a tenant-controlled string is inside it. As

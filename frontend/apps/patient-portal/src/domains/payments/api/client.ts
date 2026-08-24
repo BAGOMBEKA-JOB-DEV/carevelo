@@ -19,9 +19,11 @@ import { requestHost } from '@/lib/tenant'
  *    that lost the clinic's subdomain resolves the wrong clinic, or none — and the API
  *    ignores any client attempt to assert a tenant by other means, which is why there is no
  *    tenant parameter anywhere in this file.
- * 3. THE LANGUAGE. `Accept-Language` selects `en` or `lg` server-side, so a patient reading
- *    in Luganda gets the API's own sentences in Luganda rather than an English validation
- *    message inside an otherwise-Luganda screen.
+ * 3. THE LANGUAGE. `Accept-Language` is what decides which language the API's own
+ *    sentences come back in, and the failures a patient sees on this path are the API's
+ *    prose rather than ours. The portal reads in one language today, so the header is
+ *    always `en`; it is taken from `getLocale()` rather than written out, so that a second
+ *    catalogue makes the validation messages follow the screen without an edit here.
  *
  * KNOWN DUPLICATION, STATED RATHER THAN HIDDEN. `src/lib/tenant.ts` and
  * `src/lib/session.ts` each build the same origin the same way, and neither exports it.

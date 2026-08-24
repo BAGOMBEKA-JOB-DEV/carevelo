@@ -43,6 +43,9 @@ use Spatie\Permission\Traits\HasRoles;
  * @property ?PhoneNumber $phone
  * @property bool $is_active
  * @property ?Carbon $password_change_required_at
+ * @property ?string $totp_secret_encrypted
+ * @property ?Carbon $totp_confirmed_at
+ * @property ?int $totp_last_used_step
  */
 class User extends Authenticatable
 {
@@ -91,6 +94,24 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
+
+        /*
+         * The TOTP secret, on the same list as the password and for a stronger
+         * reason.
+         *
+         * A password digest is useless to whoever reads it; a TOTP secret is the
+         * factor itself, and anyone holding it can generate the operator's codes
+         * for ever. It is written through the `encrypted` cast, it is never
+         * returned after enrolment -- the one response that shows a secret shows
+         * the one that was just generated, not one read back out of a row -- and
+         * this line is what keeps it out of a `toArray()`, a `dd($user)` or a
+         * resource somebody adds later without thinking about it.
+         *
+         * This is the write-only discipline the aggregator credentials are held
+         * to, applied to the credential that guards the account which can grant
+         * break-glass access to a clinic's records.
+         */
+        'totp_secret_encrypted',
     ];
 
     /**
@@ -103,6 +124,8 @@ class User extends Authenticatable
      *
      * Columns declared without a timezone ignore the offset, so email_verified_at,
      * phone_verified_at, created_at and updated_at are unaffected.
+     *
+     * totp_confirmed_at is timestamptz too, and is covered by the same format.
      *
      * @var string
      */
@@ -120,6 +143,28 @@ class User extends Authenticatable
             'password' => 'hashed',
             'phone' => PhoneNumber::class,
             'is_active' => 'boolean',
+
+            /*
+             * The second factor.
+             *
+             * `encrypted` and not `hashed`: a password only ever has to be
+             * COMPARED, so a one-way digest is the right shape for it, but a
+             * TOTP secret has to be READ back to recompute the six digits the
+             * operator's authenticator is showing. Encryption under APP_KEY is
+             * what keeps it out of a database dump while leaving the
+             * verification path able to do its job.
+             *
+             * `totp_confirmed_at` is datetime rather than a boolean so the
+             * column can answer "since when". `totp_last_used_step` is the
+             * replay high-water mark -- cast to integer because it is compared
+             * with, and advanced past, a computed step number, and PostgreSQL
+             * hands a bigint back as a string on some drivers.
+             *
+             * @see docs/40-api/authentication-and-sessions.md § Second factor
+             */
+            'totp_secret_encrypted' => 'encrypted',
+            'totp_confirmed_at' => 'datetime',
+            'totp_last_used_step' => 'integer',
         ];
     }
 

@@ -4,20 +4,20 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Audit\AuditLog;
 use App\Events\DeliveryAssigned;
+use App\Http\Controllers\Api\V1\Concerns\AuthorisesPatientReads;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\V1\Deliveries\AssignRiderRequest;
 use App\Http\Requests\V1\Deliveries\DispatchBoardRequest;
 use App\Http\Requests\V1\Deliveries\StoreDeliveryRequest;
 use App\Http\Resources\V1\DeliveryResource;
+use App\Http\Resources\V1\PatientDeliveryResource;
 use App\Models\Delivery;
-use App\Models\DeliveryEvent;
 use App\Models\DeliveryStatus;
 use App\Models\DispenseOrder;
 use App\Models\DispenseOrderStatus;
 use App\Models\User;
 use App\Support\Consent\DeliveryDisclosure;
 use App\Support\ReferenceGenerator;
-use Carbon\CarbonInterface;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -40,23 +40,103 @@ use Illuminate\Support\Facades\DB;
  */
 class DeliveryController extends Controller
 {
+    use AuthorisesPatientReads;
+
     public function __construct(
         private readonly AuditLog $audit,
         private readonly ReferenceGenerator $references,
         private readonly DeliveryDisclosure $disclosure,
     ) {}
 
-    /** The dispatch board. */
+    /**
+     * Two listings behind one route: the dispatch board, and the patient's own
+     * deliveries.
+     *
+     * ==================================================================
+     * WHY THE PATIENT BRANCH EXISTS AT ALL
+     * ==================================================================
+     *
+     * `DeliveryPolicy::viewOwn()` has admitted a patient since it was written and
+     * nothing called it, so a patient could `track` a delivery only if they
+     * ALREADY held its identifier — and nothing they were allowed to call ever
+     * handed them one. The whole journey of watching a package therefore had no
+     * entry point in the portal: it opened from a link the clinic sent, or not at
+     * all. This is that entry point.
+     *
+     * ==================================================================
+     * THE PROJECTION IS THE DECISION, NOT THE QUERY
+     * ==================================================================
+     *
+     * `authoriseListing()` guarantees the patient branch returns only rows that
+     * reach one of this account's own patient records. What it cannot decide is
+     * what a row SAYS, and `DeliveryResource` — the dispatcher's projection —
+     * carries the recipient block, the street address, the landmark, the rider
+     * and `failure_reason`. Serving that to a patient would quietly widen
+     * `track` into `view`, which `DeliveryPolicy` splits on purpose.
+     *
+     * So the patient branch renders `PatientDeliveryResource`: the TRACKING
+     * shape, which is milestones rather than contents, and which that class
+     * argues field by field. The two projections are two classes rather than one
+     * class with a conditional, for the same reason the rider has his own.
+     *
+     * WHY THE GATE IS ASKED TWICE. `authoriseListing()` decides authorisation and
+     * narrowing together — deliberately, so neither can be had without the other
+     * — and hands back a builder, not a verdict. The line below asks a DIFFERENT
+     * question of the same gate: not "may this caller list?" but "which of the
+     * two audiences is this?". Reading a flag off the trait would make the
+     * projection look like a by-product of the authorisation; asking plainly
+     * makes it a decision somebody wrote down.
+     *
+     * CURSOR FOR THE PATIENT, OFFSET STILL FOR THE BOARD, AND THAT ASYMMETRY IS
+     * TEMPORARY AND DELIBERATE. The house rule is cursor pagination, and the new
+     * listing gets it from its first day. The board keeps `paginate()` because
+     * `meta.total` is what the clinic console reads to warn a pharmacist that a
+     * lane holds more work than one page can carry, and `cursorPaginate()` does
+     * not produce a total. Moving the board is the right change and it is a
+     * change to those screens as well as to this line, which this one does not
+     * own; see `apps/clinic-console/src/domains/delivery/api/deliveries.ts`,
+     * which already says it is sending an offset under protest.
+     */
     public function index(DispatchBoardRequest $request): AnonymousResourceCollection
     {
-        $this->authorize('viewAny', Delivery::class);
+        $user = $request->user();
 
-        $query = Delivery::query();
+        // Asked BEFORE the authorising call, so a caller who is neither staff nor
+        // a patient is refused there rather than falling through to a projection.
+        $isStaff = $user !== null && $user->can('viewAny', Delivery::class);
+
+        $query = $this->authoriseListing(Delivery::query(), $user, Delivery::class);
 
         $status = $request->statusFilter();
 
         if ($status !== null) {
             $query->where('status', $status->value);
+        }
+
+        if (! $isStaff) {
+            /*
+             * NEWEST FIRST, WHICH IS THE OPPOSITE OF THE BOARD BELOW, because the
+             * two are different objects. The board is a work queue and the oldest
+             * item is the one somebody is waiting on; this is a person's own
+             * history, and the delivery they came to look at is almost always the
+             * last one. The id tiebreak keeps the cursor stable when two are
+             * dispatched in the same second.
+             *
+             * `rider_id` IS NOT FILTERABLE HERE. It is a dispatch-board control,
+             * the patient projection names no rider, and a filter a caller can
+             * send but never see the effect of is an invitation to probe with it.
+             *
+             * THE EVENTS ARE EAGER-LOADED because `PatientDeliveryResource`
+             * renders the milestone thread for every row, and loading it lazily
+             * would turn one page of deliveries into twenty-six queries.
+             */
+            $own = $query
+                ->with('events')
+                ->orderByDesc('created_at')
+                ->orderByDesc('id')
+                ->cursorPaginate($request->perPage());
+
+            return PatientDeliveryResource::collection($own);
         }
 
         $riderId = $request->riderFilter();
@@ -185,33 +265,27 @@ class DeliveryController extends Controller
         // hangs off an order full of medicines.
         $this->authorize('track', $delivery);
 
-        $milestones = $delivery->events()
-            ->orderBy('occurred_at')
-            ->get()
-            ->map(function (DeliveryEvent $event): array {
-                $occurredAt = $event->getAttribute('occurred_at');
-
-                // to_status and a timestamp. The `note` column is deliberately
-                // not read here: it is free text, and free text is where
-                // clinical content escapes.
-                return [
-                    'status' => $event->to_status,
-                    'occurred_at' => $occurredAt instanceof CarbonInterface
-                        ? $occurredAt->toIso8601String()
-                        : null,
-                ];
-            })
-            ->all();
-
+        /*
+         * BUILT FROM THE LISTING'S PROJECTION PLUS EXACTLY ONE FIELD, and the
+         * one field is the whole difference between the two screens.
+         *
+         * The payload used to be assembled by hand here, which meant the rule
+         * "what may a patient read off a delivery" had two implementations — and
+         * the second one, the listing, did not exist yet. Now there is one, in
+         * `PatientDeliveryResource`, and this endpoint is that shape with
+         * `failure_reason` added.
+         *
+         * WHY THE REASON IS ADDED HERE AND NOT THERE. A list is read at a glance
+         * and often not by the person it belongs to; "refused" against a row is a
+         * statement about a household, legible to anyone holding the phone. One
+         * delivery, opened deliberately, is a different act — and it is the
+         * screen that can put the clinic's telephone number beside the reason so
+         * it leads somewhere. See the resource's own field-by-field argument.
+         */
         return new JsonResponse([
             'data' => [
-                'id' => $delivery->id,
-                'reference' => $delivery->reference,
-                'status' => $delivery->status->value,
+                ...PatientDeliveryResource::make($delivery)->toArray($request),
                 'failure_reason' => $delivery->failure_reason,
-                'assigned_at' => $delivery->assigned_at?->toIso8601String(),
-                'delivered_at' => $delivery->delivered_at?->toIso8601String(),
-                'milestones' => $milestones,
             ],
         ]);
     }

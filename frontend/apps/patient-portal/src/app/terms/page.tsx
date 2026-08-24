@@ -21,13 +21,14 @@ import { SiteShell } from '@/components/SiteShell'
  * pulled out of the air — where a clinic must state something the text says so plainly,
  * in the text, where a patient reads it.
  *
- * THE EMERGENCY NOTICE IS THE FIRST STRING A TRANSLATOR SHOULD BE GIVEN. Everything else
- * on this page is a matter of money or expectations; that one is the sentence that tells
- * somebody holding a phone next to a person who cannot breathe to stop reading and go.
- * It is at the top of messages/lg.needs-translation.json's list for that reason, and until
- * it is cleared the Luganda catalogue holds the English text — which a Luganda reader can
- * at least recognise as foreign and ask about, unlike a fluent guess at the word for
- * "unconscious".
+ * THE EMERGENCY NOTICE IS THE FIRST STRING A TRANSLATOR SHOULD BE GIVEN, on the day this
+ * portal gains a second language. Everything else on this page is a matter of money or
+ * expectations; that one is the sentence that tells somebody holding a phone next to a
+ * person who cannot breathe to stop reading and go. Until a human has cleared it, it should
+ * stay visibly English — a reader can recognise a foreign paragraph and ask about it, which
+ * they cannot do with a fluent guess at the word for "unconscious". That is the same
+ * judgement that removed the 7%-complete Luganda catalogue rather than shipping it; see
+ * i18n/locales.ts.
  */
 export default async function TermsPage() {
   const [tenant, user, t, common] = await Promise.all([

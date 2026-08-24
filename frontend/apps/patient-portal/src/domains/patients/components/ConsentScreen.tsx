@@ -1,5 +1,5 @@
 import type { ReactElement, ReactNode } from 'react'
-import { getLocale, getTranslations } from 'next-intl/server'
+import { getTranslations } from 'next-intl/server'
 import { Badge, Button, Card, Field, Input, Notice, Stack } from '@carevelo/ui'
 import type { Tenant } from '@/lib/tenant'
 import { recordConsent } from '../api/consents'
@@ -46,10 +46,12 @@ import { PageBody } from '@/components/PageBody'
  *   attribute would share a control between forms, but it names exactly one form, so it
  *   cannot help here.)
  *
- *   THE FULL POLICY TEXT ON THE SAME SCREEN, IN BOTH LANGUAGES. Rendered inline, at length,
- *   in the reader's language, with the other language one `<summary>` away in the same
- *   document — a disclosure, not a link: nothing navigates, nothing fetches, and the words
- *   are already in the page for a screen reader browsing it. Everything the screen is
+ *   THE FULL POLICY TEXT ON THE SAME SCREEN. Rendered inline, at length — a document, not a
+ *   link: nothing navigates, nothing fetches, and the words are already in the page for a
+ *   screen reader browsing it. This used to render the reader's language with the other one
+ *   a `<summary>` away, because the API published the policy in English and Luganda; the
+ *   Luganda locale was removed (see i18n/locales.ts) and the API now publishes English
+ *   alone, so there is no second language to disclose. Everything the screen is
  *   required to STATE — what is collected, that health data is special-category, that the
  *   clinic is the controller and Carevelo the processor, the purpose, who sees it including
  *   the rider, retention, and the patient's rights — is in that text, written by the party
@@ -174,27 +176,29 @@ export async function ConsentScreen({
   continueHref,
   error,
 }: ConsentScreenProps): Promise<ReactElement> {
-  const [t, common, locale] = await Promise.all([
+  const [t, common] = await Promise.all([
     getTranslations('Patients'),
     getTranslations('Common'),
-    getLocale(),
   ])
 
   const clinic = tenant.trading_name ?? common('thisClinic')
 
   /*
-   * The reader's language first, and a real fallback rather than a blank page.
+   * The policy text, and a real fallback rather than a blank page.
+   *
+   * STILL A MAP KEYED BY LANGUAGE, AND STILL READ AS ONE. The API returns
+   * `{ en: "..." }` today rather than a bare string, because the endpoint's shape was
+   * designed for a policy published in several languages and there is no reason to break
+   * the contract for every consumer just because the portal now reads one. So the language
+   * is taken from the FIRST key rather than assumed to be `en`: a clinic whose policy
+   * arrives under some other code still gets its own words on screen and its own `lang`
+   * attribute on them, which is what a screen reader needs to pronounce them.
    *
    * A screen that renders a consent form with no policy above it collects agreement to
-   * nothing — so if the clinic's policy does not exist in the reader's language, the next
-   * available language is shown AND the patient is told plainly that it is not theirs.
-   * Where there is no policy at all, no decision is offered.
+   * nothing, so where there is no policy at all, no decision is offered.
    */
-  const languages = Object.keys(policy.text)
-  const primary = policy.text[locale] !== undefined ? locale : (languages[0] ?? null)
-  const primaryText = primary === null ? undefined : policy.text[primary]
-  const secondary = languages.find((language) => language !== primary) ?? null
-  const secondaryText = secondary === null ? undefined : policy.text[secondary]
+  const language = Object.keys(policy.text)[0] ?? null
+  const policyText = language === null ? undefined : policy.text[language]
 
   const processingGranted = decided?.data_processing === 'granted'
   const processingDecided = decided?.data_processing !== undefined
@@ -248,7 +252,7 @@ export async function ConsentScreen({
           </Notice>
         ) : null}
 
-        {primaryText === undefined || primary === null ? (
+        {policyText === undefined || language === null ? (
           /*
            * No policy, no decision. Rendering the buttons without the wording would collect
            * a consent whose evidence trail describes text the patient never saw, which is
@@ -270,13 +274,7 @@ export async function ConsentScreen({
               {/* 18px down this card, stated once. It was two `marginTop`s that happened to
                   agree; a gap on the column cannot stop agreeing. */}
               <Stack gap="6">
-                {primary !== locale ? (
-                  <Notice tone="warn" announce={false}>
-                    {t('consent.policyLanguageMissing')}
-                  </Notice>
-                ) : null}
-
-                <ConsentPolicyText text={primaryText} lang={primary} titleId="consent-policy" />
+                <ConsentPolicyText text={policyText} lang={language} titleId="consent-policy" />
 
                 {/* `.subtitle--sm`, which is the class the note above this one asked for.
                       13.5px is a note under a block of policy text: `.subtitle` is 16px — a
@@ -291,35 +289,6 @@ export async function ConsentScreen({
                 <p className="subtitle subtitle--sm">
                   {t('consent.policyVersion', { version: policy.version })}
                 </p>
-
-                {secondaryText !== undefined && secondary !== null ? (
-                  /*
-                   * A DISCLOSURE, NOT A LINK, and the difference is the requirement. The other
-                   * language is already in this document — no navigation, no fetch, nothing to
-                   * fail on a stalled connection — and `<details>` opens without JavaScript.
-                   * Collapsed rather than open, because two full policies expanded at once is
-                   * a page nobody reads either half of; the summary is written in the language
-                   * it opens into, so it is legible to the person who needs it.
-                   */
-                  <details className="disclosure">
-                    {/* `.disclosure__summary` in the token layer. A `<summary>` is a CONTROL
-                        — clicked, tabbed to, toggling state — so it answers to the same 44px
-                        floor as every other control on a surface opened one-handed on a
-                        phone, and the user agent gives it the height of one line of text.
-                        The geometry was written out by hand on four screens in this app
-                        before that class existed. */}
-                    <summary lang={secondary} className="disclosure__summary">
-                      {secondary === 'lg' ? t('consent.readInLuganda') : t('consent.readInEnglish')}
-                    </summary>
-
-                    <ConsentPolicyText
-                      text={secondaryText}
-                      lang={secondary}
-                      titleAs="h3"
-                      headingAs="h4"
-                    />
-                  </details>
-                ) : null}
               </Stack>
             </Card>
 

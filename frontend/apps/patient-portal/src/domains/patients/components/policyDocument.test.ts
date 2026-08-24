@@ -23,8 +23,7 @@ import { parsePolicyText } from './policyDocument'
  * parser that ate THAT one would be exactly the bug this test exists to catch.
  *
  * The fixture is the shape of the real policy — an opening line, ALL-CAPS section headings,
- * paragraphs, and a wrapped bullet list — including a Luganda heading with an apostrophe in
- * it, because that is the character most likely to break a naive uppercase test.
+ * paragraphs, and a wrapped bullet list.
  */
 
 const POLICY = `How Kira Medical Centre uses your health information
@@ -69,17 +68,27 @@ describe('the consent policy parser', () => {
     expect(everyWordOf(POLICY)).toEqual(wordsOfSource(POLICY))
   })
 
-  it('keeps every word of the Luganda wording too, apostrophes and all', () => {
-    const luganda = `Engeri Kira gy'ekozesaamu amawulire go ag'obulamu
+  /*
+   * A heading with punctuation in it, which is the case a naive uppercase check gets wrong.
+   *
+   * This test used to be spelled in Luganda, because the clinic's policy was published in
+   * English and Luganda and the Luganda headings are full of apostrophes. That locale was
+   * removed — see i18n/locales.ts — so the fixture is English now, but the property it
+   * guards is unchanged and is not about any one language: `isHeading` asks whether a line
+   * contains a lowercase letter, deliberately rather than comparing it to its own
+   * uppercasing, and an apostrophe must not disturb that. A parser that stopped recognising
+   * a heading would fold it into the paragraph below it, and one that ate the apostrophe
+   * would change the clinic's wording while the pinned text hash still claimed otherwise.
+   */
+  it('keeps a heading whose words carry apostrophes, and still reads it as a heading', () => {
+    const policy = `How Kira Medical Centre uses your health information
 
-AMAWULIRE AG'OBULAMU GA NJAWULO
-Okusinziira ku tteeka lya Uganda, amawulire ag'obulamu ga kika kya njawulo.
-
-BY'OKKIRIZA
-- Okukozesa amawulire: okukuwa obujjanjabi.
+WHAT YOU'RE AGREEING TO
+We ask separately, and you may agree to one and not the other.
 `
 
-    expect(everyWordOf(luganda)).toEqual(wordsOfSource(luganda))
+    expect(everyWordOf(policy)).toEqual(wordsOfSource(policy))
+    expect(parsePolicyText(policy).sections[0]?.heading).toBe("WHAT YOU'RE AGREEING TO")
   })
 
   /*

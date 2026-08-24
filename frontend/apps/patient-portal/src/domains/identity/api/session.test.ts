@@ -274,7 +274,7 @@ describe('signInWithPassword', () => {
 
   it("forwards the browser's existing cookies to the API", async () => {
     request.jar.set({ name: 'carevelo_session', value: 'already-signed-in' })
-    request.jar.set({ name: 'NEXT_LOCALE', value: 'lg' })
+    request.jar.set({ name: 'carevelo_theme', value: 'dark' })
 
     stubApi({
       [CSRF]: () => csrfIssued(),
@@ -286,7 +286,7 @@ describe('signInWithPassword', () => {
     const cookieHeader = sentTo(SIGN_IN).headers.get('Cookie') ?? ''
 
     expect(cookieHeader).toContain('carevelo_session=already-signed-in')
-    expect(cookieHeader).toContain('NEXT_LOCALE=lg')
+    expect(cookieHeader).toContain('carevelo_theme=dark')
   })
 
   it('sends an Origin, without which Sanctum never starts a session', async () => {

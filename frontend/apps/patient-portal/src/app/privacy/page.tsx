@@ -26,15 +26,15 @@ import { SiteShell } from '@/components/SiteShell'
  * that determines who a patient complains to, and it is explained in the sentence that
  * uses it.
  *
- * AND NOTHING LINGUISTIC IS INVENTED EITHER, WHICH IS THE SAME RULE APPLIED TWICE. This is
- * the page a patient must be able to read in their own language — the data protection note
- * requires plain language in English and Luganda, on screen rather than behind a link —
- * and it is also the page where a confident-sounding mistranslation does the most damage:
- * "we do not sell your data" rendered slightly wrong is a promise the clinic did not make.
- * So every sentence below lives in messages/en.json, the Luganda catalogue holds the
- * ENGLISH text for the ones no translator has reached yet, and messages/lg.needs-translation.json
- * is the exact worklist. A visibly English paragraph is an honest gap; a fluent wrong one
- * is a liability nobody would notice.
+ * AND NOTHING LINGUISTIC IS INVENTED EITHER, WHICH IS THE SAME RULE APPLIED TWICE. Every
+ * sentence below lives in messages/en.json rather than in the JSX, which is what makes this
+ * page translatable at all — and the reason it must stay that way is the same reason the
+ * Luganda catalogue was deleted rather than shipped at 7%: this is the page where a
+ * confident-sounding mistranslation does the most damage. "We do not sell your data"
+ * rendered slightly wrong is a promise the clinic did not make. A visibly English paragraph
+ * is an honest gap that a reader can see and ask about; a fluent wrong one is a liability
+ * nobody would notice. Whoever adds a language should hold that line for this page in
+ * particular. See i18n/locales.ts.
  *
  * @see docs/50-security-compliance/data-protection-dppa.md
  */
@@ -117,10 +117,12 @@ export default async function PrivacyPage() {
         <p>{t('accessNote')}</p>
 
         <h2>{t('cookiesHeading')}</h2>
-        {/* Updated in the same change that made this sentence true: the language choice is
-            a second cookie now, and a privacy notice that failed to mention a cookie the
-            product had just started setting would be the exact kind of quiet inaccuracy
-            this page exists to avoid. */}
+        {/* This sentence is kept literally true, in both directions. It named a second
+            cookie while the portal had a language switcher to remember a choice from; the
+            switcher and its cookie were removed with the Luganda locale, so the sentence
+            was cut back in the same change. A privacy notice describing a cookie the
+            product does not set is the same quiet inaccuracy as one omitting a cookie it
+            does — and this is the page that exists to have neither. */}
         <p>{t('cookiesBody')}</p>
 
         <h2>{t('wrongHeading')}</h2>

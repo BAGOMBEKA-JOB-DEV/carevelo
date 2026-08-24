@@ -36,7 +36,7 @@
       "guardianNote": "A patient under 18 is consented for by a parent or guardian, and the clinic needs that person's name, phone number and relationship to the patient.",
       "submit": "Register",
       "nextTitle": "What happens next",
-      "nextBody": "The next screen sets out exactly how {clinic} uses your information, in full and in your own language, and asks you to agree to it. Nothing about your health is recorded until you have."
+      "nextBody": "The next screen sets out exactly how {clinic} uses your information, in full and in plain language, and asks you to agree to it. Nothing about your health is recorded until you have."
     },
     "consent": {
       "eyebrow": "Consent",
@@ -46,10 +46,7 @@
       "guardianNoticeBody": "The patient is under 18, so a parent or guardian decides on their behalf and names themselves against each decision.",
       "policyUnavailableTitle": "The consent wording did not load",
       "policyUnavailableBody": "Nothing has been agreed and nothing about your health has been recorded. Try again in a moment, or ask {clinic} to register you at the desk.",
-      "policyLanguageMissing": "This clinic has not published its policy in the language you are reading the site in. It is shown below in the language it was written in. Ask the clinic to explain anything you are unsure of before you agree.",
       "policyVersion": "Version {version}. This is the exact wording your decision is recorded against.",
-      "readInLuganda": "Soma mu Luganda",
-      "readInEnglish": "Read this in English",
       "decisionsHeading": "What you are being asked",
       "decisionsLede": "Two separate questions. You may agree to one and not the other, and you may change your mind later.",
       "dataProcessingTitle": "Using your information to care for you",

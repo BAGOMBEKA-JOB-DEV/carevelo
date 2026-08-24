@@ -1,10 +1,8 @@
 'use client'
 
-import { useEffect, useRef, useState, type ReactElement } from 'react'
+import { useEffect, useRef, type ReactElement } from 'react'
 import { Button, Inline, Stack } from '@carevelo/ui'
-import { DEFAULT_LOCALE, isLocale, type Locale } from '@/i18n/locales'
 import en from '../../messages/domains/Errors.en.json'
-import lg from '../../messages/domains/Errors.lg.json'
 
 /**
  * What a patient sees when a page of their own care fails to render.
@@ -50,7 +48,7 @@ import lg from '../../messages/domains/Errors.lg.json'
  * is a genuine retry for the ordinary cause here — one read that did not come back. Beside
  * it are two ways out: the care hub, and the clinic's own home page. The second is chosen
  * deliberately over printing a telephone number: this component cannot fetch the tenant
- * (see the note on the locale below, and lib/tenant.ts for why a fetch here would be a
+ * (see the note on the catalogue below, and lib/tenant.ts for why a fetch here would be a
  * fetch on the failure path of a failure), so it must not invent one. `SiteFooter` renders
  * the clinic's real number as a `tel:` link at the foot of every shelled page, so pointing
  * at a page that HAS the number is both honest and one tap.
@@ -60,7 +58,7 @@ import lg from '../../messages/domains/Errors.lg.json'
  */
 
 /**
- * THE LANGUAGE, AND WHY IT IS READ OFF THE DOCUMENT RATHER THAN FROM next-intl.
+ * THE WORDS, AND WHY THEY ARE READ OUT OF THE JSON RATHER THAN THROUGH next-intl.
  *
  * There is no NextIntlClientProvider in this app, and SiteShell explains at length why not:
  * a provider serialises part of the catalogue into the RSC payload and pulls the formatting
@@ -70,50 +68,27 @@ import lg from '../../messages/domains/Errors.lg.json'
  * next-intl would work without a provider, but it brings the ICU message parser with it to
  * format sentences that have no ICU arguments at all. So the catalogue is read directly.
  *
- * WHAT IS NOT GIVEN UP BY DOING THAT. The strings live in messages/domains/Errors.*.json
- * with every other domain's, so a translator finds them where they expect to; the worklist
- * beside them says they are still English and why; and the `satisfies` below is the exact
- * pair of assignability checks messages.ts uses to make a key present in one catalogue and
- * missing from the other a COMPILE error rather than the literal text `Errors.generic.body`
- * appearing on a patient's screen.
+ * WHAT IS NOT GIVEN UP BY DOING THAT. The strings live in messages/domains/Errors.en.json
+ * with every other domain's, and messages.ts registers the namespace so that a SERVER
+ * surface wanting the same sentences later — a `global-error.tsx`, a route without a
+ * boundary — gets a type-checked `getTranslations('Errors')` rather than a namespace
+ * TypeScript has never heard of.
+ *
+ * THIS USED TO BE A PAIR OF CATALOGUES AND A HOOK THAT CHOSE BETWEEN THEM. The portal held
+ * English and Luganda, and because the locale cookie is not readable from script this
+ * component read `<html lang>` in an effect and re-rendered into the matching catalogue.
+ * The Luganda locale was removed — i18n/locales.ts carries the reasoning — so there is one
+ * catalogue, nothing to choose, and no effect. That is a real improvement on the one screen
+ * where it counts most: a patient meeting this component now gets the right words in the
+ * FIRST render rather than one frame later, and there is no longer any path by which a
+ * server render and a browser render could disagree about which language this page is in.
  *
  * IF YOU ADD A PLACEHOLDER TO ONE OF THESE MESSAGES, THIS MECHANISM STOPS BEING ENOUGH.
  * A direct read renders `{clinic}` as the four literal characters. Every message in this
  * namespace is a plain sentence on purpose — there is no tenant to interpolate here anyway —
  * and a message that needs an argument belongs on a screen that can resolve one.
  */
-const CATALOGUE = { en, lg } satisfies Record<Locale, typeof en> & Record<Locale, typeof lg>
-
-/**
- * The locale cookie is `httpOnly` — chooseLocale() sets it that way deliberately, because
- * nothing client-side reads the language on this surface — so this component cannot see it.
- * What it CAN see is `<html lang>`, which the root layout renders from exactly the same
- * negotiation the message catalogue came from. One source, so the two cannot disagree.
- *
- * READ IN AN EFFECT RATHER THAN DURING RENDER, and that is about hydration rather than
- * taste. React does not run error boundaries during server rendering: a component that
- * throws on the server has its subtree retried in the browser. But Next has more than one
- * path onto this screen, and if any of them ever server-renders it, a first render that
- * reached for `document` would produce English on the server and Luganda in the browser —
- * a hydration mismatch, which React 19 recovers from by throwing the markup away and
- * rendering again. Starting from the default and correcting after mount cannot mismatch,
- * because both renders agree on the first pass. The cost is one frame of English for a
- * Luganda reader on a page they should not be seeing often; the alternative is a rendering
- * bug on the screen whose job is to be the thing that still works.
- */
-function useDocumentLocale(): Locale {
-  const [locale, setLocale] = useState<Locale>(DEFAULT_LOCALE)
-
-  useEffect(() => {
-    const lang = document.documentElement.lang
-
-    if (isLocale(lang)) {
-      setLocale(lang)
-    }
-  }, [])
-
-  return locale
-}
+const COPY = en.Errors
 
 /** Which set of words, and which ways out. Not a description of what went wrong. */
 export type ErrorSection =
@@ -132,7 +107,7 @@ export type PortalErrorScreenProps = {
 
 /**
  * The screen itself, exported so a section whose recovery genuinely differs can reuse it
- * with different words instead of copying the locale and focus handling three times.
+ * with different words instead of copying the focus handling three times.
  *
  * There is no separate module for this because a route file is the only kind of file this
  * layer owns, and app/error.tsx is the canonical one. `book/error.tsx` and
@@ -143,9 +118,7 @@ export function PortalErrorScreen({
   error,
   reset,
 }: PortalErrorScreenProps): ReactElement {
-  const locale = useDocumentLocale()
-  const copy = CATALOGUE[locale].Errors
-  const words = copy[section]
+  const words = COPY[section]
 
   /*
    * Focus moves to the heading once, on mount.
@@ -177,16 +150,16 @@ export function PortalErrorScreen({
           {/* `type="button"` explicitly: this is not in a form today and must not become a
               submit if it ever ends up inside one. */}
           <Button variant="brand" size="lg" type="button" onClick={reset}>
-            {copy.generic.retry}
+            {COPY.generic.retry}
           </Button>
 
           {section === 'generic' ? (
             <>
               <Button variant="quiet" size="lg" href="/account">
-                {copy.generic.hub}
+                {COPY.generic.hub}
               </Button>
               <Button variant="ghost" size="lg" href="/">
-                {copy.generic.home}
+                {COPY.generic.home}
               </Button>
             </>
           ) : null}
@@ -194,10 +167,10 @@ export function PortalErrorScreen({
           {section === 'booking' ? (
             <>
               <Button variant="quiet" size="lg" href="/appointments">
-                {copy.booking.appointments}
+                {COPY.booking.appointments}
               </Button>
               <Button variant="ghost" size="lg" href="/services">
-                {copy.booking.services}
+                {COPY.booking.services}
               </Button>
             </>
           ) : null}
@@ -205,10 +178,10 @@ export function PortalErrorScreen({
           {section === 'payment' ? (
             <>
               <Button variant="quiet" size="lg" href="/appointments">
-                {copy.payment.appointments}
+                {COPY.payment.appointments}
               </Button>
               <Button variant="ghost" size="lg" href="/">
-                {copy.generic.home}
+                {COPY.generic.home}
               </Button>
             </>
           ) : null}
@@ -219,10 +192,10 @@ export function PortalErrorScreen({
                   cannot know which appointment failed, and a second way back into a room
                   that has just thrown is a loop rather than a recovery. */}
               <Button variant="quiet" size="lg" href="/appointments">
-                {copy.consultation.appointments}
+                {COPY.consultation.appointments}
               </Button>
               <Button variant="ghost" size="lg" href="/account">
-                {copy.generic.hub}
+                {COPY.generic.hub}
               </Button>
             </>
           ) : null}
@@ -233,29 +206,29 @@ export function PortalErrorScreen({
                   anything — see register/error.tsx for why the copy beside it tells a
                   patient to telephone before filling it in a second time. */}
               <Button variant="quiet" size="lg" href="/register">
-                {copy.registration.startAgain}
+                {COPY.registration.startAgain}
               </Button>
               {/* Offered because the ordinary reason a registration fails on the second
                   attempt is that the first one worked. */}
               <Button variant="ghost" size="lg" href="/sign-in">
-                {copy.registration.signIn}
+                {COPY.registration.signIn}
               </Button>
             </>
           ) : null}
         </Inline>
 
-        <p className="fine">{copy.generic.reachClinic}</p>
+        <p className="fine">{COPY.generic.reachClinic}</p>
 
         {/* Only ever the digest, only ever when the server produced one. See the docblock:
             this is a hash of the error, computed server-side, and it is the difference
             between a support call that can be traced and one that cannot. */}
         {error.digest === undefined ? null : (
           <p className="fine">
-            {copy.generic.referenceLabel}
+            {COPY.generic.referenceLabel}
             {': '}
             <span className="mono">{error.digest}</span>
             <br />
-            {copy.generic.referenceNote}
+            {COPY.generic.referenceNote}
           </p>
         )}
       </Stack>

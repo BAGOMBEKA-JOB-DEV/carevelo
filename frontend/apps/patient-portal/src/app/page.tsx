@@ -25,12 +25,14 @@ import { SiteShell } from '@/components/SiteShell'
  * which is true on the first day of the first clinic. An invented "12,000 patients" would
  * be the single fastest way to lose a clinic owner who knows the market.
  *
- * IT NOW READS IN THE LANGUAGE IT ADVERTISES. The chip below the hero has said "English &
- * Luganda" since the first commit and the feature cell further down has promised that a
- * patient chooses which — "including the consent you are asked to give" — while there was
- * not one translation primitive in the tree and <html lang> was hard-coded. Every string
- * on this page comes out of messages/ now, and the footer carries the control that
- * switches between them.
+ * IT NO LONGER ADVERTISES A LANGUAGE IT DOES NOT READ IN. A chip under the hero said
+ * "English & Luganda" and a feature cell below promised that a patient chooses which —
+ * "including the consent you are asked to give". Both are gone, along with the Luganda
+ * catalogue they described: it never got past 7% real prose, and a landing page selling a
+ * language the portal cannot actually speak is the worst place in the product to make a
+ * claim that fails on first contact. See i18n/locales.ts for the decision in full, and for
+ * why next-intl and messages/ were kept — every string on this page still comes out of the
+ * catalogue, so a second language is a file rather than a rewrite of this page.
  *
  * Zero client JavaScript on this page, still. Every icon is a server-rendered <svg>, the
  * FAQ is native <details>, the translations are resolved on the server, and the only
@@ -103,9 +105,6 @@ export default async function HomePage() {
             </span>
             <span className="site-chip">
               <Icon name="check" /> {t('chipAnyPhone')}
-            </span>
-            <span className="site-chip">
-              <Icon name="check" /> {t('chipLanguages')}
             </span>
           </div>
         </div>
@@ -238,16 +237,6 @@ export default async function HomePage() {
               <h3>{t('care.familyTitle')}</h3>
               <p>{t('care.familyBody')}</p>
             </div>
-
-            <div className="cell">
-              <div className="cell__ic">
-                <Icon name="help" />
-              </div>
-              <h3>{t('care.languageTitle')}</h3>
-              {/* The claim this whole change exists to make true. The control that
-                  delivers it is in the footer. */}
-              <p>{t('care.languageBody')}</p>
-            </div>
           </div>
         </div>
       </section>
@@ -308,12 +297,13 @@ export default async function HomePage() {
            * plausible-looking prescription with no such line is a thing somebody will
            * eventually screenshot and act on.
            *
-           * THE DOSE LINE IS ON THE TRANSLATION WORKLIST AND MUST STAY THERE UNTIL A
-           * HUMAN CLEARS IT. "One capsule, three times a day, after food" is dosage
-           * language, and dosage language guessed at in a second language is the one kind
-           * of wrong string on this page that could hurt somebody. Until a translator
-           * writes it, the Luganda catalogue holds the English sentence — visibly foreign,
-           * which is the honest failure — rather than a plausible invention.
+           * THE DOSE LINE IS THE FIRST STRING A TRANSLATOR SHOULD BE HANDED, on the day
+           * this portal gains a second language. "One capsule, three times a day, after
+           * food" is dosage language, and dosage language guessed at is the one kind of
+           * wrong string on this page that could hurt somebody. Whoever adds that language
+           * should leave this sentence visibly English until a human has cleared it: a
+           * paragraph a reader can see is foreign is an honest gap, and a fluent invention
+           * is not.
            *
            * Built from inline values rather than a class, deliberately: this is one sample
            * on one page, and a set of .rx-* rules in the shared token layer would be CSS

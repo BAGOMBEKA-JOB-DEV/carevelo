@@ -67,7 +67,7 @@ export default function HomeLoading(): ReactElement {
                   is reserved at its height and drawn as neither. */}
               <Skeleton block="sm" />
 
-              {/* The three chips: mobile money, any phone, both languages. */}
+              {/* The two chips: mobile money, and any phone with a browser. */}
               <Skeleton lines={1} />
             </Stack>
           </div>

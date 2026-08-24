@@ -1,4 +1,5 @@
 import type { BreakGlassPaths } from '@/domains/break-glass'
+import type { IdentityPaths } from '@/domains/identity'
 import type { PlatformPaths } from '@/domains/platform'
 
 /**
@@ -21,6 +22,12 @@ import type { PlatformPaths } from '@/domains/platform'
  * browser prefetched or a crawler followed would write entries into a clinic's audit trail
  * that nobody asked for.
  *
+ * `/sign-in` IS THE ONE PUBLIC ROUTE ON THIS SURFACE, and it is the only one that may be
+ * reached without a session — every other page redirects a guest to it. `afterSignIn` is
+ * where a completed sign-in lands, and it is passed in from here for the same reason every
+ * other destination is: a Server Action must never take its destination from the request,
+ * and the sign-in actions are the ones a form talks to before anybody is authenticated.
+ *
  * `/audit` IS ABSENT FROM BOTH OBJECTS. It is in the nav and it is still a planned section:
  * `GET /v1/audit-events` is tenant-scoped and clinic-admin-only, and there is no
  * cross-tenant platform audit endpoint in the published contract to build it against.
@@ -31,6 +38,11 @@ export const PLATFORM_PATHS: PlatformPaths = {
   provision: '/tenants/new',
   export: '/tenants/export',
   breakGlass: '/break-glass',
+}
+
+export const IDENTITY_PATHS: IdentityPaths = {
+  signIn: '/sign-in',
+  afterSignIn: '/',
 }
 
 export const BREAK_GLASS_PATHS: BreakGlassPaths = {

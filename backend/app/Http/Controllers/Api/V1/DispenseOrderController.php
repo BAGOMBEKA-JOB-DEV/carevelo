@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Audit\AuditLog;
 use App\Events\OrderDispensed;
 use App\Exceptions\StateMachine\IllegalTransition;
+use App\Http\Controllers\Api\V1\Concerns\AuthorisesPatientReads;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\V1\Dispensing\IndexDispenseOrderRequest;
 use App\Http\Requests\V1\Dispensing\PriceDispenseOrderRequest;
@@ -45,24 +46,78 @@ use Illuminate\Support\Facades\DB;
  */
 class DispenseOrderController extends Controller
 {
+    use AuthorisesPatientReads;
+
     public function __construct(
         private readonly AuditLog $audit,
         private readonly DeliveryDisclosure $disclosure,
     ) {}
 
     /**
-     * The pharmacy queue.
+     * Two listings behind one route: the pharmacy queue, and the patient's own
+     * orders.
      *
-     * Medicine names are deliberately absent: the prescription relation is not
-     * loaded, so the queue is references and states. A pharmacist scanning for
-     * work does not need the contents, and this list is the most-displayed
-     * screen in the pharmacy.
+     * Medicine names are deliberately absent from BOTH: the prescription
+     * relation is not loaded, so the listing is references, states and money. A
+     * pharmacist scanning for work does not need the contents, and this is the
+     * most-displayed screen in the pharmacy.
+     *
+     * ==================================================================
+     * WHY THE PATIENT BRANCH EXISTS AT ALL
+     * ==================================================================
+     *
+     * `DispenseOrderPolicy::viewOwn()` has admitted a patient since it was
+     * written and nothing called it, so a patient could open a dispense order
+     * only if they ALREADY held its identifier — and nothing they were allowed to
+     * call ever handed them one. Paying for a dispensed order and choosing
+     * collection or delivery therefore had no entry point in the portal at all:
+     * both opened from a link the clinic sent, or not at all. This is that entry
+     * point.
+     *
+     * ==================================================================
+     * THE ONE FIELD THAT CHANGES BETWEEN THE TWO AUDIENCES
+     * ==================================================================
+     *
+     * `substitutions` IS LOADED FOR STAFF ONLY, and the reason is that
+     * `SubstitutionResource` publishes `proposed_medicine_name` — correctly, for
+     * a clinician who cannot decide on a substitution without knowing what is
+     * being proposed. Loading it for a patient would put a medicine name in a
+     * LIST, on the surface this controller's own docblock says is kept free of
+     * them, read on shared handsets and over shoulders. It is not withheld from
+     * the patient as a fact: the order's own screen, reached by opening one row
+     * deliberately, is behind `view` and carries the whole prescription.
+     *
+     * Nothing else differs, so there is one resource class rather than two —
+     * `DispenseOrderResource` already gates the relation behind `whenLoaded()`,
+     * so the field is ABSENT from a patient's payload rather than blanked, which
+     * is the distinction the rider resource argues at length.
+     *
+     * CURSOR FOR THE PATIENT, OFFSET STILL FOR THE QUEUE. The house rule is
+     * cursor pagination and the new listing gets it from its first day. The queue
+     * keeps `paginate()` because the clinic console reads `meta.total` to warn a
+     * pharmacist that a lane holds more orders than one page can carry, and
+     * `cursorPaginate()` produces no total; moving it is a change to those
+     * screens as well as to this line, and this change does not own them. See
+     * `apps/clinic-console/src/domains/dispensing/api/queue.ts`, which already
+     * says it is sending an offset under protest.
      */
     public function index(IndexDispenseOrderRequest $request): AnonymousResourceCollection
     {
-        $this->authorize('viewAny', DispenseOrder::class);
+        $user = $request->user();
 
-        $query = DispenseOrder::query()->with('substitutions');
+        // Asked BEFORE the authorising call, so a caller who is neither staff nor
+        // a patient is refused there rather than falling through to a projection.
+        $isStaff = $user !== null && $user->can('viewAny', DispenseOrder::class);
+
+        // Authorises AND narrows: a patient gets only orders belonging to the
+        // patient records their account owns. The patient_id filter below then
+        // intersects with that, so passing someone else's id returns nothing
+        // rather than their orders.
+        $query = $this->authoriseListing(DispenseOrder::query(), $user, DispenseOrder::class);
+
+        if ($isStaff) {
+            $query->with('substitutions');
+        }
 
         $status = $request->status();
 
@@ -76,9 +131,28 @@ class DispenseOrderController extends Controller
             $query->where('patient_id', $patientId);
         }
 
-        // Oldest first. A queue is a work list, and the order that has waited
-        // longest is the patient sitting in the pharmacy wondering.
-        $orders = $query->orderBy('created_at')->orderBy('id')->paginate($request->perPage());
+        if ($isStaff) {
+            // Oldest first. A queue is a work list, and the order that has waited
+            // longest is the patient sitting in the pharmacy wondering.
+            $orders = $query->orderBy('created_at')->orderBy('id')->paginate($request->perPage());
+        } else {
+            // Newest first, because this is a person's own history rather than a
+            // work queue: the order they came to look at is almost always the
+            // last one. The id tiebreak keeps the cursor stable when two orders
+            // are created in the same second.
+            $orders = $query
+                ->orderByDesc('created_at')
+                ->orderByDesc('id')
+                ->cursorPaginate($request->perPage());
+        }
+
+        // Reads of clinical records are audited as well as writes: "who looked at
+        // my records?" can only be answered by having recorded every look.
+        // Identifiers and a count — never what is on the order.
+        $this->audit->record('dispense_order.list_read', metadata: [
+            'patient_id' => $patientId,
+            'returned' => $orders->count(),
+        ]);
 
         return DispenseOrderResource::collection($orders);
     }

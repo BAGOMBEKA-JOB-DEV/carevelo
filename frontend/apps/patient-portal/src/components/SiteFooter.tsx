@@ -1,17 +1,14 @@
 import Link from 'next/link'
 import { getTranslations } from 'next-intl/server'
 import type { Tenant } from '@/lib/tenant'
-import { LanguageSwitcher } from './LanguageSwitcher'
 
 /**
  * The clinic's footer.
  *
- * A SERVER COMPONENT, and it stays one even now that it holds a control. Four columns of
- * links and the clinic's own contact details cost nothing to render on the server and
- * would cost a hydration payload to render on the client, on the one surface with a hard
- * first-paint budget on a throttled 3G connection. The language switcher below is a plain
- * form posting to a server action, so it is interactive without being a client component
- * and this file still ships no JavaScript at all.
+ * A SERVER COMPONENT. Four columns of links and the clinic's own contact details cost
+ * nothing to render on the server and would cost a hydration payload to render on the
+ * client, on the one surface with a hard first-paint budget on a throttled 3G connection.
+ * There is no interactivity left in this footer at all, so it ships no JavaScript.
  *
  * WHOSE FOOTER THIS IS. The clinic's name, the clinic's address, the clinic's phone
  * number. The only Carevelo mark on the entire patient surface is the last line of the
@@ -26,13 +23,14 @@ import { LanguageSwitcher } from './LanguageSwitcher'
  * otherwise would be wrong about who is treating them and wrong about who they paid,
  * and we have no access to the UMDPC or NDA registers to make any claim beyond it.
  *
- * IT IS ALSO WHERE THE LANGUAGE LIVES. The landing page has promised "English & Luganda"
- * since the first commit and there was no control anywhere to deliver it. It sits in the
- * first column rather than the header because the header is a client component with no
- * room left in its row, and because a footer is where people already look for a language
- * control — but note the consequence, which is real: sign-in and set-password render
- * without this frame, so those two screens follow the language already chosen and cannot
- * change it. A patient arriving cold on /sign-in gets whatever their browser asked for.
+ * IT USED TO HOLD THE LANGUAGE CONTROL, in the first column under the clinic's blurb, and
+ * that is worth a line here rather than only in the git log: whoever comes looking for the
+ * switcher a screenshot or a stale note mentions should find out here that it was removed
+ * rather than moved. The portal offered English and Luganda, the Luganda catalogue never
+ * got past 7% real prose, and a button that swapped English sentences for English sentences
+ * labelled "Oluganda" was a false claim rather than a partial feature — see i18n/locales.ts
+ * for the full argument and for why the message layer around it was kept. With one language
+ * there is nothing to choose, so the control, its server action and its cookie all went.
  *
  * @see docs/10-product/white-labeling-and-branding.md
  */
@@ -56,8 +54,6 @@ export async function SiteFooter({ tenant, signedIn }: { tenant: Tenant; signedI
               <span>{name}</span>
             </Link>
             <p>{t('blurb', { clinic: name })}</p>
-
-            <LanguageSwitcher />
           </div>
 
           <div>

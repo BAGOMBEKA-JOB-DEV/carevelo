@@ -111,11 +111,13 @@ async function cookieHeader(): Promise<string> {
 /**
  * The API client for a READ, carrying this patient's session and this patient's language.
  *
- * `Accept-Language` is not decoration. The API validates in a language too — a patient
- * reading the portal in Luganda who mistypes their phone number gets the API's sentence
- * back, and without this header that sentence lands in English inside an otherwise-Luganda
- * form. Every message this domain shows on a failure is the API's own, so the header is
- * what makes the failure path translated at all.
+ * `Accept-Language` IS STILL SENT, THOUGH THE PORTAL NOW READS IN ONE LANGUAGE. Every
+ * message this domain shows on a failure is the API's own sentence rather than one of ours
+ * — a mistyped phone number comes back as prose from the server — so this header is the
+ * only thing that decides what language the failure path speaks. Taking it from
+ * `getLocale()` rather than hard-coding `'en'` means the day a second catalogue lands, the
+ * API's validation messages follow the screen they land in without anybody having to
+ * remember this file. It costs one already-resolved value per request.
  *
  * `Origin` is sent because Sanctum only treats a request as coming from its own frontend
  * when the Origin or Referer host is in the stateful list, and only a stateful request

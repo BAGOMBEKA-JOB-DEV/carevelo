@@ -1,5 +1,5 @@
 import { cookies, headers } from 'next/headers'
-import { ApiClient, ApiError } from '@carevelo/api-client'
+import { ApiClient, ApiError, humanise, type Problem } from '@carevelo/api-client'
 
 /**
  * How this app reaches the Carevelo API, and why the plumbing lives in the IDENTITY
@@ -156,6 +156,17 @@ async function forward(setCookies: readonly string[]): Promise<void> {
 export async function writeClient(): Promise<ApiClient> {
   const origin = await apiOrigin()
 
+  return new ApiClient({ baseUrl: origin, headers: await writeHeaders(origin) })
+}
+
+/**
+ * The headers a write needs: the session, the Origin, and a fresh CSRF token.
+ *
+ * Extracted from `writeClient()` so that `postAndKeepSession()` below can use the
+ * same three without going through `ApiClient` — see that function for why it
+ * cannot.
+ */
+async function writeHeaders(origin: string): Promise<Record<string, string>> {
   const response = await fetch(new URL('/sanctum/csrf-cookie', origin), {
     headers: await sessionHeaders(),
     // A session-bearing response must never be cached, by anything.
@@ -173,7 +184,107 @@ export async function writeClient(): Promise<ApiClient> {
     headersToSend['X-XSRF-TOKEN'] = token
   }
 
-  return new ApiClient({ baseUrl: origin, headers: headersToSend })
+  return headersToSend
+}
+
+/**
+ * What a call that changes the session came back with.
+ *
+ * `code` is the API's STABLE machine-readable identifier from RFC 9457 problem
+ * details — `second_factor_not_enrolled`, `challenge_expired`, and so on — and
+ * `message` is its own sentence for a human. Both travel, because the sign-in
+ * screens branch on the first and render the second: `title` may be reworded
+ * freely by the API and `code` may not, so keying a screen on the sentence is
+ * how a copy edit on the backend silently changes what a form does.
+ */
+export type SessionCall<T> =
+  | { readonly ok: true; readonly value: T }
+  | {
+      readonly ok: false
+      readonly status: number
+      readonly code: string | null
+      readonly message: string
+      readonly fieldErrors: Record<string, string>
+    }
+
+/**
+ * A POST that carries the session BOTH WAYS.
+ *
+ * ============================================================
+ * WHY THIS EXISTS AND `writeClient()` DOES NOT COVER IT
+ * ============================================================
+ *
+ * `ApiClient` returns a parsed body and throws on failure. It never exposes the
+ * RESPONSE HEADERS, and on the sign-in path the response headers are the point:
+ * this app and the API are separate servers, so a `Set-Cookie` the API issues is
+ * invisible to the browser unless this app re-issues it on its own response.
+ *
+ * That is not a development-only nicety here the way it is for a read. A platform
+ * sign-in is TWO REQUESTS -- a password, then a code -- and the thing that joins
+ * them is the session the first one starts. Drop its cookie and the second
+ * request arrives with no pending challenge, the API answers
+ * `challenge_expired`, and the operator is bounced back to the password form
+ * with no way to tell why. The same applies in reverse when the challenge
+ * succeeds: `SessionRegistry::start()` regenerates the session id, and a browser
+ * still holding the pre-authentication one is a browser that is not signed in.
+ *
+ * So this makes the request with the platform fetch, forwards every `Set-Cookie`
+ * it receives, and turns a failure into the API's own problem details rather
+ * than an exception -- because both callers are Server Actions that must
+ * redirect, and a thrown error there is an error boundary rather than a form
+ * with a message on it.
+ *
+ * ONLY CALL THIS FROM A SERVER ACTION OR A ROUTE HANDLER. It writes to the
+ * cookie jar, which throws during render.
+ */
+export async function postAndKeepSession<T>(path: string, body: unknown): Promise<SessionCall<T>> {
+  const origin = await apiOrigin()
+
+  const response = await fetch(new URL(`/api${path}`, origin), {
+    method: 'POST',
+    headers: {
+      ...(await writeHeaders(origin)),
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+      // Laravel treats this as an AJAX request, which is what makes it answer
+      // with problem+json rather than a redirect to a login page this API does
+      // not have.
+      'X-Requested-With': 'XMLHttpRequest',
+    },
+    body: JSON.stringify(body),
+    cache: 'no-store',
+  })
+
+  // BEFORE the status is looked at. A refused sign-in still rotates the CSRF
+  // token, and a failed attempt that dropped it would make the operator's NEXT
+  // attempt fail with a 419 they cannot interpret.
+  await forward(response.headers.getSetCookie())
+
+  const payload: unknown = await response.json().catch(() => null)
+
+  if (response.ok) {
+    return { ok: true, value: payload as T }
+  }
+
+  /*
+   * `code` is not on the published `Problem` interface and is on every response
+   * this API sends (docs/40-api/api-conventions.md). Read defensively rather
+   * than asserted: a proxy returning its own error page must produce a message,
+   * not a crash on a sign-in screen.
+   */
+  const problem: Problem = (typeof payload === 'object' && payload !== null ? payload : {}) as Problem
+  const code = typeof payload === 'object' && payload !== null && 'code' in payload
+    && typeof (payload as { code?: unknown }).code === 'string'
+    ? (payload as { code: string }).code
+    : null
+
+  return {
+    ok: false,
+    status: response.status,
+    code,
+    message: humanise(response.status, problem),
+    fieldErrors: new ApiError(response.status, problem, '').fieldErrors,
+  }
 }
 
 /**

@@ -24,6 +24,8 @@ use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\PatientAccountController;
 use App\Http\Controllers\Api\V1\PatientController;
 use App\Http\Controllers\Api\V1\PaymentIntentController;
+use App\Http\Controllers\Api\V1\Platform\PlatformAuthController;
+use App\Http\Controllers\Api\V1\Platform\TotpEnrolmentController;
 use App\Http\Controllers\Api\V1\PrescriptionController;
 use App\Http\Controllers\Api\V1\ReconciliationController;
 use App\Http\Controllers\Api\V1\RiderDeliveryController;
@@ -33,6 +35,7 @@ use App\Http\Controllers\HealthController;
 use App\Http\Controllers\Webhooks\AggregatorWebhookController;
 use App\Http\Middleware\BindTenantContext;
 use App\Http\Middleware\RequirePasswordChange;
+use App\Http\Middleware\RequireSecondFactor;
 use App\Http\Middleware\ResolveTenant;
 use Illuminate\Support\Facades\Route;
 
@@ -316,9 +319,91 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
 |
 */
 Route::prefix('v1/platform')->name('api.v1.platform.')
-    ->middleware('auth:sanctum')
+    /*
+     * RequireSecondFactor SITS ON THE WHOLE GROUP, and that is the point of it.
+     *
+     * docs/40-api/authentication-and-sessions.md, acceptance criterion 5:
+     * "Platform operators cannot authenticate without a second factor." That is
+     * a statement about what a session can REACH, and the only place it can be
+     * enforced as one is in front of every route the session might reach. A
+     * per-route middleware list is a list somebody has to remember to add to,
+     * and the failure mode of forgetting is a new cross-tenant endpoint
+     * reachable with one factor -- with nothing visible about the failure: the
+     * endpoint works, the tests pass, and the control is simply absent from one
+     * door.
+     *
+     * It is deliberately the SECOND lock on the same door. PlatformAuthController
+     * opens no session until a code has verified, so in the flow as it stands
+     * this middleware refuses nothing. It holds if a later change ever
+     * introduces another way to log a platform account in -- an impersonation
+     * tool, a support "sign in as", a console command, a test helper reaching
+     * for actingAs().
+     */
+    ->middleware(['auth:sanctum', RequireSecondFactor::class])
     ->withoutMiddleware([ResolveTenant::class, BindTenantContext::class])
     ->group(function () {
+        /*
+         * ---- Authentication, and the only routes in this file with no session ----
+         *
+         * A platform account has NO TENANT -- `tenant_id is null` is what makes
+         * it one -- so `POST /v1/auth/sign-in` cannot serve it: that route is
+         * inside the `v1` group behind ResolveTenant, which reads a tenant from
+         * the host and 404s when the host is not a clinic's, and the controller
+         * behind it scopes the account lookup to the resolved tenant. Signing in
+         * on some clinic's subdomain to obtain a cross-tenant session is not a
+         * workaround either: the same document defines a session whose tenant
+         * does not match the host as a hard 403 and an audit event.
+         *
+         * So these live HERE, in the group that already runs without
+         * ResolveTenant and BindTenantContext, and a platform sign-in resolves
+         * no tenant and binds none.
+         *
+         * TWO STEPS. `sign-in` proves a password and returns no session at all;
+         * `challenge` is the request that actually opens one. See
+         * App\Support\Totp\SecondFactorSession for why the password step
+         * issues nothing rather than issuing a narrowed session.
+         *
+         * Both drop `auth:sanctum` AND RequireSecondFactor, because there is no
+         * session to authenticate at either point -- that is what they are for.
+         * Being in this group rather than in one of their own is deliberate: a
+         * sibling group with the same prefix is a second place platform routes
+         * live, and the next one added would have to guess which.
+         */
+        Route::post('auth/sign-in', [PlatformAuthController::class, 'signIn'])
+            ->name('auth.sign-in')
+            ->withoutMiddleware(['auth:sanctum', RequireSecondFactor::class]);
+
+        Route::post('auth/challenge', [PlatformAuthController::class, 'challenge'])
+            ->name('auth.challenge')
+            ->withoutMiddleware(['auth:sanctum', RequireSecondFactor::class]);
+
+        // The one route RequireSecondFactor::PERMITTED_ROUTES lets an
+        // authenticated-but-unverified session reach: somebody who cannot
+        // proceed must still be able to close what they opened.
+        Route::post('auth/sign-out', [PlatformAuthController::class, 'signOut'])->name('auth.sign-out');
+
+        // The platform counterpart to GET /v1/me, which a platform operator
+        // cannot reach -- that route is behind ResolveTenant and this surface's
+        // host resolves to no clinic. Deliberately NOT exempted from
+        // RequireSecondFactor: an account's name, address and platform roles are
+        // not something to hand to whoever holds the password alone.
+        Route::get('me', [PlatformAuthController::class, 'me'])->name('me');
+
+        /*
+         * ---- The second factor itself ----
+         *
+         * ROTATION, not first enrolment. Both are behind the group's
+         * RequireSecondFactor, so the operator using them has already passed a
+         * factor in this session. An enrolment endpoint reachable with a
+         * password alone would be a password-only path to a second factor.
+         *
+         * First enrolment, and recovery for an operator who has lost their
+         * authenticator, is `php artisan platform:enrol` -- out of band and
+         * recorded, which is what the specification asks for.
+         */
+        Route::post('totp', [TotpEnrolmentController::class, 'store'])->name('totp.store');
+        Route::post('totp/confirm', [TotpEnrolmentController::class, 'confirm'])->name('totp.confirm');
+
         Route::get('tenants', [PlatformTenantController::class, 'index'])->name('tenants.index');
         Route::post('tenants', [PlatformTenantController::class, 'store'])->name('tenants.store');
         Route::patch('tenants/{tenant}', [PlatformTenantController::class, 'update'])->name('tenants.update');

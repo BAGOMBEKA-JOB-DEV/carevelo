@@ -25,13 +25,14 @@ import { fontStyle } from './fonts'
  * as it did from <html>, and it is still in the first HTML byte, which is what acceptance
  * criterion 7 actually asks for — no flash of unbranded content.
  *
- * lang IS THE LANGUAGE THIS PAGE IS ACTUALLY IN, and until now that comment was a promise
- * rather than a fact: it said a screen reader needs to know which language it is reading
- * and then hard-coded `en`. It comes from src/i18n/locale.ts now — the same resolution
- * that picks the message catalogue, so the attribute and the text cannot disagree. A page
- * announcing English while rendering Luganda makes a screen reader apply English phonology
- * to Luganda words, which for somebody listening rather than reading is the difference
- * between a page and a noise.
+ * lang COMES FROM THE SAME PLACE THE MESSAGES DO, AND STAYS THAT WAY EVEN THOUGH THERE IS
+ * ONLY ONE LANGUAGE LEFT TO NAME. Hard-coding `en` here would be correct today and would
+ * be a lie the moment a second catalogue lands, because a page announcing one language
+ * while rendering another makes a screen reader apply the wrong phonology to every word on
+ * it — which for somebody listening rather than reading is the difference between a page
+ * and a noise. Taking it from `getLocale()` costs nothing and means the attribute and the
+ * text are resolved by one function that cannot disagree with itself. See i18n/locales.ts
+ * for why the Luganda locale went and why the machinery around it did not.
  */
 export default async function RootLayout({ children }: { children: ReactNode }) {
   /*
@@ -81,14 +82,15 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
  * A neutral fallback for anything that cannot export its own metadata — notably
  * not-found.tsx, which by design has no clinic to name.
  *
- * A FUNCTION RATHER THAN A CONSTANT ONLY SO THE TITLE CAN BE TRANSLATED, and the
- * distinction the layout's own comment draws still holds: the thing that must never happen
- * here is a FETCH. Resolving a tenant would be one. Reading the language off the request is
- * not — it is the cookie and header this render has already parsed — so the title follows
- * the page it titles instead of being English above a Luganda 404.
+ * A FUNCTION RATHER THAN A CONSTANT ONLY SO THE TITLE COMES OUT OF THE CATALOGUE LIKE
+ * EVERY OTHER STRING, and the distinction the layout's own comment draws still holds: the
+ * thing that must never happen here is a FETCH. Resolving a tenant would be one. Resolving
+ * a message is not — the catalogue is already in the server bundle — so the title stays in
+ * the same place as the page it titles rather than being a literal that a second language
+ * would have to be taught about separately.
  *
  * Still says nothing about clinics. An unknown host must not learn whether a given clinic
- * is a customer, in either language.
+ * is a customer.
  */
 export async function generateMetadata() {
   const t = await getTranslations('Metadata')

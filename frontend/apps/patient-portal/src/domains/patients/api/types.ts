@@ -73,10 +73,10 @@ export type PatientStatus = components['schemas']['PatientStatus']
  * and it is wrong in two directions at once:
  *
  *   1. `text` generates as `unknown[]`. The controller returns
- *      `array<string, string>` — a MAP keyed by language, holding real English and real
- *      Luganda prose — and the schema generator flattens a PHP associative array to a
- *      list. Consumed as generated, the reader's language cannot be indexed out of it at
- *      all, and the consent screen has no policy to render.
+ *      `array<string, string>` — a MAP keyed by language code, holding the clinic's own
+ *      prose — and the schema generator flattens a PHP associative array to a list.
+ *      Consumed as generated, the policy cannot be indexed out of it at all, and the
+ *      consent screen has no policy to render.
  *   2. `version` generates as the literal `"2026-08-01"`, because the controller's
  *      constant is inlined into the schema. Trusting that literal would let the compiler
  *      prove a runtime equality that only holds until the clinic's policy is next
@@ -102,14 +102,18 @@ export type ConsentPolicy = Omit<PolicyPayload, 'version' | 'consent_types' | 't
    */
   consent_types: readonly ConsentType[]
   /**
-   * The full policy, keyed by language code — `en` and `lg` today.
+   * The full policy, keyed by language code — `en` alone today.
    *
-   * Keyed by `string` rather than by the portal's own two-language union, because the API
-   * decides which languages the clinic's policy exists in and a client that had hard-coded
-   * the pair could not render a third. `noUncheckedIndexedAccess` makes the lookup
-   * `string | undefined`, which is the correct shape: a language the policy has not been
-   * translated into is genuinely absent, and the screen has to notice rather than print
-   * `undefined` at a patient who is being asked to agree to it.
+   * KEYED BY `string` RATHER THAN BY THE PORTAL'S OWN `Locale`, AND DELIBERATELY LEFT THAT
+   * WAY WHEN THE PORTAL DROPPED TO ONE LANGUAGE. The API decides which languages a clinic's
+   * policy exists in; the portal decides which languages it reads its own chrome in. Those
+   * are different facts, and typing this against `Locale` would assert that they must agree
+   * — so a clinic publishing its policy under a code this portal does not hold would stop
+   * compiling rather than simply rendering the clinic's own words with the clinic's own
+   * `lang` attribute, which is what ConsentScreen does. `noUncheckedIndexedAccess` makes
+   * the lookup `string | undefined`, which is the correct shape: a policy that did not
+   * arrive is genuinely absent, and the screen has to notice rather than print `undefined`
+   * at a patient who is being asked to agree to it.
    */
   text: Readonly<Record<string, string>>
 }

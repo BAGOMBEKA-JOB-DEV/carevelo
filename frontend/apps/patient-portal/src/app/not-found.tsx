@@ -30,10 +30,11 @@ import { getTranslations } from 'next-intl/server'
  * whose binding constraint is a slow mobile network that is the wrong way round, so the
  * status is kept, the body is left to the client, and nothing leaks either way.
  *
- * IN THE READER'S LANGUAGE, and this is the one page where that is not obvious: there is
- * no clinic here and no session, so the only thing left to go on is the language the
- * browser asked for — which is exactly what src/i18n/locales.ts falls back to when there is
- * no cookie. Neutrality is unaffected: both catalogues say the same nothing about clinics.
+ * OUT OF THE CATALOGUE RATHER THAN OUT OF THE JSX, and this is the one page where that
+ * needs saying: there is no clinic here and no session, so there is nothing this page could
+ * consult even if the portal held several languages. It takes whatever i18n/locale.ts
+ * resolves, like every other screen. Neutrality is unaffected — the catalogue says the same
+ * nothing about clinics that a hard-coded string would.
  *
  * @see docs/10-product/white-labeling-and-branding.md acceptance criterion 8
  */

@@ -15,13 +15,16 @@
  * and is spread into MESSAGES by i18n/messages.ts. Pointed at en.json, `AppConfig` knew
  * nothing of those namespaces, so `getTranslations('Patients')` was a COMPILE ERROR while
  * `getTranslations('Header')` was fine — which left a domain author two choices, both bad:
- * cast the namespace away, or hard-code the strings into the JSX and lose Luganda
+ * cast the namespace away, or hard-code the strings into the JSX and lose the catalogue
  * entirely. Pointed at MESSAGES.en it types the base and every domain at once, and a
  * domain catalogue added tomorrow is typed the moment messages.ts spreads it in.
  *
- * English specifically, because English is the language every screen is authored in.
- * messages.ts separately proves the Luganda side has the same shape through a
- * bidirectional `satisfies`, so one declaration is enough to type both.
+ * English specifically, and `Locale` is `'en'` alone, because English is the only language
+ * this portal now holds — see i18n/locales.ts for why the Luganda catalogue was removed and
+ * why this file, next-intl and the message layer were deliberately kept. A second language
+ * arriving means one more member in the union below and one more catalogue in messages.ts;
+ * `Messages` stays pointed at the English one, because English is the language every screen
+ * is authored in and therefore the only catalogue guaranteed to hold every key.
  *
  * `import type {} from 'next-intl'` looks like a mistake and is load-bearing: TypeScript
  * refuses to augment a module it has not loaded into the program (TS2664), and an empty
@@ -35,7 +38,7 @@ import type {} from 'next-intl'
 
 declare module 'next-intl' {
   interface AppConfig {
-    Locale: 'en' | 'lg'
+    Locale: 'en'
     Messages: (typeof import('./messages'))['MESSAGES']['en']
   }
 }

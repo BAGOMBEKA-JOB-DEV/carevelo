@@ -1,46 +1,28 @@
-import { cookies, headers } from 'next/headers'
-import { LOCALE_COOKIE, negotiateLocale, type Locale } from './locales'
+import { DEFAULT_LOCALE, type Locale } from './locales'
 
 /**
- * The language for this request, read from the request itself.
+ * The language for this request.
  *
- * THE ONE PLACE THE COOKIE AND THE HEADER ARE READ. `i18n/request.ts` hands next-intl
- * whatever this returns, so `getLocale()` anywhere in a component tree and this function
- * cannot disagree — which matters, because <html lang> comes from one path and the
- * messages from the other, and a page that says `lang="en"` while rendering Luganda text
- * tells a screen reader to pronounce Luganda with English phonology. That is not a
- * cosmetic defect for somebody who is listening rather than reading.
+ * ONE LANGUAGE, SO NOTHING TO DECIDE — AND THIS FUNCTION IS KEPT ANYWAY, ON PURPOSE.
+ * It used to read the locale cookie and the browser's Accept-Language and rank the two;
+ * both inputs went with the Luganda catalogue, because a preference between one option is
+ * not a preference. What is left is the SEAT the decision sits in: `i18n/request.ts` hands
+ * next-intl whatever this returns, so `getLocale()` anywhere in a component tree and this
+ * function cannot disagree. That matters even with a single language, because <html lang>
+ * comes from one path and the messages from the other, and it will matter a great deal on
+ * the day a second catalogue lands — at which point this is the only function that has to
+ * learn how to choose, and every caller is already pointed at it.
  *
- * No fetch, and that is deliberate rather than incidental: this is called from the ROOT
- * LAYOUT, and a fetch there is what made a single sign-in submission allocate ~800MB and
- * take the server into the OOM reaper. Cookies and headers are already-parsed request
- * state; reading them costs nothing and adds no network call. See lib/metadata.ts.
+ * NO FETCH, AND THAT IS A HARD RULE RATHER THAN AN OBSERVATION ABOUT TODAY'S BODY. This is
+ * called from the ROOT LAYOUT, and a fetch there is what made a single sign-in submission
+ * allocate ~800MB and take the server into the OOM reaper. Whoever restores negotiation
+ * here should reach for cookies and headers — already-parsed request state, free to read —
+ * and never for the network. See lib/metadata.ts for the incident.
+ *
+ * Returns a promise without being `async`, because there is no longer anything to await:
+ * the shape is preserved for the callers, and an `async` function with no `await` in it is
+ * a lint warning this app treats as an error.
  */
-export async function activeLocale(): Promise<Locale> {
-  const [jar, requestHeaders] = await Promise.all([cookies(), headers()])
-
-  return negotiateLocale(
-    jar.get(LOCALE_COOKIE)?.value,
-    requestHeaders.get('accept-language'),
-  )
-}
-
-/**
- * The same language, shaped for an outgoing call to the Carevelo API.
- *
- * THE SERVER VALIDATES IN A LANGUAGE TOO. A patient reading the portal in Luganda who
- * mistypes their password gets the API's sentence back, and without this header that
- * sentence arrives in English inside an otherwise-Luganda screen. The API has supported
- * this from the start — `Accept-Language` selects `en` or `lg` — and the frontend simply
- * never sent it.
- *
- * Returned as a spreadable object rather than a bare string so a caller that already
- * builds a header record adds one line and cannot get the header NAME wrong:
- *
- *     ...(await acceptLanguageHeader()),
- *
- * @see docs/40-api/api-conventions.md
- */
-export async function acceptLanguageHeader(): Promise<{ 'Accept-Language': Locale }> {
-  return { 'Accept-Language': await activeLocale() }
+export function activeLocale(): Promise<Locale> {
+  return Promise.resolve(DEFAULT_LOCALE)
 }
