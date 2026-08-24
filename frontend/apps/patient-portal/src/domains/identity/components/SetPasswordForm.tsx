@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { changePassword } from '../api/session'
-import { brandStyle } from '@carevelo/ui'
+import { Field, Input, brandStyle } from '@carevelo/ui'
 import type { Tenant } from '@/lib/tenant'
 
 /**
@@ -109,52 +109,46 @@ export function SetPasswordForm({
             </div>
           ) : null}
 
+          {/* `Field` AND `Input` RATHER THAN A HAND-ROLLED `.field` AND `.input`, and the
+              reason is the wiring rather than the class names. `Field` mints the control's
+              id, points the `<label>` at it, and — the part that cannot be hand-written
+              once and then remembered — hands the control `aria-describedby` and
+              `aria-invalid` so that a hint and an error message are ANNOUNCED at the box
+              they belong to instead of merely sitting near it. These two forms are the
+              first thing a patient meets and were the last markup in this app still
+              writing `className="input"` by hand.
+
+              No per-field `error` is passed: both screens report a failed submission as one
+              alert above the form, because the API answers a wrong password with a single
+              sentence and no field name — deliberately, since naming the field would say
+              whether the email exists. The wiring is in place for the day one does. */}
           <form action={submitPassword} className="auth__fields">
-            <div className="field">
-              <label className="field__label" htmlFor="current_password">
-                The password {clinic} gave you
-              </label>
-              <input
-                className="input"
-                id="current_password"
-                name="current_password"
-                type="password"
-                autoComplete="current-password"
-                required
-                autoFocus
-              />
-            </div>
+            <Field name="current_password" label={`The password ${clinic} gave you`}>
+              {(control) => (
+                <Input
+                  {...control}
+                  type="password"
+                  autoComplete="current-password"
+                  required
+                  autoFocus
+                />
+              )}
+            </Field>
 
-            <div className="field">
-              <label className="field__label" htmlFor="password">
-                New password
-              </label>
-              <input
-                className="input"
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="new-password"
-                required
-              />
-              {/* No composition rule stated. It would tell anyone guessing what shape to
-                  guess, and the API is where the real rule lives — if the password is
-                  refused, the API's own sentence says why. */}
-            </div>
+            {/* No composition rule stated. It would tell anyone guessing what shape to
+                guess, and the API is where the real rule lives — if the password is
+                refused, the API's own sentence says why. */}
+            <Field name="password" label="New password">
+              {(control) => (
+                <Input {...control} type="password" autoComplete="new-password" required />
+              )}
+            </Field>
 
-            <div className="field">
-              <label className="field__label" htmlFor="password_confirmation">
-                Confirm new password
-              </label>
-              <input
-                className="input"
-                id="password_confirmation"
-                name="password_confirmation"
-                type="password"
-                autoComplete="new-password"
-                required
-              />
-            </div>
+            <Field name="password_confirmation" label="Confirm new password">
+              {(control) => (
+                <Input {...control} type="password" autoComplete="new-password" required />
+              )}
+            </Field>
 
             <button className="btn btn-brand btn-block btn-lg" type="submit">
               Save password

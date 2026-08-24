@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { signInWithPassword } from '../api/session'
-import { brandStyle } from '@carevelo/ui'
+import { Field, Input, brandStyle } from '@carevelo/ui'
 import type { Tenant } from '@/lib/tenant'
 
 /**
@@ -115,38 +115,40 @@ export function SignInForm({
             </div>
           ) : null}
 
-          <form action={submitSignIn} className="auth__fields">
-            <div className="field">
-              <label className="field__label" htmlFor="email">
-                Email address
-              </label>
-              <input
-                className="input"
-                id="email"
-                name="email"
-                type="email"
-                inputMode="email"
-                autoComplete="email"
-                required
-                autoFocus
-              />
-            </div>
+          {/* `Field` AND `Input` RATHER THAN A HAND-ROLLED `.field` AND `.input`, and the
+              reason is the wiring rather than the class names. `Field` mints the control's
+              id, points the `<label>` at it, and — the part that cannot be hand-written
+              once and then remembered — hands the control `aria-describedby` and
+              `aria-invalid` so that a hint and an error message are ANNOUNCED at the box
+              they belong to instead of merely sitting near it. These two forms are the
+              first thing a patient meets and were the last markup in this app still
+              writing `className="input"` by hand.
 
-            <div className="field">
-              <label className="field__label" htmlFor="password">
-                Password
-              </label>
-              <input
-                className="input"
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                required
-              />
-              {/* No composition hint. A rule stated here tells anyone guessing what shape
-                  to guess, and this form has no idea what the password was set to. */}
-            </div>
+              No per-field `error` is passed: both screens report a failed submission as one
+              alert above the form, because the API answers a wrong password with a single
+              sentence and no field name — deliberately, since naming the field would say
+              whether the email exists. The wiring is in place for the day one does. */}
+          <form action={submitSignIn} className="auth__fields">
+            <Field name="email" label="Email address">
+              {(control) => (
+                <Input
+                  {...control}
+                  type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  required
+                  autoFocus
+                />
+              )}
+            </Field>
+
+            {/* No composition hint. A rule stated here tells anyone guessing what shape to
+                guess, and this form has no idea what the password was set to. */}
+            <Field name="password" label="Password">
+              {(control) => (
+                <Input {...control} type="password" autoComplete="current-password" required />
+              )}
+            </Field>
 
             <button className="btn btn-brand btn-block btn-lg" type="submit">
               Sign in
