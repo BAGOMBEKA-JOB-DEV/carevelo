@@ -51,6 +51,12 @@ function intentWith(status: string): PaymentIntent {
     amount: WIRE_AMOUNT,
     method: 'mtn_momo',
     aggregator_reference: null,
+    // Null is the ordinary answer: only an aggregator whose collection is initiated
+    // server-side has a page to send anybody to. Nothing in this file is about that field —
+    // `handoffFor` is, and paymentIntents.test.ts is where it is exercised — but the resource
+    // requires it, and a fixture that quietly omitted a required field would be a fixture
+    // that stops matching the contract without saying so.
+    redirect_url: null,
     failure_message: null,
     initiated_at: '2026-08-21T09:00:00+00:00',
     resolved_at: null,

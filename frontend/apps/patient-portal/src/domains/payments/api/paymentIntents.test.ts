@@ -22,15 +22,18 @@ import type { PaymentIntent } from './types'
  * Neither is visible to tsc. Both are one assertion each.
  *
  * ------------------------------------------------------------------
- * WHY THE FIXTURES CARRY A FIELD THE GENERATED TYPE DOES NOT.
+ * WHY THE FIXTURE CASTS, WHEN THE FIELD IS IN THE CONTRACT.
  *
- * `redirect_url` is not on `PaymentIntentResource` yet — the backend that returns it is
- * being written as this is — so `intentWith()` casts, and this file is the ONE place in the
- * app besides the seam itself where the field is named. That is the point of a seam: when
- * the contract lands and the name turns out to be something else, this file and
- * `checkoutUrlOf` change together and nothing else does.
+ * `PaymentIntentResource` types `redirect_url` as `string | null`, and most of what is below
+ * could be written without a cast. Several cases could not: a number, a `javascript:` URL and
+ * a relative path are values the contract says cannot arrive, and they are exactly the values
+ * `checkoutUrlOf` exists to survive. A test that could only express in-contract values would
+ * be a test of the type checker rather than of the code, and this runs on a wire where the
+ * far side is a different language, a different deployment and — for the next few weeks — a
+ * different agent's work in progress. So `intentWith()` takes anything and casts once, in one
+ * place, and every off-contract case says in its own name what it is standing in for.
  *
- * @see ./paymentIntents.ts — the argument in full, and the list of what must be confirmed
+ * @see ./paymentIntents.ts — the two models, and why the method chosen cannot decide between them
  * @see ../components/PaymentCheckoutReturn.tsx — the screen the abandoned case lands on
  */
 
@@ -48,6 +51,7 @@ function intentWith(extra: Record<string, unknown>): PaymentIntent {
     amount: {},
     method: 'mtn_momo',
     aggregator_reference: null,
+    redirect_url: null,
     failure_message: null,
     initiated_at: null,
     resolved_at: null,

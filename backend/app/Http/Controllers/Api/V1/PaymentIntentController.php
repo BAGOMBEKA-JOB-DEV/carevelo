@@ -41,8 +41,7 @@ class PaymentIntentController extends Controller
     ) {}
 
     /**
-     * Create a payment intent, and hand the collection off if the aggregator
-     * works that way.
+     * Create a payment intent.
      *
      * Idempotency-Key is REQUIRED. Replaying it with an identical body returns
      * the stored response without re-executing; replaying with a different body

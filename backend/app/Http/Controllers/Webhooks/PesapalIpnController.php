@@ -75,14 +75,25 @@ class PesapalIpnController extends Controller
     ) {}
 
     /**
-     * The only place the request is touched.
+     * Receive a Pesapal instant payment notification.
      *
-     * `input()` reads the query string and the body alike, which is what the
-     * route's GET|POST needs: Pesapal registers a notification type per URL and
-     * has been known to send either.
+     * Trusted for nothing. `OrderTrackingId` is the only field read, and it is
+     * used solely to look up an attempt within the named tenant and to ask
+     * Pesapal, over TLS with the clinic's own credentials, what became of it.
+     * Everything this endpoint acts on comes from that answer.
+     *
+     * Always answers `{"received": true}` with 200, or a neutral 404 that does
+     * not distinguish an unknown tenant from an unconfigured clinic from an
+     * unknown tracking id.
+     *
+     * See docs/70-decisions/0012-pesapal-unsigned-ipn.md
      */
     public function __invoke(Request $request, string $tenant): JsonResponse
     {
+        // THE ONLY PLACE THE REQUEST IS TOUCHED. `input()` reads the query
+        // string and the body alike, which is what the route's GET|POST needs:
+        // Pesapal registers a notification type per URL and has been known to
+        // send either.
         $trackingId = $request->input('OrderTrackingId');
 
         if (! is_string($trackingId) || $trackingId === '' || strlen($trackingId) > self::TRACKING_ID_MAX) {

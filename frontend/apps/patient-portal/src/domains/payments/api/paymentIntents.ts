@@ -155,8 +155,7 @@ export async function getReceipt(id: string): Promise<Receipt | null> {
 }
 
 /* =========================================================================================
- * WHICH HANDOFF AN ATTEMPT IMPLIES — and the ONE place this app adapts to a field the
- * generated contract does not carry yet.
+ * WHICH HANDOFF AN ATTEMPT IMPLIES — and the ONE place `redirect_url` is read at all.
  *
  * ------------------------------------------------------------------
  * THERE ARE TWO GENUINELY DIFFERENT WAYS A COLLECTION FINISHES, AND THEY ARE NOT THE SAME
@@ -251,38 +250,39 @@ export function handoffFor(intent: PaymentIntent): PaymentHandoff {
 
 /**
  * ---------------------------------------------------------------------------------------
- * THE SEAM. The whole of this app's knowledge that `redirect_url` exists lives in this
- * function, and it is written against a contract that HAS NOT LANDED YET.
+ * THE SEAM. The whole of this app's knowledge that `redirect_url` exists lives in this one
+ * function, and every screen reads it through `handoffFor` above.
  *
- * `packages/api-client/src/generated/schema.d.ts` describes `PaymentIntentResource` as id,
- * reference, status, amount, method, `aggregator_reference`, `failure_message`,
- * `initiated_at` and `resolved_at`. There is no redirect field on it today, so there is no
- * generated type to read one off, and `frontend-nextjs.md` forbids hand-writing a response
- * shape beside the generated one. The compromise is this: ONE function that takes the
- * resource as `unknown` and narrows, the way `moneyFrom()` in ./types.ts already narrows an
- * amount the generator could not see through. Nothing else in this app — no component, no
- * route, no test fixture rendered on a screen — names the field.
+ * IT IS THE GENERATED TYPE, NOT A SHAPE WRITTEN OUT HERE. `PaymentIntentResource` in
+ * `packages/api-client/src/generated/schema.d.ts` states `redirect_url: string | null`,
+ * generated from `docs/40-api/openapi.yaml`, so this reads the field directly and a rename on
+ * the wire is a compile error rather than a payment screen that silently stops redirecting.
+ * That is the rule in `frontend-nextjs.md` and there is no exception to it here.
  *
- * WHAT MUST BE CONFIRMED THE DAY THE BACKEND LANDS, ITEM BY ITEM:
+ * IT WAS NOT ALWAYS THAT, AND THE HISTORY IS WORTH ONE PARAGRAPH BECAUSE IT IS WHY THE SHAPE
+ * OF THIS FILE IS THE WAY IT IS. This journey was built against a contract that did not exist
+ * yet — the backend was writing the Pesapal gateway at the same time — so the field was read
+ * through a narrowing cast confined to this function, on the argument that ONE place adapting
+ * to an unlanded contract is a seam and a dozen places doing it is a leak. The contract landed
+ * mid-flight and said exactly what the column and `CollectionHandoff` had implied: same name,
+ * on the resource itself rather than on the create response alone, `string | null` with null
+ * as the ordinary answer. So the cast is gone and nothing else changed — not a caller, not a
+ * screen, not a test's meaning. That is the whole return on having had a seam.
  *
- *  1. THE FIELD IS CALLED `redirect_url`, and it is on `PaymentIntentResource`. The
- *     migration adds `payment_intents.redirect_url` and the gateway's value object calls it
- *     `redirectUrl` (backend/app/Services/Payments/CollectionHandoff.php), so the column and
- *     the concept are settled; what is not settled is what the RESOURCE calls it. If it is
- *     serialised as `checkout_url`, or nested under a `handoff` object, this function is the
- *     only edit.
- *  2. IT IS ON THE READ AS WELL AS THE CREATE. The create response is what redirects the
- *     patient; the READ is what lets `/payments/{id}` recognise a checkout the patient
- *     abandoned and offer them the same page back rather than a second order. If the field
- *     appears only on the create response, PaymentCheckoutReturn.tsx loses its resume link —
- *     it degrades to "check again", it does not break — and that is worth raising with the
- *     backend rather than working around here.
- *  3. IT IS NULL, NOT ABSENT, FOR A NON-REDIRECT AGGREGATOR, or absent, or an empty string.
- *     All three are handled below and all three mean the same thing, so nothing turns on
- *     which one is chosen.
- *  4. THEN DELETE THE CAST. Once the field is in the generated schema, `intent.redirect_url`
- *     type-checks, this narrowing becomes noise, and the `unknown` parameter should go with
- *     it. Everything else in this file and every caller stays exactly as it is.
+ * THREE THINGS THE CONTRACT SETTLED THAT THIS CODE DEPENDS ON:
+ *
+ *  1. IT IS ON THE RESOURCE, so it comes back on `GET /v1/payment-intents/{id}` and not only
+ *     on the create. That read is what lets `/payments/{id}` recognise a checkout the patient
+ *     abandoned and offer them the SAME page rather than a second order against their name.
+ *  2. NULL IS THE ORDINARY ANSWER — for a provider whose collection the client starts itself,
+ *     and for cash at the clinic, "where nobody is going anywhere". Null, and an empty or
+ *     unusable string, all mean the same thing here: there is no page, so the answer is
+ *     awaited on our own screens.
+ *  3. IT IS A PLACE TO SEND SOMEBODY, NEVER A CONFIRMATION. The contract says so in as many
+ *     words — "a client that treats the presence of this URL as a paid booking has confirmed
+ *     a booking nobody has paid for" — and `handoffFor` above is written to that: the intent
+ *     is `initiated` when this URL appears, `isPaid()` still answers only to `succeeded`, and
+ *     no screen renders a paid state from anything but a status.
  *
  * ---------------------------------------------------------------------------------------
  * WHY THE URL IS CHECKED HERE EVEN THOUGH IT COMES FROM OUR OWN API.
@@ -301,14 +301,13 @@ export function handoffFor(intent: PaymentIntent): PaymentHandoff {
  * exception exists so the local FakeGateway drives the REAL redirect path in development
  * rather than a special case that is never exercised until production.
  */
-function checkoutUrlOf(intent: unknown): string | null {
-  if (typeof intent !== 'object' || intent === null) {
-    return null
-  }
+function checkoutUrlOf(intent: PaymentIntent): string | null {
+  const candidate = intent.redirect_url
 
-  const { redirect_url: candidate } = intent as { redirect_url?: unknown }
-
-  if (typeof candidate !== 'string' || candidate.trim() === '') {
+  // Null for every aggregator that has no page, and the empty-string test is not padding:
+  // `new URL('')` throws, so without it a blank field would be an exception thrown from a
+  // screen render rather than a patient shown the waiting screen they should see.
+  if (candidate === null || candidate.trim() === '') {
     return null
   }
 

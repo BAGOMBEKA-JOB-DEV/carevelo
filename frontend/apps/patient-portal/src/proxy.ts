@@ -20,6 +20,18 @@ import { NextResponse, type NextRequest } from 'next/server'
  *
  * @see docs/30-architecture/frontend-nextjs.md
  */
+/**
+ * The origins a patient may be sent to in order to finish paying.
+ *
+ * These are the hosted payment pages of the aggregators this platform integrates with —
+ * sandbox and live — and they are written out rather than derived because CSP takes a list
+ * of origins and nothing cleverer. They match the two the backend's own client will talk to
+ * (`PesapalClient::SANDBOX_BASE_URL` and `LIVE_BASE_URL`), which is the only place the pair
+ * is decided; if that ever moves, this moves with it. See `form-action` below for what
+ * happens when the two disagree.
+ */
+const CHECKOUT_ORIGINS = ['https://pay.pesapal.com', 'https://cybqa.pesapal.com'] as const
+
 export function proxy(request: NextRequest): NextResponse {
   // Unpredictable and single-use. `crypto.randomUUID()` is available on the edge
   // runtime and is a CSPRNG, which Math.random is not — a guessable nonce is a CSP
@@ -106,7 +118,54 @@ export function proxy(request: NextRequest): NextResponse {
      * narrowing to the concrete Reverb origin once that is fixed per environment.
      */
     "connect-src 'self' ws: wss:",
-    "form-action 'self'",
+
+    /*
+     * `form-action` IS NOT 'self' ALONE, AND THE REASON IS THE ONE SCREEN THIS POLICY MUST
+     * NOT BREAK.
+     *
+     * A clinic whose merchant account is with an aggregator that hosts its own payment page
+     * gets a redirect journey: the patient presses Pay, the Server Action submits the order,
+     * and the answer is a redirect to the aggregator's page. `PaymentMethodChooser` is a
+     * NATIVE `<form action={serverAction}>` on purpose — it has to work before the bundle
+     * arrives on a slow connection, which is the binding constraint on this product — so on
+     * that path the redirect is an ordinary 303 answering an ordinary form POST.
+     *
+     * Chromium checks `form-action` against every hop of a form submission's redirect chain,
+     * not merely against the form's own action attribute. With `'self'` alone the browser
+     * therefore refuses the hop off this origin, silently as far as the patient is concerned:
+     * they press Pay and the page does not move.
+     *
+     * MEASURED, NOT REASONED ABOUT. A POST to this origin answered with a 303 to
+     * `https://cybqa.pesapal.com/...`, submitted from a real form in a real Chromium on
+     * kira.localhost:3010, produced exactly this and nothing else:
+     *
+     *   Sending form data to 'http://kira.localhost:3010/…' violates the following Content
+     *   Security Policy directive: "form-action 'self'". The request has been blocked.
+     *
+     * plus a `net::ERR_ABORTED` on the navigation. The page stayed where it was. Note that
+     * the message names OUR url, not the aggregator's, which is what would make this so
+     * expensive to diagnose from a bug report: it reads as though the portal refused its own
+     * form.
+     *
+     * It is also invisible everywhere the bundle HAS arrived, because with JavaScript a
+     * Server Action redirect is a client-side navigation rather than a form submission, and
+     * navigations are not governed by this directive. So it would pass every review, pass
+     * every click-through on a fast laptop, and fail for the patient on the mid-range Android
+     * this product is built for — the same silent shape as the 'strict-dynamic' failure this
+     * file already carries a scar from.
+     *
+     * WHAT IS ALLOWED IS AN ENUMERATION, NOT A WILDCARD. CSP has no way to say "wherever the
+     * API sends them", and it should not: an origin listed here is an origin an injected form
+     * on this page could post to. The backend independently refuses to hand out a redirect
+     * that is not https on the aggregator's own host (`PesapalClient::isPesapalUrl`), and
+     * `handoffFor` in the payments domain refuses anything that is not an absolute http(s)
+     * URL, so this list is the third of three checks rather than the only one.
+     *
+     * ADD TO IT THE DAY ANOTHER HOSTED-CHECKOUT AGGREGATOR IS INTEGRATED. Forgetting is not a
+     * build failure and not a test failure — it is a patient at that clinic who cannot pay,
+     * and no error anywhere but their own browser console.
+     */
+    `form-action 'self' ${CHECKOUT_ORIGINS.join(' ')}`,
     "base-uri 'none'",
     "object-src 'none'",
     // A clinic's portal has no business inside someone else's frame, and clickjacking a

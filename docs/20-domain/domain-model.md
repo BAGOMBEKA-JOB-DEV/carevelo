@@ -326,6 +326,8 @@ PaymentIntent
   method: mtn_momo | airtel_money | card | cash_at_clinic
   aggregator: flutterwave | pesapal | none
   aggregator_reference?          -- their transaction id
+  aggregator_tracking_id?        -- their id for a server-side handoff
+  redirect_url?                  -- the aggregator's hosted payment page
   idempotency_key                -- unique per tenant
   status  -- see State Machines
   initiated_at, resolved_at?
@@ -338,6 +340,8 @@ PaymentIntent
 - **Records an attempt; does not move money.** Funds flow patient → aggregator → *the clinic's own account*, using the clinic's own credentials. No field in this entity, or anywhere else in the platform, represents a Carevelo-held balance. See [Payments Regulatory Boundary](../50-security-compliance/payments-regulatory-boundary.md).
 - `idempotency_key` is unique per tenant and prevents a retried request from creating a second charge (§H5.6).
 - `aggregator_reference` is stored against the payable so the daily reconciliation view can flag mismatches. **We reconcile records, not money** (§H5.4).
+- `aggregator_tracking_id` exists because Pesapal's inbound notification carries **its** id and nothing else — no status, no amount, no signature — so an unstored tracking id is a payment that can never be tied back to the attempt it settled ([ADR-0012](../70-decisions/0012-pesapal-unsigned-ipn.md)). Distinct from `aggregator_reference`, which is the confirmation code for a *completed* collection.
+- `redirect_url` is **somewhere to send the patient, not a confirmation that anybody has paid.** The intent is `initiated` when it is written.
 - `cash_at_clinic` involves no aggregator and resolves by staff attestation, which is itself an audited action.
 - Refunds are **initiated by the clinic through its own aggregator**, and recorded here as an outcome. Carevelo never issues a refund, because it holds nothing to refund from.
 
@@ -349,6 +353,7 @@ AggregatorAccount
   provider: flutterwave | pesapal
   public_key, secret_key_encrypted, webhook_secret_encrypted
   merchant_reference
+  ipn_id?                        -- Pesapal's id for our registered notification URL
   environment: sandbox | live
   status: unconfigured | pending_verification | active | failing
   last_verified_at?
@@ -357,6 +362,8 @@ AggregatorAccount
 **Invariants**
 
 - One active account per tenant per provider.
+- Field names are provider-neutral and the providers use them differently. Pesapal's consumer key lives in `public_key` and its consumer secret in `secret_key`; Pesapal has **no** `webhook_secret`, because it signs nothing ([ADR-0012](../70-decisions/0012-pesapal-unsigned-ipn.md)).
+- `ipn_id` is not a credential — it identifies a URL — but it is still never returned by any API. It is cleared whenever credentials are replaced, because a registration belongs to the merchant account that made it.
 - Secrets are envelope-encrypted at rest, **write-only through the API, never returned in any response, never written to any log**, including exception traces.
 - Settlement target is the clinic's own account at the aggregator. Carevelo has no visibility of, and no claim on, the settled funds.
 - `status = unconfigured` degrades gracefully: consultations still run as `pay_at_clinic` (§H1.6). Payments are a feature, not a prerequisite for care.

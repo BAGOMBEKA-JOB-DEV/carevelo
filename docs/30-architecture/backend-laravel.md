@@ -271,20 +271,29 @@ Two rules that belong here, because they are backend structure rather than realt
 
 ## External integrations
 
-Each external service sits behind a domain interface, with the adapter in `Infrastructure`:
+Each external service sits behind a domain interface, with the adapter alongside it in `app/Services`:
 
 ```php
+#[Bind(AggregatorGateways::class)]
 interface PaymentGateway {
-    public function initiateCollection(CollectionRequest $r): CollectionResult;
-    public function queryStatus(AggregatorReference $ref): PaymentStatus;
+    public function fetchStatus(AggregatorAccount $account, PaymentIntent $intent): GatewayStatus;
+    public function initiateCollection(AggregatorAccount $account, PaymentIntent $intent): CollectionHandoff;
 }
 ```
 
-**Every call uses the tenant's own credentials**, resolved from `AggregatorAccount` at call time ([Payments Regulatory Boundary](../50-security-compliance/payments-regulatory-boundary.md)). There is no platform-level aggregator account, because there is no platform account for funds to reach.
+**The account is a parameter, not a constructor dependency.** Every call must use *that tenant's own* credentials and there is no platform-level merchant account to fall back on, so the credential is pushed into the signature where a caller cannot forget it and an implementation cannot quietly acquire a default ([Payments Regulatory Boundary](../50-security-compliance/payments-regulatory-boundary.md)). Both returns are value objects rather than arrays, for the same reason: an array of two strings invites a caller to reach for a third key and get `null` instead of an error.
 
-Adapters: timeouts on every call, circuit breaker on repeated failure, structured logging with **secrets and PII redacted**, and no retry on a non-idempotent operation without an idempotency key.
+**Neither method moves money.** `fetchStatus()` is a read. `initiateCollection()` tells the clinic's own aggregator that a collection is expected and returns the page the patient pays on; the patient then pays the aggregator and the aggregator settles to the clinic direct.
 
-Per the hook discipline in [Phase 2 & 3](../10-product/phase-2-3-outline.md): the interface exists because two providers are genuinely in scope (Flutterwave and Pesapal), not on speculation.
+**The binding is a resolver, not an implementation.** `AggregatorGateways` implements the port and dispatches on `$account->provider`, because the two providers work in opposite directions — a Flutterwave collection is started by the client and read back by us, a Pesapal collection is started by us and read back by us. With one provider a container default was harmless; with two it would send one clinic's collection through another provider's client, using credentials that provider has no business seeing. An unknown provider is refused, never approximated, and `UpdateAggregatorAccountRequest::PROVIDERS` derives from the resolver's list so "we accept it" and "we can talk to it" cannot drift apart.
+
+`FlutterwaveGateway::initiateCollection()` throws `AggregatorUnavailable` rather than returning something plausible. A stub handoff would send a patient to a page that does not exist, and they would conclude the clinic took their money.
+
+Adapters: timeouts on every call, structured logging with **secrets and PII redacted**, and no retry on a non-idempotent operation without an idempotency key. `AggregatorUnavailable` never chains a `previous` — an HTTP client exception carries the request, the request carries the `Authorization` header, and that header is a clinic's merchant credential.
+
+Per the hook discipline in [Phase 2 & 3](../10-product/phase-2-3-outline.md): the interface exists because two providers are genuinely in scope (Flutterwave and Pesapal), not on speculation. Both are now implemented.
+
+**Pesapal specifics** live in `app/Services/Payments/Pesapal`, split between a client that owns the HTTP, the credentials and a 4-minute token cache against Pesapal's 5-minute JWT, and a gateway that owns the domain decisions — what we are willing to tell an aggregator about a patient, and what a minor unit means on the wire. Its notification endpoint is trusted for nothing: [ADR-0012](../70-decisions/0012-pesapal-unsigned-ipn.md).
 
 ## What lives outside `backend/`
 

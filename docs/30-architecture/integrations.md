@@ -48,7 +48,8 @@ Both hold Bank of Uganda Payment System Operator licences (§I): Flutterwave's P
 |---|---|
 | **Credentials** | The **tenant's own**, from `AggregatorAccount`. Envelope-encrypted, write-only, never returned, never logged |
 | **Outbound** | Collection request: amount, currency, patient phone or card session, `merchant_reference` (our `PAY-…` reference), callback URL |
-| **Inbound** | Webhook with the transaction outcome; status query for reconciliation |
+| **Inbound** | Flutterwave: a **signed** webhook carrying the outcome. Pesapal: an **unsigned** notification carrying only its own tracking id, which we answer by calling `GetTransactionStatus` ourselves ([ADR-0012](../70-decisions/0012-pesapal-unsigned-ipn.md)). Both providers are also polled for reconciliation |
+| **Initiation** | Flutterwave is started by the client against Flutterwave. Pesapal is started by us — `SubmitOrderRequest` returns a hosted payment page we send the patient to. Neither moves money through Carevelo |
 | **Never crosses** | Diagnoses, prescriptions, clinical notes. A payment description says "Consultation" or "Medicines", never why |
 | **Never received** | Card data. 3-D Secure is entirely the aggregator's; PCI scope stays with them |
 
@@ -58,7 +59,7 @@ Both hold Bank of Uganda Payment System Operator licences (§I): Flutterwave's P
 
 **What the adapter must never implement:** a platform merchant account, a payout, a settlement instruction, a balance query on a Carevelo account. None of those exist to be queried.
 
-Two providers exist in real scope, which is why the `PaymentGateway` interface is justified now rather than speculative.
+Two providers exist in real scope, which is why the `PaymentGateway` interface is justified now rather than speculative — and both are implemented. Because they work in opposite directions, the container binds the port to a **resolver keyed on the account's provider** rather than to one client ([Backend](backend-laravel.md)); a default would send one clinic's collection through the other provider's client.
 
 ## SMS gateway
 
