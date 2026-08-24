@@ -34,6 +34,7 @@ use App\Http\Controllers\Api\V1\SubstitutionController;
 use App\Http\Controllers\Api\V1\TenantController;
 use App\Http\Controllers\HealthController;
 use App\Http\Controllers\Webhooks\AggregatorWebhookController;
+use App\Http\Controllers\Webhooks\PesapalIpnController;
 use App\Http\Middleware\BindTenantContext;
 use App\Http\Middleware\RequirePasswordChange;
 use App\Http\Middleware\RequireSecondFactor;
@@ -469,20 +470,45 @@ Route::prefix('health')->name('health.')
 
 /*
 |--------------------------------------------------------------------------
-| Inbound aggregator webhooks
+| Inbound aggregator callbacks
 |--------------------------------------------------------------------------
 |
-| Unauthenticated -- the aggregator has no session with us. Trust comes
-| ENTIRELY from signature verification against the tenant's own webhook secret,
-| performed on the RAW body with a constant-time comparison.
+| Two providers, TWO SECURITY MODELS, and they are not variants of each other.
 |
-| The tenant appears in the path because a webhook arrives with no host-based
-| context and no session. It is NOT trusted until the signature verifies
-| against that tenant's secret.
+| Flutterwave signs its callbacks: trust comes ENTIRELY from verifying that
+| signature against the tenant's own webhook secret, on the RAW body, with a
+| constant-time comparison.
+|
+| Pesapal signs nothing and reports nothing. Its notification carries an
+| OrderTrackingId and no status, deliberately, and there is no shared secret
+| with which a signature could be verified even in principle. Trust there comes
+| from NOTHING IN THE REQUEST: the tracking id locates an attempt inside one
+| tenant, and the outcome is read back from Pesapal over TLS with that clinic's
+| own credentials.
+|
+| The tenant appears in the path in both cases because a callback arrives with
+| no host-based context and no session. It is not trusted for either provider.
+|
+| THE PESAPAL ROUTE IS DECLARED FIRST AND MUST STAY FIRST. Routes match in
+| registration order, so `webhooks/{provider}/{tenant}` would otherwise swallow
+| every POST to it and hand a Pesapal notification to the signature-verifying
+| controller, which would reject it as unsigned -- a failure indistinguishable
+| from a misconfigured clinic.
+|
+| GET and POST for Pesapal, because the notification type is registered per URL
+| at Pesapal and both have been observed. Neither is trusted more than the other.
 |
 | @see docs/40-api/webhooks.md
+| @see docs/70-decisions/0012-pesapal-unsigned-ipn.md
 |
 */
+Route::match(['get', 'post'], 'webhooks/pesapal/{tenant}', PesapalIpnController::class)
+    ->name('webhooks.pesapal')
+    ->withoutMiddleware([
+        ResolveTenant::class,
+        BindTenantContext::class,
+    ]);
+
 Route::post('webhooks/{provider}/{tenant}', AggregatorWebhookController::class)
     ->name('webhooks.aggregator')
     ->withoutMiddleware([

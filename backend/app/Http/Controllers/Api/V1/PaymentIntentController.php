@@ -7,15 +7,21 @@ use App\Exceptions\StateMachine\IllegalTransition;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\V1\PaymentIntentResource;
 use App\Http\Resources\V1\ReceiptResource;
+use App\Models\AggregatorAccount;
 use App\Models\PaymentIntent;
 use App\Models\PaymentIntentStatus;
 use App\Models\PaymentMethod;
+use App\Services\Payments\AggregatorAccounts;
+use App\Services\Payments\AggregatorUnavailable;
+use App\Services\Payments\CollectionHandoff;
+use App\Services\Payments\PaymentGateway;
 use App\Services\Reconciliation\PaymentReceipt;
 use App\Support\ReferenceGenerator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Records payment attempts. Does not move money.
@@ -30,6 +36,8 @@ class PaymentIntentController extends Controller
     public function __construct(
         protected AuditLog $audit,
         protected ReferenceGenerator $references,
+        protected AggregatorAccounts $accounts,
+        protected PaymentGateway $gateway,
     ) {}
 
     /**
@@ -38,7 +46,16 @@ class PaymentIntentController extends Controller
      * Idempotency-Key is REQUIRED. Replaying it with an identical body returns
      * the stored response without re-executing; replaying with a different body
      * is a client bug and returns 409, because silently processing it is how
-     * money goes missing.
+     * money goes missing. That guard now protects a real outbound call as well
+     * as a row: without it, a retried request would submit a SECOND order
+     * against the patient's name.
+     *
+     * THE HANDOFF IS NOT A PAYMENT. Where the aggregator supports server-side
+     * initiation -- Pesapal does, Flutterwave does not -- we tell the CLINIC'S
+     * OWN aggregator that a collection is expected and return the page the
+     * patient pays on. The patient then pays the aggregator and the aggregator
+     * settles to the clinic. Nothing passes through Carevelo at any point, and
+     * no account exists here for it to pass through.
      */
     public function store(Request $request): JsonResponse
     {
@@ -84,6 +101,15 @@ class PaymentIntentController extends Controller
 
         $method = PaymentMethod::from($validated['method']);
 
+        // WHICH aggregator, read off the clinic's own account rather than
+        // assumed. It was hard-coded to Flutterwave while that was the only
+        // client, which meant a clinic banking with Pesapal recorded attempts
+        // against an aggregator it does not hold -- and reconciliation, which
+        // looks up the account by this value, then had nothing to poll and
+        // stopped. Null where the clinic has no account at all, which is a
+        // working state: pay-at-clinic still works and care is never blocked.
+        $account = $method->requiresAggregator() ? $this->accounts->current() : null;
+
         $intent = PaymentIntent::create([
             'reference' => $this->references->next('PAY'),
             'payable_type' => $validated['payable_type'],
@@ -91,21 +117,85 @@ class PaymentIntentController extends Controller
             'amount_minor' => $validated['amount_minor'],
             'currency' => 'UGX',
             'method' => $method,
-            'aggregator' => $method->requiresAggregator() ? 'flutterwave' : null,
+            'aggregator' => $account?->provider,
             'idempotency_key' => $key,
             'request_fingerprint' => $fingerprint,
             'status' => PaymentIntentStatus::Initiated,
             'initiated_at' => Date::now(),
         ]);
 
+        $handoff = $this->handOff($intent, $account);
+
+        if ($handoff !== null) {
+            // Stored, not merely returned. Pesapal's inbound notification
+            // carries its tracking id and NOTHING ELSE -- no status, no amount,
+            // no signature -- so an unstored tracking id is a payment that can
+            // never be tied back to the attempt it settled. The redirect URL is
+            // kept so a patient who closes the tab returns to the same hosted
+            // page instead of having a second order submitted against them.
+            $intent->forceFill([
+                'aggregator_tracking_id' => $handoff->trackingId,
+                'redirect_url' => $handoff->redirectUrl,
+            ])->save();
+        }
+
         $this->audit->record(
             'payment_intent.created',
             subjectType: 'PaymentIntent',
             subjectId: $intent->id,
-            metadata: ['reference' => $intent->reference, 'method' => $method->value],
+            // Identifiers and outcomes. No amount is needed here -- it is on the
+            // row -- and nothing about what is being paid for ever appears.
+            metadata: [
+                'reference' => $intent->reference,
+                'method' => $method->value,
+                'aggregator' => $account?->provider,
+                'handed_off' => $handoff !== null,
+            ],
         );
 
         return (new PaymentIntentResource($intent))->response()->setStatusCode(201);
+    }
+
+    /**
+     * Ask the clinic's own aggregator to open a collection, if it can.
+     *
+     * Null is an ordinary answer, and TWO DIFFERENT THINGS produce it. The
+     * clinic may have no usable account -- unconfigured, or a key awaiting
+     * verification -- in which case there was never anything to call. Or the
+     * aggregator may refuse: Flutterwave refuses ALWAYS AND BY DESIGN, because
+     * its collection is started by the client against Flutterwave and there is
+     * no server-side handoff to give, and Pesapal refuses when it is
+     * unreachable.
+     *
+     * None of the three is an error the patient should see as a failed booking.
+     * The intent exists either way, reconciliation will poll it either way, and
+     * a client that receives no redirect URL falls back to the flow it already
+     * has. Turning an aggregator outage into a 5xx here would take a clinic
+     * off-line for a dependency it does not need in order to see patients.
+     */
+    private function handOff(PaymentIntent $intent, ?AggregatorAccount $account): ?CollectionHandoff
+    {
+        if ($account === null || ! $account->isUsable()) {
+            return null;
+        }
+
+        try {
+            // The CLINIC'S OWN credentials, pushed into the call rather than
+            // resolved inside it. There is no platform merchant account to fall
+            // back on, because no such account exists.
+            return $this->gateway->initiateCollection($account, $intent);
+        } catch (AggregatorUnavailable $e) {
+            Log::info('payment.no_collection_handoff', [
+                'payment_intent_id' => $intent->id,
+                'aggregator' => $account->provider,
+                // Identifiers and the aggregator's own words about
+                // reachability. Never a credential: the clients that raise this
+                // never put one in the message.
+                'reason' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
     }
 
     public function show(PaymentIntent $paymentIntent): PaymentIntentResource

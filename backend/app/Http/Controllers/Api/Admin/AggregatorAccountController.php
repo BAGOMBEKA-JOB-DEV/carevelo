@@ -77,6 +77,15 @@ class AggregatorAccountController extends Controller
         $account->fill($request->validated());
         $account->status = 'pending_verification';
         $account->last_verified_at = null;
+
+        // A registered notification id belongs to the merchant account that
+        // registered it. Credentials are replaced as a SET here, so the new set
+        // may be a different Pesapal merchant entirely -- and a stale id would
+        // point Pesapal at a notification URL registered under someone else's
+        // account, or at nothing. Cleared, and registered again on the next
+        // collection.
+        $account->setAttribute('ipn_id', null);
+
         $account->save();
 
         $this->audit->record(
@@ -99,12 +108,21 @@ class AggregatorAccountController extends Controller
     /**
      * Check the credentials against the aggregator.
      *
-     * A READ, not a transaction. The gateway is asked about a reference that
+     * A READ, not a transaction. The gateway is asked about an attempt that
      * does not exist, which exercises exactly what needs exercising -- whether
      * the aggregator accepts this clinic's key -- and moves no money at all.
      * Initiating a real collection to test a credential would mean charging
      * somebody to prove a configuration, and there is no platform account for
      * the shilling to land in.
+     *
+     * Each provider has its own harmless equivalent of that question, and the
+     * gateway chooses it: Flutterwave is asked to verify a reference it has
+     * never seen, and Pesapal is asked for a token, which is the only call it
+     * offers that tests a credential without creating an order. The probe below
+     * carries no tracking id, and that absence is what selects the second path.
+     *
+     * A provider with no client at all is refused by the resolver with the same
+     * AggregatorUnavailable, so verification stays truthful rather than silent.
      *
      * An unreachable or rejecting aggregator sets `failing` and returns the
      * aggregator's own message. Only they know why a key was refused, and

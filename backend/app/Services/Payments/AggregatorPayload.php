@@ -64,6 +64,41 @@ final class AggregatorPayload
     }
 
     /**
+     * Convert integer minor units into a major-unit decimal string.
+     *
+     * THE EXACT INVERSE of minorUnits(), and built the same way on purpose:
+     * `minorUnits(majorUnits($n)) === $n` for every non-negative $n, and a test
+     * asserts that round trip rather than a hand-picked example.
+     *
+     * A minor unit here is one hundredth of a shilling. That is not obvious
+     * from the shilling itself -- Currency::UGX::hasSubunitInPractice() is
+     * false, because nobody in Uganda quotes cents -- so the factor comes from
+     * MoneyCast and Money instead, which store `amount_minor` and multiply by
+     * 100 in Money::ugx(). A UGX 30,000 consultation is 3,000,000 in the
+     * column and "30000.00" on the wire. Getting that wrong by a factor of one
+     * hundred is a defect that BILLS THE PATIENT A HUNDRED TIMES THE FEE, and
+     * the fraud boundary would not catch it: the reported amount would agree
+     * with what we asked for.
+     *
+     * intdiv() and % rather than a division. `$amountMinor / 100` yields an
+     * IEEE-754 double the moment the amount is not a whole number of shillings,
+     * and a double is exactly what Money exists to keep out of a money path.
+     * Nothing in this function can produce one.
+     *
+     * @throws AggregatorUnavailable for a negative amount, which is not a
+     *                               reversal but a caller with a bug: no
+     *                               collection is ever asked for in the negative
+     */
+    public static function majorUnits(int $amountMinor): string
+    {
+        if ($amountMinor < 0) {
+            throw new AggregatorUnavailable('A collection cannot be initiated for a negative amount.');
+        }
+
+        return sprintf('%d.%02d', intdiv($amountMinor, 100), $amountMinor % 100);
+    }
+
+    /**
      * Build a report from an aggregator's transaction object.
      *
      * @param  array<array-key, mixed>  $data

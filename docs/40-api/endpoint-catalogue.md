@@ -130,12 +130,14 @@ The rider endpoints are a separate namespace with distinct resource classes — 
 
 | Method | Path | Audience | Notes |
 |---|---|---|---|
-| POST | `/v1/payment-intents` | P, S front desk | **`Idempotency-Key` required.** Uses the tenant's own credentials |
+| POST | `/v1/payment-intents` | P, S front desk | **`Idempotency-Key` required.** Uses the tenant's own credentials. Returns `redirect_url` where the aggregator is initiated server-side (Pesapal); `null` otherwise |
 | GET | `/v1/payment-intents/{id}` | P own, S admin | Polled by the client while `pending` |
 | POST | `/v1/payment-intents/{id}/attest-cash` | S front desk, S pharmacist | Audited attestation |
 | GET | `/v1/payment-intents/{id}/receipt` | P own, S | Clinic named as payee |
 | GET | `/v1/reconciliation` | S admin | Daily view; flags mismatches |
 | GET | `/v1/reconciliation/export` | S admin | CSV for the clinic's own books |
+
+`redirect_url` is **somewhere to send the patient, not a confirmation that anybody has paid.** The intent is still `initiated` when it is returned, and a client that treats its presence as a paid booking has confirmed a booking nobody paid for.
 
 **Absent by design, permanently:** no balance, no wallet, no payout, no settlement, no platform-initiated refund. Those entities do not exist ([Payments Regulatory Boundary](../50-security-compliance/payments-regulatory-boundary.md)).
 
@@ -144,9 +146,17 @@ The rider endpoints are a separate namespace with distinct resource classes — 
 | Method | Path | Notes |
 |---|---|---|
 | POST | `/webhooks/flutterwave/{tenant}` | Signature-verified against the tenant's secret |
-| POST | `/webhooks/pesapal/{tenant}` | Same |
+| GET · POST | `/webhooks/pesapal/{tenant}` | **Not signed, and not signable.** Trusted for nothing |
 
-Unauthenticated, signature-verified, and idempotent. Detail in [Webhooks](webhooks.md).
+All unauthenticated — an aggregator has no session with us — and all idempotent. **The two are not variants of each other**, and the second row used to say "Same", which was wrong in the way that matters.
+
+Flutterwave signs its callback and carries the outcome in it: trust comes entirely from verifying that signature against the tenant's own webhook secret, on the raw body, constant-time.
+
+Pesapal's notification carries `OrderTrackingId`, `OrderMerchantReference` and `OrderNotificationType` — **no status, no amount, no signature**, and no shared secret from which one could be derived. Pesapal requires the merchant to call `GetTransactionStatus` itself. So the endpoint reads the tracking id and nothing else, resolves the attempt inside that tenant, and reads the outcome back from Pesapal over TLS with **the clinic's own credentials**. A forged notification can therefore only cause an authenticated re-read of a status Pesapal owns. `GET` as well as `POST`, because the notification type is registered per URL at Pesapal and both have been observed; neither is trusted more than the other.
+
+An unknown tenant, an unconfigured clinic and an unknown tracking id all answer a neutral **404**, indistinguishable from one another.
+
+Detail in [Webhooks](webhooks.md); the reasoning in [ADR-0012](../70-decisions/0012-pesapal-unsigned-ipn.md).
 
 ## Notifications & audit
 

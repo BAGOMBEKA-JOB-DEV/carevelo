@@ -10,8 +10,9 @@ import { PageBody } from '@/components/PageBody'
  * One payment attempt, for as long as it is unresolved — and the receipt once it is not.
  *
  * ONE PAGE FOR EVERY STATE, AND THAT IS THE DOMAIN'S RULE RATHER THAN A ROUTING SHORTCUT.
- * `PaymentStatusPanel` chooses between the waiting screen, the not-started screen, the
- * failure, the reversal, the honest "we cannot tell" and the receipt. Which status deserves
+ * `PaymentStatusPanel` chooses between the waiting screen, the not-started screen, the way
+ * back to an unfinished payment page, the failure, the reversal, the honest "we cannot tell"
+ * and the receipt. Which status deserves
  * which screen IS the business rule the payments domain owns — exactly one status means
  * paid, a timeout is not a failure, an unrecognised status is never success — and a route
  * picking its own would be that rule restated in the routing tree, free to drift from the
@@ -27,6 +28,32 @@ import { PageBody } from '@/components/PageBody'
  *
  * `null` IS 404 AND 403 ALIKE, collapsed by the domain on purpose so that this route
  * renders one not-found page for both and never leaks which clinic holds which record.
+ *
+ * THIS IS WHERE A HOSTED CHECKOUT SHOULD COME BACK TO, AND TODAY IT DOES NOT. WRITTEN DOWN
+ * HERE BECAUSE THE GAP IS INVISIBLE FROM INSIDE THIS APP.
+ *
+ * A patient who pays at an aggregator hosting its own page is returned by that aggregator to
+ * whatever callback URL the order carried. `PesapalGateway::callbackUrl()` sends a SINGLE
+ * STATIC URL with no intent id in it — `PESAPAL_CALLBACK_URL`, defaulting to
+ * `APP_URL + /payments/return` — and this portal has no `/payments/return` route. Pointed at
+ * the portal as `backend/.env.example` instructs, that path falls into THIS dynamic segment
+ * with `payment` = `return`, which is not an id, so the read returns null and a patient who
+ * has just paid is shown "page not found".
+ *
+ * Resolving it needs something this side cannot supply on its own: either the backend puts
+ * the intent id in the callback URL it submits per order, or the API grows a way to look an
+ * intent up by the `OrderMerchantReference` (our `PAY-…` reference) that the aggregator hands
+ * back. Until one of those exists, the reachable route to this page is the patient's own
+ * navigation — their appointment, their orders, the link they already had.
+ *
+ * WHAT THIS PAGE DOES DO IS SURVIVE THE ARRIVAL. An aggregator appends identifiers of its own
+ * — Pesapal sends `OrderTrackingId` and `OrderMerchantReference`. Nothing here reads them and
+ * nothing here should: they are the aggregator's word for what happened, and the only account
+ * of a payment this portal will render is the one it just read from
+ * `GET /v1/payment-intents/{id}`. Unlisted search parameters are ignored, so once the id does
+ * arrive here a callback carrying three of them renders the same page as a patient who typed
+ * the URL — and a patient who comes back with no parameters at all lands somewhere truthful
+ * rather than nowhere.
  *
  * ---------------------------------------------------------------------------------------
  * `?payable=` EXISTS BECAUSE THE CONTRACT DOES NOT CARRY THE PAYABLE, and this is a gap in

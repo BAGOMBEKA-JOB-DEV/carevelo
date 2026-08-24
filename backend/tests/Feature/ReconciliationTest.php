@@ -1,6 +1,7 @@
 <?php
 
 use App\Audit\AuditLog;
+use App\Http\Requests\Admin\Aggregator\UpdateAggregatorAccountRequest;
 use App\Jobs\ReconcilePaymentIntentJob;
 use App\Models\AggregatorAccount;
 use App\Models\Appointment;
@@ -10,10 +11,14 @@ use App\Models\PaymentIntent;
 use App\Models\PaymentIntentStatus;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Services\Payments\AggregatorGateways;
+use App\Services\Payments\AggregatorUnavailable;
 use App\Services\Payments\FakeGateway;
 use App\Services\Payments\FlutterwaveGateway;
 use App\Services\Payments\GatewayStatus;
 use App\Services\Payments\PaymentGateway;
+use App\Services\Payments\Pesapal\FakePesapal;
+use App\Services\Payments\Pesapal\PesapalGateway;
 use App\Tenancy\Tenancy;
 use Carbon\CarbonImmutable;
 use Database\Factories\AggregatorAccountFactory;
@@ -106,7 +111,49 @@ it('resolves the real aggregator client by default, never the fake', function ()
     // The fake is bound only by a test that asks for it. If it were ever the
     // container's default, every payment in production would sit unresolved
     // forever while looking perfectly healthy.
-    expect(app(PaymentGateway::class))->toBeInstanceOf(FlutterwaveGateway::class);
+    //
+    // The port now resolves to the RESOLVER rather than to one provider's
+    // client, because two providers exist and the account decides which. The
+    // guarantee being asserted is unchanged and is asserted per provider below:
+    // whatever a caller gets, it talks to a real aggregator.
+    expect(app(PaymentGateway::class))->toBeInstanceOf(AggregatorGateways::class);
+});
+
+it('resolves the real client for every provider, never the fake', function () {
+    // Per provider, because the failure this guards against is asymmetric and
+    // silent: a fake bound for one provider would leave those clinics' payments
+    // unresolved for ever while every other clinic worked perfectly.
+    $gateways = app(AggregatorGateways::class);
+
+    expect($gateways->clientFor('flutterwave'))->toBeInstanceOf(FlutterwaveGateway::class)
+        ->and($gateways->clientFor('pesapal'))->toBeInstanceOf(PesapalGateway::class);
+
+    // Exhaustively, so a provider added to the list without a client -- or with
+    // a fake wired in for a sandbox run and left there -- fails here rather
+    // than in production, silently, for one clinic.
+    foreach (AggregatorGateways::PROVIDERS as $provider) {
+        $client = $gateways->clientFor($provider);
+
+        expect($client)->toBeInstanceOf(PaymentGateway::class);
+        expect($client)->not->toBeInstanceOf(FakeGateway::class);
+        expect($client)->not->toBeInstanceOf(FakePesapal::class);
+    }
+});
+
+it('refuses a provider it has no client for, rather than picking one', function () {
+    // Not a default, not the first one in the list. A clinic's credentials sent
+    // to the wrong aggregator would be a credential disclosed to a party with
+    // no business seeing it, and a collection attempted against an account
+    // nobody holds.
+    expect(fn () => app(AggregatorGateways::class)->clientFor('mtn_direct'))
+        ->toThrow(AggregatorUnavailable::class, 'No client is implemented');
+});
+
+it('accepts exactly the providers a client exists for', function () {
+    // The onboarding form and the resolver are the same list by construction.
+    // They were two lists, and a clinic could store Pesapal credentials the
+    // system then refused to use.
+    expect(UpdateAggregatorAccountRequest::PROVIDERS)->toBe(AggregatorGateways::PROVIDERS);
 });
 
 it('moves a timed-out intent to succeeded on a late confirmation', function () {

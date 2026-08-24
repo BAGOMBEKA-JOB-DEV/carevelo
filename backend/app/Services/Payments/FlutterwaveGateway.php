@@ -15,10 +15,6 @@ use Throwable;
  * own key. Funds move patient -> aggregator -> clinic and never touch an
  * account we own, because no such account exists.
  *
- * Only one provider is implemented. Pesapal is named in the regulatory
- * documents and will need its own class -- deliberately not anticipated here,
- * because an interface generalised from a single example is a guess.
- *
  * @see docs/50-security-compliance/payments-regulatory-boundary.md
  */
 final class FlutterwaveGateway implements PaymentGateway
@@ -27,6 +23,28 @@ final class FlutterwaveGateway implements PaymentGateway
 
     /** Short. A reconciliation sweep must not queue behind a hung aggregator. */
     private const TIMEOUT_SECONDS = 10;
+
+    /**
+     * Refused, honestly.
+     *
+     * A Flutterwave collection is started by the client against Flutterwave --
+     * the patient's handset receives the push from them, not from a call we
+     * make -- so there is no server-side handoff to hand back. This throws
+     * rather than returning something empty, and rather than being quietly
+     * implemented against an endpoint nobody has tested: a stub that returned
+     * a plausible-looking handoff would send a patient to a page that does not
+     * exist, and they would conclude the clinic took their money.
+     *
+     * It is the same refusal this class already gives for an account that is
+     * not a Flutterwave account, for the same reason. What we cannot do, we say.
+     */
+    public function initiateCollection(AggregatorAccount $account, PaymentIntent $intent): CollectionHandoff
+    {
+        throw new AggregatorUnavailable(
+            'Flutterwave collections are initiated by the client against the aggregator, '
+            .'so there is no server-side handoff to return.'
+        );
+    }
 
     public function fetchStatus(AggregatorAccount $account, PaymentIntent $intent): GatewayStatus
     {

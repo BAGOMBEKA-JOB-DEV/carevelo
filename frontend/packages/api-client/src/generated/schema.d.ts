@@ -45,12 +45,21 @@ export interface paths {
         put?: never;
         /**
          * Check the credentials against the aggregator
-         * @description A READ, not a transaction. The gateway is asked about a reference that
+         * @description A READ, not a transaction. The gateway is asked about an attempt that
          *     does not exist, which exercises exactly what needs exercising -- whether
          *     the aggregator accepts this clinic's key -- and moves no money at all.
          *     Initiating a real collection to test a credential would mean charging
          *     somebody to prove a configuration, and there is no platform account for
          *     the shilling to land in.
+         *
+         *     Each provider has its own harmless equivalent of that question, and the
+         *     gateway chooses it: Flutterwave is asked to verify a reference it has
+         *     never seen, and Pesapal is asked for a token, which is the only call it
+         *     offers that tests a credential without creating an order. The probe below
+         *     carries no tracking id, and that absence is what selects the second path.
+         *
+         *     A provider with no client at all is refused by the resolver with the same
+         *     AggregatorUnavailable, so verification stays truthful rather than silent.
          *
          *     An unreachable or rejecting aggregator sets `failing` and returns the
          *     aggregator's own message. Only they know why a key was refused, and
@@ -1285,7 +1294,16 @@ export interface paths {
          * @description Idempotency-Key is REQUIRED. Replaying it with an identical body returns
          *     the stored response without re-executing; replaying with a different body
          *     is a client bug and returns 409, because silently processing it is how
-         *     money goes missing.
+         *     money goes missing. That guard now protects a real outbound call as well
+         *     as a row: without it, a retried request would submit a SECOND order
+         *     against the patient's name.
+         *
+         *     THE HANDOFF IS NOT A PAYMENT. Where the aggregator supports server-side
+         *     initiation -- Pesapal does, Flutterwave does not -- we tell the CLINIC'S
+         *     OWN aggregator that a collection is expected and return the page the
+         *     patient pays on. The patient then pays the aggregator and the aggregator
+         *     settles to the clinic. Nothing passes through Carevelo at any point, and
+         *     no account exists here for it to pass through.
          */
         post: operations["v1.payments.store"];
         delete?: never;
@@ -1358,6 +1376,35 @@ export interface paths {
          *     live in PaymentReceipt.
          */
         get: operations["v1.payments.receipt"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/webhooks/pesapal/{tenant}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Receive a Pesapal instant payment notification
+         * @description Trusted for nothing. `OrderTrackingId` is the only field read, and it is
+         *     used solely to look up an attempt within the named tenant and to ask
+         *     Pesapal, over TLS with the clinic's own credentials, what became of it.
+         *     Everything this endpoint acts on comes from that answer.
+         *
+         *     Always answers `{"received": true}` with 200, or a neutral 404 that does
+         *     not distinguish an unknown tenant from an unconfigured clinic from an
+         *     unknown tracking id.
+         *
+         *     See docs/70-decisions/0012-pesapal-unsigned-ipn.md
+         */
+        get: operations["webhooks.pesapal"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2719,6 +2766,19 @@ export interface components {
             amount: Record<string, never>;
             method: string;
             aggregator_reference: string | null;
+            /**
+             * @description The aggregator's hosted payment page, where one exists. Present only for a provider that is initiated server-side --
+             *     Pesapal today. Null is the ordinary answer for Flutterwave, whose
+             *     collection the client starts itself, and for cash at the clinic,
+             *     where nobody is going anywhere.
+             *
+             *     It is a place to send the patient, NOT a confirmation of
+             *     anything. A client that treats the presence of this URL as a paid
+             *     booking has confirmed a booking nobody has paid for: the intent
+             *     is `initiated` at this point, and only the aggregator can say
+             *     what happens next.
+             */
+            redirect_url: string | null;
             /**
              * @description Surfaced verbatim: only the aggregator knows why a collection
              *     failed, and paraphrasing loses the actionable part.
@@ -6303,6 +6363,58 @@ export interface operations {
             401: components["responses"]["AuthenticationException"];
             403: components["responses"]["AuthorizationException"];
             404: components["responses"]["ModelNotFoundException"];
+        };
+    };
+    "webhooks.pesapal": {
+        parameters: {
+            query?: {
+                /**
+                 * @description THE ONLY PLACE THE REQUEST IS TOUCHED. `input()` reads the query
+                 *      string and the body alike, which is what the route's GET|POST needs:
+                 *      Pesapal registers a notification type per URL and has been known to
+                 *      send either.
+                 */
+                OrderTrackingId?: string;
+            };
+            header?: never;
+            path: {
+                tenant: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /**
+             * @description From here the Request no longer exists as far as this handler is
+             *     concerned. That is not tidiness; it is the property the docblock
+             *     above claims, expressed as a signature.
+             */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        type: string;
+                        /** @constant */
+                        title: "Not found";
+                        /** @constant */
+                        status: 404;
+                        /** @constant */
+                        code: "not_found";
+                        detail: null;
+                        errors: string;
+                    };
+                };
+            };
         };
     };
     "v1.platform.audit-events.index": {

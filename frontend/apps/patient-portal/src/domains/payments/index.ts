@@ -29,6 +29,15 @@
  *    through. `after` is what makes a retry a NEW attempt rather than a replay of the last
  *    one; `error` is how a failed submission comes back with something to read.
  *
+ *    THE CHOOSER'S ACTION DOES NOT ALWAYS LAND ON `statusPathTemplate`. Where the clinic's
+ *    merchant account is with an aggregator that hosts its own payment page, the created
+ *    intent comes back with that page on it and the patient is redirected STRAIGHT THERE,
+ *    off this origin, without seeing a screen of ours in between. `statusPathTemplate` is
+ *    still required and still matters: it is where the aggregator's callback returns them,
+ *    and where a patient who abandoned that page finds their way back to it. A route needs
+ *    to do nothing differently — only to know that the next page a patient sees after
+ *    pressing Pay may not be one of ours.
+ *
  * 2. THE STATUS SCREEN, at whatever `statusPathTemplate` named — `app/payments/[id]/page.tsx`:
  *
  *      const intent = await getPaymentIntent(id)
@@ -85,7 +94,7 @@ export { PaymentStatusBadge } from './components/PaymentStatusBadge'
 export { RefundGuidance } from './components/RefundGuidance'
 
 /*
- * DELIBERATELY NOT EXPORTED: startPayment, and the six individual state screens.
+ * DELIBERATELY NOT EXPORTED: startPayment, and the seven individual state screens.
  *
  * `startPayment` is reachable only through the chooser's own server action, which is what
  * derives the idempotency key from the body. An exported create function is an invitation

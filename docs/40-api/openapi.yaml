@@ -62,7 +62,7 @@ paths:
   /v1/tenant/aggregator-account/verify:
     post:
       operationId: v1.aggregator.verify
-      description: "A READ, not a transaction. The gateway is asked about a reference that\ndoes not exist, which exercises exactly what needs exercising -- whether\nthe aggregator accepts this clinic's key -- and moves no money at all.\nInitiating a real collection to test a credential would mean charging\nsomebody to prove a configuration, and there is no platform account for\nthe shilling to land in.\n\nAn unreachable or rejecting aggregator sets `failing` and returns the\naggregator's own message. Only they know why a key was refused, and\nparaphrasing loses the part the administrator can act on."
+      description: "A READ, not a transaction. The gateway is asked about an attempt that\ndoes not exist, which exercises exactly what needs exercising -- whether\nthe aggregator accepts this clinic's key -- and moves no money at all.\nInitiating a real collection to test a credential would mean charging\nsomebody to prove a configuration, and there is no platform account for\nthe shilling to land in.\n\nEach provider has its own harmless equivalent of that question, and the\ngateway chooses it: Flutterwave is asked to verify a reference it has\nnever seen, and Pesapal is asked for a token, which is the only call it\noffers that tests a credential without creating an order. The probe below\ncarries no tracking id, and that absence is what selects the second path.\n\nA provider with no client at all is refused by the resolver with the same\nAggregatorUnavailable, so verification stays truthful rather than silent.\n\nAn unreachable or rejecting aggregator sets `failing` and returns the\naggregator's own message. Only they know why a key was refused, and\nparaphrasing loses the part the administrator can act on."
       summary: 'Check the credentials against the aggregator'
       tags:
         - AggregatorAccount
@@ -2716,7 +2716,7 @@ paths:
   /v1/payment-intents:
     post:
       operationId: v1.payments.store
-      description: "Idempotency-Key is REQUIRED. Replaying it with an identical body returns\nthe stored response without re-executing; replaying with a different body\nis a client bug and returns 409, because silently processing it is how\nmoney goes missing."
+      description: "Idempotency-Key is REQUIRED. Replaying it with an identical body returns\nthe stored response without re-executing; replaying with a different body\nis a client bug and returns 409, because silently processing it is how\nmoney goes missing. That guard now protects a real outbound call as well\nas a row: without it, a retried request would submit a SECOND order\nagainst the patient's name.\n\nTHE HANDOFF IS NOT A PAYMENT. Where the aggregator supports server-side\ninitiation -- Pesapal does, Flutterwave does not -- we tell the CLINIC'S\nOWN aggregator that a collection is expected and return the page the\npatient pays on. The patient then pays the aggregator and the aggregator\nsettles to the clinic. Nothing passes through Carevelo at any point, and\nno account exists here for it to pass through."
       summary: 'Create a payment intent'
       tags:
         - PaymentIntent
@@ -2922,6 +2922,62 @@ paths:
           $ref: '#/components/responses/ModelNotFoundException'
         401:
           $ref: '#/components/responses/AuthenticationException'
+  '/webhooks/pesapal/{tenant}':
+    get:
+      operationId: webhooks.pesapal
+      description: "Trusted for nothing. `OrderTrackingId` is the only field read, and it is\nused solely to look up an attempt within the named tenant and to ask\nPesapal, over TLS with the clinic's own credentials, what became of it.\nEverything this endpoint acts on comes from that answer.\n\nAlways answers `{\"received\": true}` with 200, or a neutral 404 that does\nnot distinguish an unknown tenant from an unconfigured clinic from an\nunknown tracking id.\n\nSee docs/70-decisions/0012-pesapal-unsigned-ipn.md"
+      summary: 'Receive a Pesapal instant payment notification'
+      tags:
+        - PesapalIpn
+      parameters:
+        -
+          name: tenant
+          in: path
+          required: true
+          schema:
+            type: string
+        -
+          name: OrderTrackingId
+          in: query
+          description: "THE ONLY PLACE THE REQUEST IS TOUCHED. `input()` reads the query\n string and the body alike, which is what the route's GET|POST needs:\n Pesapal registers a notification type per URL and has been known to\n send either."
+          schema:
+            type: string
+      responses:
+        200:
+          description: "From here the Request no longer exists as far as this handler is\nconcerned. That is not tidiness; it is the property the docblock\nabove claims, expressed as a signature."
+          content:
+            application/json:
+              schema:
+                type: object
+        404:
+          description: ''
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                    const: 'Not found'
+                  status:
+                    type: integer
+                    const: 404
+                  code:
+                    type: string
+                    const: not_found
+                  detail:
+                    type: 'null'
+                  errors:
+                    type: string
+                required:
+                  - type
+                  - title
+                  - status
+                  - code
+                  - detail
+                  - errors
   /v1/platform/audit-events:
     get:
       operationId: v1.platform.audit-events.index
@@ -5552,6 +5608,11 @@ components:
           type:
             - string
             - 'null'
+        redirect_url:
+          type:
+            - string
+            - 'null'
+          description: "The aggregator's hosted payment page, where one exists. Present only for a provider that is initiated server-side --\nPesapal today. Null is the ordinary answer for Flutterwave, whose\ncollection the client starts itself, and for cash at the clinic,\nwhere nobody is going anywhere.\n\nIt is a place to send the patient, NOT a confirmation of\nanything. A client that treats the presence of this URL as a paid\nbooking has confirmed a booking nobody has paid for: the intent\nis `initiated` at this point, and only the aggregator can say\nwhat happens next."
         failure_message:
           type:
             - string
@@ -5572,6 +5633,7 @@ components:
         - amount
         - method
         - aggregator_reference
+        - redirect_url
         - failure_message
         - initiated_at
         - resolved_at
