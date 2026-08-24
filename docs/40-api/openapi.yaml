@@ -2922,6 +2922,99 @@ paths:
           $ref: '#/components/responses/ModelNotFoundException'
         401:
           $ref: '#/components/responses/AuthenticationException'
+  /v1/platform/audit-events:
+    get:
+      operationId: v1.platform.audit-events.index
+      tags:
+        - PlatformAuditEvent
+      parameters:
+        -
+          name: tenant_id
+          in: query
+          description: "`exists`, so an unknown clinic is a 422 naming the field rather than an empty\npage that reads as \"this clinic has done nothing\". Not a disclosure worth\nworrying about on this surface: the operator holding a verified platform\nsession can already list every tenant at GET /v1/platform/tenants."
+          schema:
+            type: string
+        -
+          name: action
+          in: query
+          schema:
+            type: string
+            maxLength: 64
+        -
+          name: actor_id
+          in: query
+          schema:
+            type: string
+        -
+          name: from
+          in: query
+          schema:
+            type: string
+            format: date
+        -
+          name: to
+          in: query
+          schema:
+            type: string
+            format: date
+        -
+          name: per_page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+        -
+          name: cursor
+          in: query
+          schema:
+            type: string
+      responses:
+        200:
+          description: 'Paginated set of `PlatformAuditEventResource`'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PlatformAuditEventResource'
+                  links:
+                    type: object
+                    properties:
+                      first: { type: [string, 'null'] }
+                      last: { type: [string, 'null'] }
+                      prev: { type: [string, 'null'] }
+                      next: { type: [string, 'null'] }
+                    required:
+                      - first
+                      - last
+                      - prev
+                      - next
+                  meta:
+                    type: object
+                    properties:
+                      path: { type: [string, 'null'], description: 'Base path for paginator generated URLs.' }
+                      per_page: { type: integer, description: 'Number of items shown per page.', minimum: 0 }
+                      next_cursor: { type: [string, 'null'], description: 'The "cursor" that points to the next set of items.' }
+                      prev_cursor: { type: [string, 'null'], description: 'The "cursor" that points to the previous set of items.' }
+                    required:
+                      - path
+                      - per_page
+                      - next_cursor
+                      - prev_cursor
+                required:
+                  - data
+                  - links
+                  - meta
+        403:
+          $ref: '#/components/responses/AuthorizationException'
+        401:
+          $ref: '#/components/responses/AuthenticationException'
+        422:
+          $ref: '#/components/responses/ValidationException'
   /v1/platform/auth/sign-in:
     post:
       operationId: v1.platform.auth.sign-in
@@ -5483,6 +5576,78 @@ components:
         - initiated_at
         - resolved_at
       title: PaymentIntentResource
+    PlatformAuditEventResource:
+      type: object
+      properties:
+        id:
+          type: string
+        tenant_id:
+          type:
+            - string
+            - 'null'
+          description: "Null on a platform event, which is what makes it one. The screen reads this\nto say \"Carevelo\" rather than naming a clinic."
+        action:
+          type: string
+        actor_type:
+          type: string
+        actor_id:
+          type:
+            - string
+            - 'null'
+        actor_role:
+          type:
+            - string
+            - 'null'
+        subject_type:
+          type:
+            - string
+            - 'null'
+          description: 'The KIND of thing acted on, never which one. See the class docblock.'
+        subject_id:
+          type:
+            - string
+            - 'null'
+        occurred_at:
+          type: string
+        ip_address:
+          type:
+            - string
+            - 'null'
+        user_agent:
+          type:
+            - string
+            - 'null'
+        request_id:
+          type:
+            - string
+            - 'null'
+          description: "Kept on both projections. It holds nothing about anybody -- it is the join\nkey to the application logs, and an operator diagnosing an incident from\nmetadata alone needs the half of the story the logs hold."
+        metadata:
+          type:
+            - object
+            - 'null'
+          additionalProperties: {  }
+        projection:
+          type: string
+          enum:
+            - metadata_only
+            - full
+      required:
+        - id
+        - tenant_id
+        - action
+        - actor_type
+        - actor_id
+        - actor_role
+        - subject_type
+        - subject_id
+        - occurred_at
+        - ip_address
+        - user_agent
+        - request_id
+        - metadata
+        - projection
+      title: PlatformAuditEventResource
     PlatformSignInRequest:
       type: object
       description: "The password half of a platform operator's sign-in.\n\n============================================================\nAN EMAIL ADDRESS. THERE IS NO PHONE FIELD AND THERE MUST NOT BE ONE.\n============================================================\n\nSignInRequest -- the tenant one -- takes an email address OR a phone number,\nbecause a clinician between rooms has their number in hand and most Ugandan\nclinic staff have no reliably-checked email address. None of that applies\nhere. A platform operator is a Carevelo employee at a desk, and the account\nthey hold has `tenant_id = null` and is found by address alone\n(App\\Support\\Auth\\PlatformAccounts). Adding a phone field would introduce an\nidentifier this surface has no lookup for and no reason to want, on the one\naccount in the product whose second factor must never touch a mobile network\n-- see App\\Support\\Totp\\Totp::uri() for why at length.\n\n============================================================\nTHE PASSWORD ALONE GETS NOBODY IN\n============================================================\n\nA successful request here does not return a session. It returns \"now show me a\n * code\", and PlatformAuthController opens no session until one verifies. The\nsplit into two requests is not decoration either: a single form taking a\npassword and a code together has to say which half was wrong, and \"the\n * password is right, the code is not\" is a sentence worth a great deal to\nsomebody working through a credential-stuffing list."

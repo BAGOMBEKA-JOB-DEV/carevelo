@@ -11,8 +11,9 @@ use App\Models\ClinicalRole;
 use App\Models\User;
 use App\Tenancy\Tenancy;
 use Illuminate\Auth\Access\AuthorizationException;
-use Illuminate\Contracts\Pagination\CursorPaginator;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Pagination\CursorPaginator;
 
 /**
  * The platform audit register: the read that closes a write-only trail.
@@ -90,9 +91,7 @@ class PlatformAuditEventController extends Controller
 
         $tenantId = $request->tenantId();
 
-        $events = $tenantId === null
-            ? $this->page($request)
-            : $tenancy->run($tenantId, fn (): CursorPaginator => $this->page($request));
+        $events = $this->page($request, $tenancy, $tenantId);
 
         /*
          * READING THE AUDIT LOG IS ITSELF AUDITED, and on this surface that is the whole
@@ -130,16 +129,47 @@ class PlatformAuditEventController extends Controller
     }
 
     /**
-     * One page of whichever trail the caller is standing in.
+     * One page of one trail, standing wherever that trail lives.
      *
-     * Called either bare -- no tenant bound, so the policy shows platform rows -- or inside
-     * Tenancy::run(). The query is the same either way ON PURPOSE: there is no `where
-     * tenant_id` anywhere in this class, because a scope written in PHP is a scope that can
-     * be forgotten, and the one in the database cannot be.
+     * THE BRANCH IS THE WHOLE OF THE TENANT SCOPING, and there is no `where tenant_id`
+     * beneath it. With no tenant bound the policy on audit_events shows rows with a null
+     * tenant and nothing else; inside Tenancy::run() it shows that clinic's rows and
+     * nothing else. A scope written in PHP is a scope somebody can forget on the next
+     * query; the one in the database cannot be, and it is the same door -- Tenancy::run()
+     * -- that BreakGlassAccess goes through to read a clinic's records.
      *
-     * @return CursorPaginator<AuditEvent>
+     * The transaction Tenancy::run() opens is not incidental either: the tenant setting is
+     * written with set_config(..., true), which is transaction-scoped, so a read of a
+     * clinic's trail is scoped for exactly as long as that read and cannot leak onto the
+     * next request over a pooled connection.
+     *
+     * @return CursorPaginator<int, AuditEvent>
      */
-    private function page(IndexPlatformAuditEventRequest $request): CursorPaginator
+    private function page(
+        IndexPlatformAuditEventRequest $request,
+        Tenancy $tenancy,
+        ?string $tenantId,
+    ): CursorPaginator {
+        $perPage = $request->perPage();
+
+        if ($tenantId === null) {
+            return $this->trail($request)->cursorPaginate($perPage);
+        }
+
+        return $tenancy->run($tenantId, fn (): CursorPaginator => $this->trail($request)->cursorPaginate($perPage));
+    }
+
+    /**
+     * The filtered query, ordered, with no tenant clause in it.
+     *
+     * Built the same way whichever trail it is about to run against, ON PURPOSE: the
+     * scoping is the database's, and the moment this method grew a `where tenant_id` there
+     * would be two answers to "which rows may this reader see" -- one of which somebody can
+     * forget.
+     *
+     * @return Builder<AuditEvent>
+     */
+    private function trail(IndexPlatformAuditEventRequest $request): Builder
     {
         $query = AuditEvent::query();
 
@@ -171,8 +201,7 @@ class PlatformAuditEventController extends Controller
          */
         return $query
             ->orderByDesc('occurred_at')
-            ->orderByDesc('id')
-            ->cursorPaginate($request->perPage());
+            ->orderByDesc('id');
     }
 
     /**

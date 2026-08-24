@@ -102,19 +102,19 @@ class PlatformAuditEventResource extends JsonResource
             // to say "Carevelo" rather than naming a clinic.
             'tenant_id' => $this->tenant_id,
             'action' => $this->action,
-            'actor_type' => $this->getAttribute('actor_type'),
-            'actor_id' => $this->getAttribute('actor_id'),
-            'actor_role' => $this->getAttribute('actor_role'),
+            'actor_type' => $this->actor_type,
+            'actor_id' => $this->actor_id,
+            'actor_role' => $this->actor_role,
             // The KIND of thing acted on, never which one. See the class docblock.
-            'subject_type' => $this->getAttribute('subject_type'),
-            'subject_id' => $ownedByAClinic ? null : $this->getAttribute('subject_id'),
+            'subject_type' => $this->subject_type,
+            'subject_id' => $ownedByAClinic ? null : $this->subject_id,
             'occurred_at' => $this->occurred_at->toIso8601String(),
-            'ip_address' => $ownedByAClinic ? null : $this->getAttribute('ip_address'),
-            'user_agent' => $ownedByAClinic ? null : $this->getAttribute('user_agent'),
+            'ip_address' => $ownedByAClinic ? null : $this->ip_address,
+            'user_agent' => $ownedByAClinic ? null : $this->user_agent,
             // Kept on both projections. It holds nothing about anybody -- it is the join
             // key to the application logs, and an operator diagnosing an incident from
             // metadata alone needs the half of the story the logs hold.
-            'request_id' => $this->getAttribute('request_id'),
+            'request_id' => $this->request_id,
             'metadata' => $ownedByAClinic ? null : $this->safeMetadata($this->metadata),
             'projection' => $ownedByAClinic ? 'metadata_only' : 'full',
         ];
