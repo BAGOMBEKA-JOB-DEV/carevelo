@@ -61,7 +61,16 @@ export async function SiteFooter({ tenant, signedIn }: { tenant: Tenant; signedI
           </div>
 
           <div>
-            <h4>{t('getInTouch')}</h4>
+            {/* An `<h2>`, not the `<h4>` this was. These four column labels are the only
+                headings between the page's own `<h2>` sections and the end of the document, so
+                at h4 every page in the app announced a jump from h1 or h2 straight to h4 —
+                and a screen-reader user navigating by heading hears that as two levels of
+                structure that are missing rather than as a footer. They are top-level regions
+                of the page, so they are level 2. Nothing about how they LOOK changes:
+                `.site-footer h2` in tokens/site.css carries the same 12.5px uppercase it
+                always did, because the token layer sizes headings by class and context and
+                never by depth — see typography.css. */}
+              <h2>{t('getInTouch')}</h2>
             <ul>
               {contact.phone ? (
                 <li>
@@ -86,7 +95,7 @@ export async function SiteFooter({ tenant, signedIn }: { tenant: Tenant; signedI
           </div>
 
           <div>
-            <h4>{t('yourCare')}</h4>
+            <h2>{t('yourCare')}</h2>
             <ul>
               <li>
                 <Link href={signedIn ? '/account' : '/sign-in'}>
@@ -103,7 +112,7 @@ export async function SiteFooter({ tenant, signedIn }: { tenant: Tenant; signedI
           </div>
 
           <div>
-            <h4>{t('legal')}</h4>
+            <h2>{t('legal')}</h2>
             <ul>
               <li>
                 <Link href="/privacy">{t('privacy')}</Link>

@@ -52,7 +52,9 @@ export async function LanguageSwitcher() {
       <fieldset>
         <legend className="sr-only">{t('legend')}</legend>
 
-        <h4>{t('heading')}</h4>
+        {/* Level 2 like the other three footer column labels — see SiteFooter.tsx for why
+            an `<h4>` here made every page in the app skip two heading levels. */}
+        <h2>{t('heading')}</h2>
 
         {/* `Inline` rather than a hand-rolled flex row: 8px between two buttons that
             must be allowed to fall onto separate lines when a clinic's name pushes the
