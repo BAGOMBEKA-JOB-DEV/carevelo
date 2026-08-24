@@ -131,6 +131,25 @@ async function shoot(page: Page, name: string): Promise<void> {
   await page.evaluate(() => window.scrollTo(0, 0))
   await page.waitForLoadState('networkidle')
 
+  /*
+   * HIDE THE FRAMEWORK'S DEV OVERLAY, AND THIS IS NOT COSMETIC.
+   *
+   * `next dev` renders its toolbar into a `<nextjs-portal>` custom element pinned to the
+   * corner of every page. The first baseline run captured it in all sixty images, wearing
+   * a badge that read "1 Issue".
+   *
+   * Two separate problems, and the second is the dangerous one. It does not exist in a
+   * production build, so every baseline was of a page no user will ever see. And the badge
+   * COUNTS things -- a hydration warning, a failed fetch, whatever the app happens to be
+   * complaining about on that run -- so its text changes without the layout changing at
+   * all. A gate that goes red because a number in the corner moved is a gate somebody
+   * reruns with --update-snapshots, and at that point it is no longer a gate.
+   *
+   * Hidden rather than masked: a mask paints a box over the region and that box is itself
+   * part of the image, so it would still be baselining framework chrome, just opaque.
+   */
+  await page.addStyleTag({ content: 'nextjs-portal { display: none !important; }' })
+
   await expect(page).toHaveScreenshot(`${name}.png`, {
     animations: 'disabled',
     caret: 'hide',
