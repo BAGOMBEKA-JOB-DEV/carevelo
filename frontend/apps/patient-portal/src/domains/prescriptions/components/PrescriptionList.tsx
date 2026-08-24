@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { getTranslations } from 'next-intl/server'
 import { Badge, Card, DateTime, EmptyState, Icon, Inline, Notice, Stack } from '@carevelo/ui'
+import { SitePageHeader } from '@/components/SitePageHeader'
 import { statusTone, statusWord } from './status'
 import type { PrescriptionListResult } from '../api/prescriptions'
 
@@ -151,7 +152,7 @@ export async function PrescriptionList({
             ) : (
               <span />
             )}
-          </nav>
+          </Inline>
         </>
       )}
     </section>

@@ -225,11 +225,12 @@ function Item({
          * directions are term/value pairs and a screen reader announces them as such.
          * `Stack`'s element union is the set of things a column is legitimately made of and
          * `dl` is not among them, so this keeps `.stack` — whose own gap is already
-         * `--space-2`, which is why the hand-set gap could simply go. The surviving
-         * `margin: 0` clears the user agent's `<dl>` margin: reset.css zeroes headings and
-         * paragraphs, and deliberately leaves lists alone.
+         * `--space-2`, which is why the hand-set gap could simply go. `.deflist` clears the
+         * user-agent margins on the `<dl>` AND on every `<dd>` inside it in one rule:
+         * reset.css zeroes headings and paragraphs and deliberately leaves lists alone,
+         * which is right for a shared reset and left four corrections written by hand.
          */}
-        <dl className="stack" style={{ margin: 0 }}>
+        <dl className="stack deflist">
           {item.form === null ? null : <Detail label={labels.form} value={item.form} />}
           {item.strength === null ? null : <Detail label={labels.strength} value={item.strength} />}
           <Detail
@@ -248,19 +249,16 @@ function Item({
 function Detail({ label, value }: { label: string; value: string }) {
   return (
     <Inline gap="3" align="baseline">
-      {/* A 9-character floor on the term column, so Form, Strength, Quantity and Directions
-          line their values up down the card instead of stepping in and out. A CONTENT
-          measure in `ch`, not a distance between things — the space scale would be the
-          wrong vocabulary for it, the same distinction Skeleton draws for its block
-          heights. */}
-      <dt className="stat__label" style={{ minWidth: '9ch' }}>
-        {label}
-      </dt>
-      {/* Clears the user agent's 40px `<dd>` indent, which the reset does not cover.
-          Without it every value sits inset from the term it belongs to. */}
-      <dd className="grow" style={{ margin: 0 }}>
-        {value}
-      </dd>
+      {/* A 9-character floor on the term column, so Form, Strength, Quantity and
+          Directions line their values up down the card instead of stepping in and out.
+          A CONTENT measure in `ch` — the width of the words themselves — which is why it
+          is `.term-col` in tokens/components.css rather than anything on the space scale:
+          the scale is the vocabulary for distances BETWEEN things, and this is the size of
+          a thing. Same distinction Skeleton draws for its block heights. */}
+      <dt className="stat__label term-col">{label}</dt>
+      {/* The user agent's 40px `<dd>` indent is cleared by `.deflist` on the `<dl>`
+          above — one rule for the list rather than a correction per value. */}
+      <dd className="grow">{value}</dd>
     </Inline>
   )
 }
