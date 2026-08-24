@@ -223,7 +223,59 @@
 }
 
 /* ------------------------------------------------------------
-   5. THE THEME TOGGLE, WHICH SITS ON A BAND THAT IS DARK IN BOTH THEMES
+   5. TELLING THE BROWSER WHICH THEME IT IS RENDERING
+
+   `color-scheme` computed to `normal` on every element in this app, in both themes, and
+   nothing in the token layer declares it. That is not a cosmetic gap: it is the only way to
+   tell the browser that the page is dark, and the parts of a page the browser draws ITSELF
+   are the parts no stylesheet can reach.
+
+   What stays light in dark mode without it, all of it measured on this console:
+
+     - the popup a `<select>` opens. Every filter on every list screen is a native select —
+       status on the registry, the lane on the queues, the clinician on the schedule — and
+       the list that drops out of it is drawn by the browser, not by us. White panel, dark
+       page.
+     - the calendar panel of `<input type="date">`, which is the reconciliation screen's day
+       picker and the date of birth on registration.
+     - the checkbox and radio glyphs, which are UA-drawn unless a rule replaces them.
+     - the autofill highlight, which the browser paints pale yellow over our dark field.
+     - the scrollbar.
+
+   None of these are contrast failures in the WCAG sense — the browser's own light widgets
+   are internally legible — so the contrast sweep did not and could not find them. They are
+   found by knowing the property exists.
+
+   THIS IS SCOPED TO THE TWO FRAMES AND IS THEREFORE A PARTIAL FIX, DELIBERATELY. Everything
+   in the list above except the SCROLLBAR is inside `.layout` or `.auth-page` and is fixed
+   here. The document scrollbar is drawn from the root element and cannot be reached from an
+   app stylesheet that is not allowed to style `:root` — the correct home for this is one
+   line in packages/ui beside the palette it belongs to:
+
+       :root { color-scheme: light }
+       :root[data-theme='dark'] { color-scheme: dark }
+
+   It is in the report. Until then this covers the controls, which is where staff actually
+   meet the problem — a receptionist opening the status filter on the patient registry.
+
+   The light arm is stated rather than left to `normal` for the same reason the gate in
+   section 1 is written the way it is: `normal` lets the browser fall back to the OS
+   preference, so a staff member whose laptop is in dark mode would get dark widgets on our
+   deliberately light page. The theme here is an explicit choice and both arms have to say
+   so.
+   ------------------------------------------------------------ */
+:root:not([data-theme='dark']) .layout,
+:root:not([data-theme='dark']) .auth-page {
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] .layout,
+:root[data-theme='dark'] .auth-page {
+  color-scheme: dark;
+}
+
+/* ------------------------------------------------------------
+   6. THE THEME TOGGLE, WHICH SITS ON A BAND THAT IS DARK IN BOTH THEMES
 
    `.site-theme-btn` in the shared layer was drawn for the patient portal's header, which
    sits on `--canvas`. It takes `--hairline` for its border and `--ink-2` for its glyph,
@@ -256,7 +308,7 @@
 }
 
 /* ------------------------------------------------------------
-   6. TABLE DENSITY
+   7. TABLE DENSITY
 
    The shared `.table` is set for a document: 12px above and below every cell, which on a
    patient's booking confirmation is right and on a dispensing queue is four rows fewer per
@@ -297,7 +349,7 @@
 }
 
 /* ------------------------------------------------------------
-   7. STICKY COLUMN HEADINGS ON THE LONG QUEUES
+   8. STICKY COLUMN HEADINGS ON THE LONG QUEUES
 
    Applied by passing `className="queue"` to DataTable on the pharmacy queue, the dispatch
    board and the patient registry — the three lists long enough that the headings scroll
@@ -341,7 +393,7 @@
 }
 
 /* ------------------------------------------------------------
-   8. THE TOOLBAR ABOVE A LIST
+   9. THE TOOLBAR ABOVE A LIST
 
    One shape above every list in the console, so that "where the filters are" is a thing
    staff learn once. Before this each screen invented its own: some put the filters in a
@@ -365,7 +417,7 @@
 }
 
 /* ------------------------------------------------------------
-   9. A CARD WHOSE ENTIRE CONTENT IS ONE TABLE
+   10. A CARD WHOSE ENTIRE CONTENT IS ONE TABLE
 
    `.card` pads by 24px, which puts a 24px margin of surface around a table that already
    has its own cell padding and looks like a mistake. Two screens were writing
@@ -381,7 +433,7 @@
 }
 
 /* ------------------------------------------------------------
-   10. A `<details>` WHOSE SUMMARY IS A CONTROL
+   11. A `<details>` WHOSE SUMMARY IS A CONTROL
 
    Six screens open a form from a `<summary className="lnk">` — cancel an appointment,
    confirm one without payment, amend a note, correct an order, withdraw a consent. Every
@@ -413,7 +465,7 @@
 }
 
 /* ------------------------------------------------------------
-   11. THE NAME OF THE THING A BLOCK IS ABOUT
+   12. THE NAME OF THE THING A BLOCK IS ABOUT
 
    The patient on an appointment card, the person chosen in assisted booking, the prescriber
    signing a prescription, the patient a prescription is for. Five screens, and before the
@@ -439,7 +491,7 @@
 }
 
 /* ------------------------------------------------------------
-   12. A VALUE THAT MUST BE READ CHARACTER BY CHARACTER
+   13. A VALUE THAT MUST BE READ CHARACTER BY CHARACTER
 
    The one-time password issued with a portal account, and the policy identifier under a
    consent record. Both are read off the screen and typed or spoken somewhere else, and
@@ -506,7 +558,7 @@
 }
 
 /* ------------------------------------------------------------
-   13. TEXT THAT MUST SURVIVE EXACTLY AS IT WAS TYPED
+   14. TEXT THAT MUST SURVIVE EXACTLY AS IT WAS TYPED
 
    A clinical note, shown back to the clinician who wrote it. Clinicians write these in short
    lines and lists because that is how a document meant to be re-read by somebody else gets
@@ -526,7 +578,7 @@
 }
 
 /* ------------------------------------------------------------
-   14. A SHORT LINE IN A STATUS COLOUR
+   15. A SHORT LINE IN A STATUS COLOUR
 
    Three screens set `.fine` and then a colour inline. Named here instead, because "this
    small line is a caution" and "this small line is a refusal" are two different things to
@@ -554,7 +606,7 @@
 }
 
 /* ------------------------------------------------------------
-   15. THE CONSENT POLICY, RENDERED AS THE DOCUMENT THE PATIENT IS AGREEING TO
+   16. THE CONSENT POLICY, RENDERED AS THE DOCUMENT THE PATIENT IS AGREEING TO
 
    The policy text arrives from the API as headings, paragraphs and lists, and it is on the
    screen rather than behind a link because consent obtained from wording the patient never
@@ -581,7 +633,7 @@
 
 
 /* ------------------------------------------------------------
-   16. THE TWO ELEMENTS THE LAYOUT PRIMITIVES DELIBERATELY WILL NOT TAKE
+   17. THE TWO ELEMENTS THE LAYOUT PRIMITIVES DELIBERATELY WILL NOT TAKE
 
    Stack's and Grid's `as` unions stop at the elements that are layout, and they stop there
    on purpose. `<dl>` promises a screen reader that what follows is term-and-definition
@@ -612,7 +664,7 @@
 }
 
 /* ------------------------------------------------------------
-   17. THE BODY OF A DISCLOSURE, HELD OFF THE CONTROL THAT OPENED IT
+   18. THE BODY OF A DISCLOSURE, HELD OFF THE CONTROL THAT OPENED IT
 
    `<summary>` has to be the FIRST child of `<details>` or the disclosure does not work at
    all, which means the summary and the body it opens are ALWAYS siblings inside `<details>`
@@ -633,7 +685,7 @@
 }
 
 /* ------------------------------------------------------------
-   18. THE HALF-STEPS AROUND BODY SIZE THAT THIS APP ACTUALLY USES
+   19. THE HALF-STEPS AROUND BODY SIZE THAT THIS APP ACTUALLY USES
 
    `--text-base-size` is 14.5px and `.fine` is 12px, and there is nothing between them. Six
    call sites had each picked their own way across that gap — 13, 13.5, 14, 14.5, 15 and
@@ -685,7 +737,7 @@
 }
 
 /* ------------------------------------------------------------
-   19. WEIGHT 600, WHICH THE TYPE SCALE HAS NO STEP FOR
+   20. WEIGHT 600, WHICH THE TYPE SCALE HAS NO STEP FOR
 
    `.title-sm` is 700 in the display face and `.record-name` is 600 at 16px, and between them
    there is nothing that says "this line is the important one of the two" at body size. Four
@@ -705,7 +757,7 @@
 }
 
 /* ------------------------------------------------------------
-   20. THE FOUR REMAINING NAMED SHAPES, EACH OF WHICH WAS AN INLINE STYLE
+   21. THE FOUR REMAINING NAMED SHAPES, EACH OF WHICH WAS AN INLINE STYLE
 
    Small, and each one is the whole of what a call site was setting by hand.
    ------------------------------------------------------------ */
@@ -766,7 +818,7 @@
 }
 
 /* ------------------------------------------------------------
-   21. THE PORTAL PREVIEW — THE ONE PLACE ON THIS SURFACE THAT PAINTS --brand-*
+   22. THE PORTAL PREVIEW — THE ONE PLACE ON THIS SURFACE THAT PAINTS --brand-*
 
    PortalPreview draws a picture of the PATIENT-facing portal inside the branding settings
    screen, so that the administrator choosing a colour can see what their patients will see.
