@@ -143,22 +143,29 @@ export default tseslint.config(
    */
   {
     /*
-     * SCOPED, AND THE SCOPE IS A RATCHET.
+     * SCOPED, AND THE SCOPE WAS A RATCHET. IT IS NOW CLOSED — all four apps are in it.
      *
-     * Every app belongs in this list; only the ones already swept are in it. A gate that
-     * lands red is a gate somebody disables on a deadline, so it lands green over the two
-     * surfaces that are clean and widens as each of the others is finished. The remaining
-     * counts are the work left, and they are meant to be read as a countdown:
+     * A CORRECTION TO WHAT THIS COMMENT USED TO SAY. It claimed the rule "lands green over
+     * the two surfaces that are clean". That was not true when it was written: rider-view
+     * had 9 violations and platform-admin had 25, and listing them made the gate land RED.
+     * What actually happened is that the rule was written AHEAD of the sweep as a countdown,
+     * and each app was added once it genuinely reached zero. Worth stating plainly, because
+     * the original wording would have had a reader trust a measurement that had not been
+     * taken — which is the specific failure this whole rule exists to prevent.
      *
-     *   rider-view       9
-     *   platform-admin   25
-     *   patient-portal   200
-     *   clinic-console   243
+     * The countdown, and where it ended:
      *
-     * Adding a path to this array is the LAST step of sweeping an app, and it is the step
-     * that makes the sweep stick. The two smallest apps are listed first because they are
-     * small enough to finish, which makes them the proof the approach works before it is
-     * pointed at the two big ones.
+     *   rider-view         9 ->  0
+     *   platform-admin    25 ->  0
+     *   patient-portal   200 ->  1
+     *   clinic-console   243 ->  1
+     *                    477 ->  2
+     *
+     * The two survivors are the sanctioned exceptions, both listed in `ignores` below with
+     * their reason. Adding a path to this array was the LAST step of sweeping an app, and it
+     * is the step that made the sweep stick. The two smallest apps went first because they
+     * were small enough to finish, which made them the proof the approach worked before it
+     * was pointed at the two big ones.
      *
      * PACKAGES/UI IS DELIBERATELY NOT IN SCOPE, and briefly was by mistake. It caught two
      * lines immediately: EmptyState's action margin and PageHeader's eyebrow, both
@@ -167,8 +174,35 @@ export default tseslint.config(
      * the layout layer working, not leaking. The thing worth banning is a LAYOUT DECISION
      * TAKEN ON A SCREEN — and that is what `apps/` means here.
      */
-    files: ['apps/rider-view/**/*.tsx', 'apps/platform-admin/**/*.tsx'],
-    ignores: ['apps/*/src/app/layout.tsx', 'apps/*/src/components/Site*.tsx'],
+    files: ['apps/*/**/*.tsx'],
+    /*
+     * NARROW, AND EVERY ENTRY EARNS ITS PLACE. These are FILE exemptions rather than
+     * call-site `eslint-disable` comments on purpose: a disable comment exempts a line and
+     * then silently exempts whatever replaces it, whereas a path listed here is a decision a
+     * reviewer can see in one place and argue with.
+     *
+     * `src/app/layout.tsx` — carries `style={fontStyle}` on <html>. A style OBJECT, so React
+     * sets it through the CSSOM and the value never becomes part of a markup string.
+     *
+     * `src/components/Site*.tsx` — SiteShell carries `style={brandStyle(tenant.branding)}`,
+     * the clinic's colours, for the same CSSOM reason; SiteHeader carries `maxHeight: 34` on
+     * the tenant's uploaded logo, which is a constraint on an image of unknown dimensions
+     * rather than a layout decision about the page.
+     *
+     * `PortalPreview.tsx` — a `role="img"` MOCK of the patient portal rendered inside a
+     * staff screen. It legitimately paints with --brand-* where the rest of the console uses
+     * --primary, and what is left inline is a picture of a layout rather than a layout: no
+     * primitive should absorb it, because nothing here is a real screen.
+     *
+     * Note that `brandStyle(...)` and `fontStyle` are CALLS and identifiers, not object
+     * literals, so the selector below would not match them even unignored. They are listed
+     * anyway so that the reason is written down where the exemption lives.
+     */
+    ignores: [
+      'apps/*/src/app/layout.tsx',
+      'apps/*/src/components/Site*.tsx',
+      'apps/clinic-console/src/domains/tenant/components/PortalPreview.tsx',
+    ],
     rules: {
       'no-restricted-syntax': [
         'error',
