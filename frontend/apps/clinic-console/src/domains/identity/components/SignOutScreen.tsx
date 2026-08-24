@@ -1,9 +1,9 @@
+import type { ReactNode } from 'react'
 import { redirect } from 'next/navigation'
 import { Notice } from '@carevelo/ui'
 import { currentUser, signOut } from '../api/session'
 import type { IdentityPaths } from '../model/types'
 import { samePath, withParams } from './screen'
-import { SignOutSubmit } from './SignOutSubmit'
 
 /**
  * Leaving.
@@ -56,9 +56,20 @@ import { SignOutSubmit } from './SignOutSubmit'
 
 export type SignOutScreenProps = {
   paths: IdentityPaths
+  /**
+   * The submit control, handed in rather than imported.
+   *
+   * Signing out has a browser-side half -- clearing the note drafts -- and that half
+   * belongs to the consultations domain, which owns the storage key. A `'use client'`
+   * module pulls its whole import graph into the browser bundle, so a button in THIS
+   * domain importing the consultations barrel dragged ConsultationRoom and the realtime
+   * gateway in with it and failed the build. Composing here is what
+   * `no-cross-domain-internals` recommends in its own comment.
+   */
+  submit: ReactNode
 }
 
-export async function SignOutScreen({ paths }: SignOutScreenProps) {
+export async function SignOutScreen({ paths, submit }: SignOutScreenProps) {
   /*
    * Read for the greeting only, and a null is not a problem worth showing. Somebody whose
    * session already timed out on the way to this page still pressed "sign out" and still
@@ -108,9 +119,10 @@ export async function SignOutScreen({ paths }: SignOutScreenProps) {
           </Notice>
 
           <form action={submitSignOut.bind(null, { paths })} className="auth__fields">
-            {/* The submit control AND the browser-side half of signing out. See the
-                docblock, and SignOutSubmit.tsx. */}
-            <SignOutSubmit />
+            {/* Handed in by the route rather than imported, because the browser-side half of
+                signing out belongs to the consultations domain that owns the drafts. See
+                app/sign-out/page.tsx and consultations/components/SignOutSubmit.tsx. */}
+            {submit}
           </form>
 
           <p className="auth__aside">

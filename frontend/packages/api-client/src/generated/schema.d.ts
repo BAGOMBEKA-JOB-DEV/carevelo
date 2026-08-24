@@ -424,9 +424,11 @@ export interface paths {
          *     this response from the runtime shape, and PHP cannot distinguish a map from a list, so
          *     two fields come out wrong in openapi.yaml and therefore in the typed client:
          *
-         *       - `text` publishes as an untyped array. It is a MAP keyed by language code
-         *         (`en`, `lg`), which is why the consent screen cannot ask for a language by key and
-         *         narrows it by hand instead.
+         *       - `text` publishes as an untyped array. It is a MAP keyed by language code (`en`
+         *         alone today, and the key is not promised to stay that), which is why the consent
+         *         screen cannot ask for a language by key and reads the key it finds instead. A
+         *         client that hard-coded `en` would break on the day a second language arrives, which
+         *         is the day this shape exists for.
          *       - `version` publishes as the literal current value, because the constant is visible
          *         and looks like a fixed part of the contract. It is the opposite — it is designed to
          *         change, and a client that pinned it would break on the first policy revision.
@@ -583,7 +585,54 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** The dispatch board */
+        /**
+         * Two listings behind one route: the dispatch board, and the patient's own
+         *     deliveries
+         * @description ==================================================================
+         *     WHY THE PATIENT BRANCH EXISTS AT ALL
+         *     ==================================================================
+         *
+         *     `DeliveryPolicy::viewOwn()` has admitted a patient since it was written and
+         *     nothing called it, so a patient could `track` a delivery only if they
+         *     ALREADY held its identifier — and nothing they were allowed to call ever
+         *     handed them one. The whole journey of watching a package therefore had no
+         *     entry point in the portal: it opened from a link the clinic sent, or not at
+         *     all. This is that entry point.
+         *
+         *     ==================================================================
+         *     THE PROJECTION IS THE DECISION, NOT THE QUERY
+         *     ==================================================================
+         *
+         *     `authoriseListing()` guarantees the patient branch returns only rows that
+         *     reach one of this account's own patient records. What it cannot decide is
+         *     what a row SAYS, and `DeliveryResource` — the dispatcher's projection —
+         *     carries the recipient block, the street address, the landmark, the rider
+         *     and `failure_reason`. Serving that to a patient would quietly widen
+         *     `track` into `view`, which `DeliveryPolicy` splits on purpose.
+         *
+         *     So the patient branch renders `PatientDeliveryResource`: the TRACKING
+         *     shape, which is milestones rather than contents, and which that class
+         *     argues field by field. The two projections are two classes rather than one
+         *     class with a conditional, for the same reason the rider has his own.
+         *
+         *     WHY THE GATE IS ASKED TWICE. `authoriseListing()` decides authorisation and
+         *     narrowing together — deliberately, so neither can be had without the other
+         *     — and hands back a builder, not a verdict. The line below asks a DIFFERENT
+         *     question of the same gate: not "may this caller list?" but "which of the
+         *          * two audiences is this?". Reading a flag off the trait would make the
+         *     projection look like a by-product of the authorisation; asking plainly
+         *     makes it a decision somebody wrote down.
+         *
+         *     CURSOR FOR THE PATIENT, OFFSET STILL FOR THE BOARD, AND THAT ASYMMETRY IS
+         *     TEMPORARY AND DELIBERATE. The house rule is cursor pagination, and the new
+         *     listing gets it from its first day. The board keeps `paginate()` because
+         *     `meta.total` is what the clinic console reads to warn a pharmacist that a
+         *     lane holds more work than one page can carry, and `cursorPaginate()` does
+         *     not produce a total. Moving the board is the right change and it is a
+         *     change to those screens as well as to this line, which this one does not
+         *     own; see `apps/clinic-console/src/domains/delivery/api/deliveries.ts`,
+         *     which already says it is sending an offset under protest.
+         */
         get: operations["v1.deliveries.index"];
         put?: never;
         /**
@@ -670,11 +719,51 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * The pharmacy queue
-         * @description Medicine names are deliberately absent: the prescription relation is not
-         *     loaded, so the queue is references and states. A pharmacist scanning for
-         *     work does not need the contents, and this list is the most-displayed
-         *     screen in the pharmacy.
+         * Two listings behind one route: the pharmacy queue, and the patient's own
+         *     orders
+         * @description Medicine names are deliberately absent from BOTH: the prescription
+         *     relation is not loaded, so the listing is references, states and money. A
+         *     pharmacist scanning for work does not need the contents, and this is the
+         *     most-displayed screen in the pharmacy.
+         *
+         *     ==================================================================
+         *     WHY THE PATIENT BRANCH EXISTS AT ALL
+         *     ==================================================================
+         *
+         *     `DispenseOrderPolicy::viewOwn()` has admitted a patient since it was
+         *     written and nothing called it, so a patient could open a dispense order
+         *     only if they ALREADY held its identifier — and nothing they were allowed to
+         *     call ever handed them one. Paying for a dispensed order and choosing
+         *     collection or delivery therefore had no entry point in the portal at all:
+         *     both opened from a link the clinic sent, or not at all. This is that entry
+         *     point.
+         *
+         *     ==================================================================
+         *     THE ONE FIELD THAT CHANGES BETWEEN THE TWO AUDIENCES
+         *     ==================================================================
+         *
+         *     `substitutions` IS LOADED FOR STAFF ONLY, and the reason is that
+         *     `SubstitutionResource` publishes `proposed_medicine_name` — correctly, for
+         *     a clinician who cannot decide on a substitution without knowing what is
+         *     being proposed. Loading it for a patient would put a medicine name in a
+         *     LIST, on the surface this controller's own docblock says is kept free of
+         *     them, read on shared handsets and over shoulders. It is not withheld from
+         *     the patient as a fact: the order's own screen, reached by opening one row
+         *     deliberately, is behind `view` and carries the whole prescription.
+         *
+         *     Nothing else differs, so there is one resource class rather than two —
+         *     `DispenseOrderResource` already gates the relation behind `whenLoaded()`,
+         *     so the field is ABSENT from a patient's payload rather than blanked, which
+         *     is the distinction the rider resource argues at length.
+         *
+         *     CURSOR FOR THE PATIENT, OFFSET STILL FOR THE QUEUE. The house rule is
+         *     cursor pagination and the new listing gets it from its first day. The queue
+         *     keeps `paginate()` because the clinic console reads `meta.total` to warn a
+         *     pharmacist that a lane holds more orders than one page can carry, and
+         *     `cursorPaginate()` produces no total; moving it is a change to those
+         *     screens as well as to this line, and this change does not own them. See
+         *     `apps/clinic-console/src/domains/dispensing/api/queue.ts`, which already
+         *     says it is sending an offset under protest.
          */
         get: operations["v1.dispense-orders.index"];
         put?: never;
@@ -1277,6 +1366,101 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/platform/auth/sign-in": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Step one: prove the password. Returns no session
+         * @description A 200 from here means "the password was right and a code is now
+         *          * required", and it is the only thing an operator can learn from it. Note
+         *     what it does NOT return: nothing about the account, no name, no roles, no
+         *     identifier. RequireSecondFactor::PERMITTED_ROUTES makes the same argument
+         *     about `/v1/me` -- handing an account's details to whoever holds the
+         *     password alone is a disclosure, and the client needs exactly one fact to
+         *     render the next screen: that there is a next screen.
+         */
+        post: operations["v1.platform.auth.sign-in"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/auth/challenge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Step two: the code. This is the request that actually signs anybody in */
+        post: operations["v1.platform.auth.challenge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/auth/sign-out": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Leave
+         * @description Reachable by a session that has NOT completed a second factor -- it is the
+         *     one route on RequireSecondFactor::PERMITTED_ROUTES -- because a person who
+         *     cannot proceed must still be able to close what they opened. On a shared
+         *     machine the alternative is walking away from a half-open session.
+         */
+        post: operations["v1.platform.auth.sign-out"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Who am I
+         * @description A platform counterpart to `GET /v1/me`, which a platform operator cannot
+         *     reach: that route is inside the `v1` group behind ResolveTenant, and
+         *     `admin.carevelo.app` resolves to no clinic, so it answers 404 before the
+         *     controller runs.
+         *
+         *     Behind RequireSecondFactor with everything else in the group. There is
+         *     deliberately no exemption for it -- see RequireSecondFactor's
+         *     PERMITTED_ROUTES for why handing an account's name, address and platform
+         *     roles to a session that has passed only a password is a disclosure rather
+         *     than a convenience.
+         */
+        get: operations["v1.platform.me"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/platform/tenants": {
         parameters: {
             query?: never;
@@ -1502,7 +1686,22 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Only the authenticated rider's own assignments */
+        /**
+         * Only the authenticated rider's own assignments
+         * @description TWO ANSWERS, ONE FOR EACH TAB THE RIDER APP HAS: the round in front of them,
+         *     and what they finished recently. `RiderAssignmentsRequest` explains why the
+         *     parameter takes those two words rather than the seven-case delivery status
+         *     enum the dispatch board speaks.
+         *
+         *     THE PAYLOAD IS THE SAME IN BOTH, AND IT IS `RiderDeliveryResource` — a
+         *     separate class with no clinical fields on it at all. Finished work does not
+         *     get a wider projection than live work; it gets a narrower window.
+         *
+         *     NOTHING HERE FILTERS ON OWNERSHIP FROM THE REQUEST. `rider_id` comes from
+         *     the SESSION, so there is no query a client could write that returns another
+         *     rider's work — and no parameter below could be mistaken for the thing that
+         *     protects it.
+         */
         get: operations["v1.rider.deliveries.index"];
         put?: never;
         post?: never;
@@ -1519,6 +1718,25 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /**
+         * One of the rider's own assignments — subject to the same window
+         * @description WITHOUT THIS THE WINDOW ON THE LISTING WOULD BE COSMETIC. A rider who read
+         *     a delivery yesterday holds its identifier, and a `show` with no bound would
+         *     hand back the recipient, the telephone number and the address for as long
+         *     as the row exists. The listing decides what a rider may DISCOVER; this
+         *     decides what they may still READ, and the two have to agree or only the
+         *     weaker one is true.
+         *
+         *     404 RATHER THAN 403 for a delivery that has aged out, for the reason every
+         *     refusal on this surface is a 404: a rider must learn nothing from the
+         *     difference between "not yours" and "does not exist", and an address that is
+         *     no longer theirs to read is no longer theirs to be told about either.
+         *
+         *     ACTIVE WORK IS NEVER AGED OUT, however long it has been sitting there. The
+         *     reconciliation read the rider app performs after a lost connection also
+         *     lands here, seconds after the transition it is checking, so it is never
+         *     near the edge of the window.
+         */
         get: operations["v1.rider.deliveries.show"];
         put?: never;
         post?: never;
@@ -1804,6 +2022,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/platform/totp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Generate a secret and hand back the enrolment URI, once
+         * @description THIS REVOKES WHAT THE ACCOUNT HAD, immediately and before anything is
+         *     proved: the previous secret is overwritten, the account is marked
+         *     unconfirmed, and every recovery code is destroyed. An operator who starts
+         *     this and abandons it cannot sign in until they finish it, and that is the
+         *     correct trade rather than an accident. Re-enrolment is what somebody does
+         *     when they believe their authenticator is compromised, and a rotation that
+         *     left the old secret working until the new one was confirmed would keep the
+         *     compromised factor live for exactly as long as the operator hesitated.
+         *
+         *     201, because a new credential now exists.
+         */
+        post: operations["v1.platform.totp.store"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/totp/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Prove the authenticator works, activate it, and issue the recovery codes
+         * @description The code is checked with the SAME window and the SAME replay defence a
+         *     sign-in challenge uses, because an enrolment confirmed by a code the
+         *     challenge path would refuse is an enrolment that appears to succeed and
+         *     then cannot be used.
+         */
+        post: operations["v1.platform.totp.confirm"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/working-hours": {
         parameters: {
             query?: never;
@@ -2072,6 +2342,21 @@ export interface components {
              *     image without a client change when the column arrives.
              */
             photo_url: null;
+        };
+        /**
+         * ConfirmTotpEnrolmentRequest
+         * @description Proving that the authenticator the operator just set up actually works.
+         *
+         *     ONE FIELD, AND NO RECOVERY CODE. Recovery codes do not exist yet at this point
+         *     in the flow -- they are minted by the confirmation this request drives -- and
+         *     an endpoint that accepted one here would be an endpoint that confirms an
+         *     enrolment using a credential issued against the PREVIOUS secret. That is
+         *     exactly the rotation an operator performs when they believe their old
+         *     authenticator is compromised, so honouring the old set to complete it would
+         *     let whoever holds a stolen sheet confirm a secret of their own choosing.
+         */
+        ConfirmTotpEnrolmentRequest: {
+            code: string;
         };
         /** ConsentRecordResource */
         ConsentRecordResource: {
@@ -2342,6 +2627,25 @@ export interface components {
             failure_reason: string | null;
             created_at: string | null;
         };
+        /** PatientDeliveryResource */
+        PatientDeliveryResource: {
+            id: string;
+            reference: string;
+            status: string;
+            assigned_at: string | null;
+            delivered_at: string | null;
+            /**
+             * @description `array_values()` rather than the collection's own `->values()`, which is
+             *     already called below and is correct at runtime. PHPStan types
+             *     `Collection::all()` as `array<int, T>` and cannot see that `values()` has
+             *     just resequenced the keys, so the declared `list<>` return would not hold.
+             *     The native function it does understand, and reaching for it is cheaper than
+             *     a suppression -- the shape matters, because a non-list here serialises as a
+             *     JSON object keyed by index rather than an array, and a patient's delivery
+             *     thread would arrive at the portal as `{"0":{...}}`.
+             */
+            milestones: unknown[];
+        };
         /** PatientResource */
         PatientResource: {
             id: string;
@@ -2406,6 +2710,46 @@ export interface components {
             failure_message: string | null;
             initiated_at: string | null;
             resolved_at: string | null;
+        };
+        /**
+         * PlatformSignInRequest
+         * @description The password half of a platform operator's sign-in.
+         *
+         *     ============================================================
+         *     AN EMAIL ADDRESS. THERE IS NO PHONE FIELD AND THERE MUST NOT BE ONE.
+         *     ============================================================
+         *
+         *     SignInRequest -- the tenant one -- takes an email address OR a phone number,
+         *     because a clinician between rooms has their number in hand and most Ugandan
+         *     clinic staff have no reliably-checked email address. None of that applies
+         *     here. A platform operator is a Carevelo employee at a desk, and the account
+         *     they hold has `tenant_id = null` and is found by address alone
+         *     (App\Support\Auth\PlatformAccounts). Adding a phone field would introduce an
+         *     identifier this surface has no lookup for and no reason to want, on the one
+         *     account in the product whose second factor must never touch a mobile network
+         *     -- see App\Support\Totp\Totp::uri() for why at length.
+         *
+         *     ============================================================
+         *     THE PASSWORD ALONE GETS NOBODY IN
+         *     ============================================================
+         *
+         *     A successful request here does not return a session. It returns "now show me a
+         *      * code", and PlatformAuthController opens no session until one verifies. The
+         *     split into two requests is not decoration either: a single form taking a
+         *     password and a code together has to say which half was wrong, and "the
+         *      * password is right, the code is not" is a sentence worth a great deal to
+         *     somebody working through a credential-stuffing list.
+         */
+        PlatformSignInRequest: {
+            /** Format: email */
+            email: string;
+            /**
+             * @description No length or composition rule on the way IN, exactly as the tenant
+             *     sign-in has none. A minimum here tells an attacker the shape of
+             *     what to guess, and would refuse a correct password that was set
+             *     before the rule existed.
+             */
+            password: string;
         };
         /** PlatformTenantResource */
         PlatformTenantResource: {
@@ -2606,6 +2950,46 @@ export interface components {
             district: string | null;
             landmark: string | null;
             status: string;
+        };
+        /**
+         * SecondFactorChallengeRequest
+         * @description The code half of a platform operator's sign-in.
+         *
+         *     ============================================================
+         *     ONE OF TWO CREDENTIALS, NEVER BOTH
+         *     ============================================================
+         *
+         *     `code` is six digits from the authenticator app. `recovery_code` is one of the
+         *     ten strings issued at enrolment, for the operator whose authenticator is in a
+         *     drawer at home. Exactly one is required, and sending both is a confused client
+         *     rather than a convenience: a request carrying both would have to be resolved
+         *     by a precedence rule, and a precedence rule on a credential check is a way of
+         *     choosing which of two comparisons an attacker gets to skip.
+         *
+         *     ============================================================
+         *     WHY THE VALIDATION HERE IS SO THIN
+         *     ============================================================
+         *
+         *     `code` is `digits:6` and nothing else -- no "must be numeric and current", no
+         *     check against the window, no hint about whether the account is even enrolled.
+         *     Every one of those decisions belongs to TotpAuthenticator, which answers them
+         *     in constant time and returns one sentence for all of the failures. A rule here
+         *     that refused a well-formed-but-wrong code with a DIFFERENT message from a
+         *     malformed one would hand a caller a free oracle, one 422 at a time, and it
+         *     would do it before the rate limiter had counted the attempt.
+         *
+         *     The six-digit length is safe to state because it is a fact about the format
+         *     that every authenticator app in the world already publishes, and refusing a
+         *     five-character string saves a database read.
+         *
+         *     `recovery_code` is deliberately loose: the codes are shown grouped in fours
+         *     and get read down a telephone, so hyphens, spaces and lower case all arrive in
+         *     practice. RecoveryCodes::spend() normalises before it digests; a strict
+         *     pattern here would refuse a correct credential over its punctuation.
+         */
+        SecondFactorChallengeRequest: {
+            code?: string | null;
+            recovery_code?: string | null;
         };
         /** ServiceResource */
         ServiceResource: {
@@ -3337,6 +3721,9 @@ export interface components {
             is_active: boolean;
             /** Format: date-time */
             password_change_required_at: string | null;
+            /** Format: date-time */
+            totp_confirmed_at: string | null;
+            totp_last_used_step: number | null;
         };
         /**
          * WithdrawConsentRequest
@@ -4243,14 +4630,17 @@ export interface operations {
                     "application/json": {
                         data: {
                             /** @constant */
-                            version: "2026-08-01";
+                            version: "2026-08-24";
                             text_hash: string;
                             consent_types: [
                                 "data_processing",
                                 "telemedicine",
                                 "delivery_disclosure"
                             ];
-                            /** @description Both languages together, because both are shown together. */
+                            /**
+                             * @description Every language the policy is published in, together, because a
+                             *     patient is shown all of them on the one screen. One entry today.
+                             */
                             text: unknown[];
                         };
                     };
@@ -4548,6 +4938,11 @@ export interface operations {
                 status?: components["schemas"]["DeliveryStatus"];
                 rider_id?: string;
                 per_page?: number;
+                /**
+                 * @description Opaque and never parsed here. It is read by cursorPaginate() and
+                 *     handed straight back out again.
+                 */
+                cursor?: string;
             };
             header?: never;
             path?: never;
@@ -4555,7 +4950,11 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Paginated set of `DeliveryResource` */
+            /**
+             * @description Paginated set of `DeliveryResource`
+             *
+             *     Paginated set of `PatientDeliveryResource`
+             */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -4587,6 +4986,24 @@ export interface operations {
                             to: number | null;
                             /** @description Total number of items being paginated. */
                             total: number;
+                        };
+                    } | {
+                        data: components["schemas"]["PatientDeliveryResource"][];
+                        links: {
+                            first: string | null;
+                            last: string | null;
+                            prev: string | null;
+                            next: string | null;
+                        };
+                        meta: {
+                            /** @description Base path for paginator generated URLs. */
+                            path: string | null;
+                            /** @description Number of items shown per page. */
+                            per_page: number;
+                            /** @description The "cursor" that points to the next set of items. */
+                            next_cursor: string | null;
+                            /** @description The "cursor" that points to the previous set of items. */
+                            prev_cursor: string | null;
                         };
                     };
                 };
@@ -4699,6 +5116,23 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
+            /**
+             * @description BUILT FROM THE LISTING'S PROJECTION PLUS EXACTLY ONE FIELD, and the
+             *     one field is the whole difference between the two screens.
+             *
+             *     The payload used to be assembled by hand here, which meant the rule
+             *     "what may a patient read off a delivery" had two implementations — and
+             *     the second one, the listing, did not exist yet. Now there is one, in
+             *     `PatientDeliveryResource`, and this endpoint is that shape with
+             *     `failure_reason` added.
+             *
+             *     WHY THE REASON IS ADDED HERE AND NOT THERE. A list is read at a glance
+             *     and often not by the person it belongs to; "refused" against a row is a
+             *     statement about a household, legible to anyone holding the phone. One
+             *     delivery, opened deliberately, is a different act — and it is the
+             *     screen that can put the clinic's telephone number beside the reason so
+             *     it leads somewhere. See the resource's own field-by-field argument.
+             */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -4709,10 +5143,20 @@ export interface operations {
                             id: string;
                             reference: string;
                             status: string;
-                            failure_reason: string | null;
                             assigned_at: string | null;
                             delivered_at: string | null;
-                            milestones: string[];
+                            /**
+                             * @description `array_values()` rather than the collection's own `->values()`, which is
+                             *     already called below and is correct at runtime. PHPStan types
+                             *     `Collection::all()` as `array<int, T>` and cannot see that `values()` has
+                             *     just resequenced the keys, so the declared `list<>` return would not hold.
+                             *     The native function it does understand, and reaching for it is cheaper than
+                             *     a suppression -- the shape matters, because a non-list here serialises as a
+                             *     JSON object keyed by index rather than an array, and a patient's delivery
+                             *     thread would arrive at the portal as `{"0":{...}}`.
+                             */
+                            milestones: unknown[];
+                            failure_reason: string | null;
                         };
                     };
                 };
@@ -4729,6 +5173,17 @@ export interface operations {
                 patient_id?: string;
                 per_page?: number;
                 page?: number;
+                /**
+                 * @description `cursor` and `page` are both accepted because this route serves two
+                 *     listings. A patient's own orders page by CURSOR, which is the house
+                 *     rule; the pharmacy queue still pages by offset because the console
+                 *     reads `meta.total` off it to warn that a lane has overflowed, and a
+                 *     cursor paginator has no total to read. Whichever paginator runs
+                 *     ignores the other's parameter, so sending both is harmless rather
+                 *     than ambiguous — and `RejectsUnknownFields` means a client cannot
+                 *     send `cursor` at all unless it is declared here.
+                 */
+                cursor?: string;
             };
             header?: never;
             path?: never;
@@ -4751,23 +5206,14 @@ export interface operations {
                             next: string | null;
                         };
                         meta: {
-                            current_page: number;
-                            from: number | null;
-                            last_page: number;
-                            /** @description Generated paginator links. */
-                            links: {
-                                url: string | null;
-                                label: string;
-                                active: boolean;
-                            }[];
                             /** @description Base path for paginator generated URLs. */
                             path: string | null;
                             /** @description Number of items shown per page. */
                             per_page: number;
-                            /** @description Number of the last item in the slice. */
-                            to: number | null;
-                            /** @description Total number of items being paginated. */
-                            total: number;
+                            /** @description The "cursor" that points to the next set of items. */
+                            next_cursor: string | null;
+                            /** @description The "cursor" that points to the previous set of items. */
+                            prev_cursor: string | null;
                         };
                     };
                 };
@@ -5741,6 +6187,176 @@ export interface operations {
             404: components["responses"]["ModelNotFoundException"];
         };
     };
+    "v1.platform.auth.sign-in": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlatformSignInRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            /**
+                             * @description Named rather than boolean, so the client renders the right
+                             *     second step. There is exactly one value it can take today and
+                             *     there must never be an `sms` one -- see Totp::uri().
+                             * @constant
+                             */
+                            second_factor: "totp";
+                            /** @constant */
+                            expires_in: 300;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        type: string;
+                        /** @constant */
+                        title: "This account has no second factor";
+                        /** @constant */
+                        status: 403;
+                        /** @constant */
+                        code: "second_factor_not_enrolled";
+                        detail: string;
+                        errors: string;
+                    };
+                };
+            };
+            422: components["responses"]["ValidationException"];
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        type: string;
+                        /** @constant */
+                        title: "Too many attempts";
+                        /** @constant */
+                        status: 429;
+                        /** @constant */
+                        code: "too_many_attempts";
+                        /** @constant */
+                        detail: "Wait a few minutes and try again.";
+                        errors: string;
+                    };
+                };
+            };
+        };
+    };
+    "v1.platform.auth.challenge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["SecondFactorChallengeRequest"];
+            };
+        };
+        responses: {
+            /**
+             * @description The same resource /v1/platform/me returns. A client that has just
+             *     signed in wants exactly what it would ask that endpoint for.
+             *
+             *
+             *
+             *     `MeResource`
+             */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["MeResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        type: string;
+                        /** @constant */
+                        title: "Too many attempts";
+                        /** @constant */
+                        status: 429;
+                        /** @constant */
+                        code: "too_many_attempts";
+                        /** @constant */
+                        detail: "Wait a few minutes and try again.";
+                        errors: string;
+                    };
+                };
+            };
+        };
+    };
+    "v1.platform.auth.sign-out": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "v1.platform.me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description `MeResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["MeResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
     "v1.platform.tenants.index": {
         parameters: {
             query?: {
@@ -6198,7 +6814,15 @@ export interface operations {
     };
     "v1.rider.deliveries.index": {
         parameters: {
-            query?: never;
+            query?: {
+                status?: "active" | "completed";
+                per_page?: number;
+                /**
+                 * @description Opaque. Read by cursorPaginate() and handed straight back out; never
+                 *     parsed, incremented or constructed by anybody.
+                 */
+                cursor?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -6233,6 +6857,7 @@ export interface operations {
                 };
             };
             401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
         };
     };
     "v1.rider.deliveries.show": {
@@ -6786,6 +7411,125 @@ export interface operations {
             };
             401: components["responses"]["AuthenticationException"];
             403: components["responses"]["AuthorizationException"];
+        };
+    };
+    "v1.platform.totp.store": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            /**
+                             * @description BOTH FORMS OF THE SAME SECRET, and both are needed. `uri` is what a camera scans. `secret` is what an operator
+                             *     types when the camera will not focus -- which, on a desk in a
+                             *     badly-lit room with a laptop screen, is often. Omitting the
+                             *     typed form does not reduce the exposure: the URI contains the
+                             *     secret in full, in the query string, in plain view.
+                             */
+                            secret: string;
+                            uri: string;
+                            /**
+                             * @description Stated in the payload as well as in this docblock, because
+                             *     the client renders it and the operator is the person who has
+                             *     to act on it.
+                             */
+                            shown_once: boolean;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        type: string;
+                        /** @constant */
+                        title: "This is not a platform account";
+                        /** @constant */
+                        status: 403;
+                        /** @constant */
+                        code: "not_a_platform_account";
+                        detail: string;
+                        errors: string;
+                    };
+                };
+            };
+        };
+    };
+    "v1.platform.totp.confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfirmTotpEnrolmentRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            /**
+                             * @description THE ONLY TIME THESE EXIST IN THE CLEAR. Ten codes, each
+                             *     spendable once, each stored as a SHA-256 digest the moment it
+                             *     was minted. There is no "show my codes" endpoint and there
+                             *     must not be one: an operator who did not write them down
+                             *     enrols again, which costs them two minutes, where a second
+                             *     endpoint costs everybody a standing way to read ten bypasses
+                             *     of the second factor out of a live system.
+                             */
+                            recovery_codes: string[] | null;
+                            shown_once: boolean;
+                            /**
+                             * @description The count is worth returning so a client can say "ten codes,
+                             *      each usable once" rather than counting an array and hoping.
+                             * @constant
+                             */
+                            count: 10;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        type: string;
+                        /** @constant */
+                        title: "This is not a platform account";
+                        /** @constant */
+                        status: 403;
+                        /** @constant */
+                        code: "not_a_platform_account";
+                        detail: string;
+                        errors: string;
+                    };
+                };
+            };
+            422: components["responses"]["ValidationException"];
         };
     };
     "v1.working-hours.index": {

@@ -90,3 +90,12 @@ export type {
    domain reads the rule from the domain that owns the encounter rather than keeping a second
    copy of `ConsultationOutcome::permitsPrescribing()` that could drift from it. */
 export { permitsPrescribing } from './model/types'
+
+/* ---- The browser-side half of signing out ----
+   `SignOutSubmit` is the sign-out button, and it lives here rather than in identity because
+   it calls `clearAllDrafts` and a 'use client' module drags its whole import graph into the
+   browser bundle — a button in identity importing this barrel pulled ConsultationRoom and the
+   realtime gateway in with it and failed the build. The drafts are this domain's, so the
+   control that clears them is too; `app/sign-out/page.tsx` composes it with identity's
+   screen, which is what `no-cross-domain-internals` recommends in its own comment. */
+export { SignOutSubmit } from './components/SignOutSubmit'

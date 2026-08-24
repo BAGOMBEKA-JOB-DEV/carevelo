@@ -2,7 +2,7 @@
 
 import type { ReactElement } from 'react'
 import { Button } from '@carevelo/ui'
-import { clearAllDrafts } from '@/domains/consultations'
+import { clearAllDrafts } from './clearDrafts'
 
 /**
  * The sign-out button, and the one thing signing out has to do in the BROWSER.
@@ -55,16 +55,28 @@ import { clearAllDrafts } from '@/domains/consultations'
  * is the wrong way round.
  *
  * ====================================================================================
- * IT REACHES ACROSS A DOMAIN BOUNDARY, THROUGH THE FRONT DOOR
+ * WHY THIS LIVES IN consultations RATHER THAN identity
  * ====================================================================================
  *
- * `clearAllDrafts` comes from `@/domains/consultations` — the public surface, which is the
- * one import into that domain the boundary rules allow. `model/drafts.ts` specified this
- * exact arrangement before either end of it existed: the function is "exported from the
- * domain's public surface so the identity domain can call it from its sign-out path", so
- * that there is one function to call and no temptation to reimplement the key format here,
- * "where a mismatched prefix would fail silently and leave a previous clinician's notes on a
- * shared clinic handset".
+ * It is a sign-out control, so identity is where it looks like it belongs — and it sat there
+ * first, importing `clearAllDrafts` from `@/domains/consultations`, the one import into that
+ * domain the boundary rules allow. That was legal and it did not build.
+ *
+ * A `'use client'` module drags EVERYTHING IT IMPORTS into the client graph, and what it was
+ * importing was a barrel: the whole consultations public surface, ConsultationRoom and the
+ * realtime gateway included, none of which can be bundled for a browser. Six Turbopack
+ * errors, all of them pointing at ConsultationRoom, none of them at the line that caused it.
+ *
+ * `no-cross-domain-internals` names the way out in its own comment — "compose the two in the
+ * route layer, which is what app/ is for". So the button moved to the domain that OWNS the
+ * drafts, where it imports `./clearDrafts` directly and pulls in nothing else; `SignOutScreen`
+ * now takes it as a `submit` node; and `app/sign-out/page.tsx` puts the two together. Identity
+ * no longer knows consultations exists, which is what the rule wanted in the first place.
+ *
+ * `model/drafts.ts` had specified the arrangement before either end existed — one function to
+ * call, "no temptation to reimplement the key format here, where a mismatched prefix would
+ * fail silently and leave a previous clinician's notes on a shared clinic handset". That
+ * still holds; only the side of the boundary the button sits on has changed.
  */
 export function SignOutSubmit(): ReactElement {
   return (

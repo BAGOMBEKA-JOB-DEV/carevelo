@@ -33,6 +33,22 @@ use Database\Seeders\RoleSeeder;
 
 beforeEach(function () {
     $this->seed(RoleSeeder::class);
+
+    /*
+     * THE Referer IS LOAD-BEARING AND LOOKS LIKE NOISE. Sanctum starts a session
+     * only for a request whose Origin or Referer host is in `config/sanctum.php`'s
+     * stateful list -- a browser always sends one and Laravel's test client never
+     * does. Without it `EnsureFrontendRequestsAreStateful` skips StartSession, so
+     * `$request->hasSession()` is false, `RequireSecondFactor` can find no verified
+     * stamp however it was placed, and every call here answers 403.
+     *
+     * These tests predate the second factor entirely, which is why the header was
+     * never needed before. @see tests/Feature/Platform/TotpEnrolmentTest.php
+     */
+    $this->withHeader('Referer', sprintf(
+        'http://%s/',
+        parse_url((string) config('app.url'), PHP_URL_HOST),
+    ));
 });
 
 /** Cross-tenant routes have no tenant host to be addressed on. */
@@ -63,7 +79,7 @@ function tenantUser(Tenant $tenant, ClinicalRole $role): User
 it('serves the tenant register to a platform administrator', function () {
     $tenant = Tenant::factory()->create();
 
-    $response = $this->actingAs(platformUser(ClinicalRole::PlatformAdmin))
+    $response = $this->actingAsOperator(platformUser(ClinicalRole::PlatformAdmin))
         ->getJson(platformUrl('/api/v1/platform/tenants'))
         ->assertOk();
 
@@ -73,7 +89,7 @@ it('serves the tenant register to a platform administrator', function () {
 it('serves the tenant register to platform support', function () {
     Tenant::factory()->create();
 
-    $this->actingAs(platformUser(ClinicalRole::PlatformSupport))
+    $this->actingAsOperator(platformUser(ClinicalRole::PlatformSupport))
         ->getJson(platformUrl('/api/v1/platform/tenants'))
         ->assertOk();
 });
@@ -93,7 +109,7 @@ it('puts no clinical figure on the tenant register', function () {
 
     app(Tenancy::class)->run($tenant->id, fn () => Patient::factory()->count(3)->create());
 
-    $response = $this->actingAs(platformUser(ClinicalRole::PlatformSupport))
+    $response = $this->actingAsOperator(platformUser(ClinicalRole::PlatformSupport))
         ->getJson(platformUrl('/api/v1/platform/tenants'))
         ->assertOk();
 
@@ -132,13 +148,13 @@ it('gives platform support no route to a consultation', function () {
 
     $host = sprintf('http://%s.%s', $tenant->subdomain, parse_url((string) config('app.url'), PHP_URL_HOST));
 
-    $this->actingAs(platformUser(ClinicalRole::PlatformSupport))
+    $this->actingAsOperator(platformUser(ClinicalRole::PlatformSupport))
         ->getJson($host."/api/v1/consultations/{$consultation->id}")
         ->assertForbidden();
 });
 
 it('provisions a clinic in provisioning, never active', function () {
-    $this->actingAs(platformUser(ClinicalRole::PlatformAdmin))
+    $this->actingAsOperator(platformUser(ClinicalRole::PlatformAdmin))
         ->postJson(platformUrl('/api/v1/platform/tenants'), [
             'legal_name' => 'Kira Health Services Limited',
             'trading_name' => 'Kira Clinic',
@@ -155,7 +171,7 @@ it('rejects a subdomain reserved for the platform', function () {
     // A clinic on `api` or `admin` does not merely have an awkward name -- it
     // shadows a platform host, and the subdomain is immutable afterwards.
     foreach (['api', 'admin', 'www', 'reverb'] as $reserved) {
-        $this->actingAs(platformUser(ClinicalRole::PlatformAdmin))
+        $this->actingAsOperator(platformUser(ClinicalRole::PlatformAdmin))
             ->postJson(platformUrl('/api/v1/platform/tenants'), [
                 'legal_name' => 'Reserved Word Medical Centre',
                 'subdomain' => $reserved,
@@ -167,7 +183,7 @@ it('rejects a subdomain reserved for the platform', function () {
 });
 
 it('rejects a reserved subdomain submitted in mixed case', function () {
-    $this->actingAs(platformUser(ClinicalRole::PlatformAdmin))
+    $this->actingAsOperator(platformUser(ClinicalRole::PlatformAdmin))
         ->postJson(platformUrl('/api/v1/platform/tenants'), [
             'legal_name' => 'Upper Case Medical Centre',
             'subdomain' => 'API',
@@ -177,7 +193,7 @@ it('rejects a reserved subdomain submitted in mixed case', function () {
 });
 
 it('refuses provisioning to platform support', function () {
-    $this->actingAs(platformUser(ClinicalRole::PlatformSupport))
+    $this->actingAsOperator(platformUser(ClinicalRole::PlatformSupport))
         ->postJson(platformUrl('/api/v1/platform/tenants'), [
             'legal_name' => 'Support Should Not Provision Clinic',
             'subdomain' => 'support-should-not',
@@ -189,7 +205,7 @@ it('suspends a clinic and refuses an illegal lifecycle move', function () {
     $tenant = Tenant::factory()->create();
     $admin = platformUser(ClinicalRole::PlatformAdmin);
 
-    $this->actingAs($admin)
+    $this->actingAsOperator($admin)
         ->patchJson(platformUrl("/api/v1/platform/tenants/{$tenant->id}"), [
             'status' => TenantStatus::Suspended->value,
         ])
@@ -197,7 +213,7 @@ it('suspends a clinic and refuses an illegal lifecycle move', function () {
         ->assertJsonPath('data.is_suspended', true);
 
     // suspended -> provisioning is not a move TenantStatus allows.
-    $this->actingAs($admin)
+    $this->actingAsOperator($admin)
         ->patchJson(platformUrl("/api/v1/platform/tenants/{$tenant->id}"), [
             'status' => TenantStatus::Provisioning->value,
         ])
@@ -228,7 +244,7 @@ it('exports a suspended clinic\'s data anyway', function () {
 
     app(Tenancy::class)->run($tenant->id, fn () => Patient::factory()->count(2)->create());
 
-    $response = $this->actingAs(platformUser(ClinicalRole::PlatformAdmin))
+    $response = $this->actingAsOperator(platformUser(ClinicalRole::PlatformAdmin))
         ->postJson(platformUrl("/api/v1/platform/tenants/{$tenant->id}/export"))
         ->assertOk();
 
@@ -239,7 +255,7 @@ it('exports a suspended clinic\'s data anyway', function () {
 it('covers every class of record the clinic is the controller of', function () {
     $tenant = Tenant::factory()->create();
 
-    $response = $this->actingAs(platformUser(ClinicalRole::PlatformAdmin))
+    $response = $this->actingAsOperator(platformUser(ClinicalRole::PlatformAdmin))
         ->postJson(platformUrl("/api/v1/platform/tenants/{$tenant->id}/export"))
         ->assertOk();
 
@@ -265,7 +281,7 @@ it('never exports aggregator credentials', function () {
     // them: they are its own credentials at its own aggregator.
     $tenant = Tenant::factory()->create();
 
-    $response = $this->actingAs(platformUser(ClinicalRole::PlatformAdmin))
+    $response = $this->actingAsOperator(platformUser(ClinicalRole::PlatformAdmin))
         ->postJson(platformUrl("/api/v1/platform/tenants/{$tenant->id}/export"))
         ->assertOk();
 
@@ -284,7 +300,7 @@ it('exports only the named clinic\'s records', function () {
     $tenancy->run($tenantA->id, fn () => Patient::factory()->count(2)->create());
     $tenancy->run($tenantB->id, fn () => Patient::factory()->count(5)->create());
 
-    $response = $this->actingAs(platformUser(ClinicalRole::PlatformAdmin))
+    $response = $this->actingAsOperator(platformUser(ClinicalRole::PlatformAdmin))
         ->postJson(platformUrl("/api/v1/platform/tenants/{$tenantA->id}/export"))
         ->assertOk();
 
@@ -313,7 +329,7 @@ it('reports system health without naming a clinic', function () {
     Tenant::factory()->create();
     Tenant::factory()->suspended()->create();
 
-    $response = $this->actingAs(platformUser(ClinicalRole::PlatformSupport))
+    $response = $this->actingAsOperator(platformUser(ClinicalRole::PlatformSupport))
         ->getJson(platformUrl('/api/v1/platform/health'))
         ->assertOk()
         ->assertJsonStructure([
@@ -346,7 +362,7 @@ it('refuses every platform route to an unauthenticated caller', function () {
 });
 
 it('rejects an unknown field on provisioning', function () {
-    $this->actingAs(platformUser(ClinicalRole::PlatformAdmin))
+    $this->actingAsOperator(platformUser(ClinicalRole::PlatformAdmin))
         ->postJson(platformUrl('/api/v1/platform/tenants'), [
             'legal_name' => 'Unknown Field Medical Centre',
             'subdomain' => 'unknown-field',
