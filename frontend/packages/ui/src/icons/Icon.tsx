@@ -106,7 +106,35 @@ const SHAPES = {
       <path d="M16 3.1A4 4 0 0 1 16 11" />
     </>
   ),
+  /*
+   * FOUR DIRECTIONS, because for a long time there was only one.
+   *
+   * `chev` points DOWN, and it was the only chevron in the set — so every "go to this
+   * page", "previous day" and "next day" affordance across all four apps reused it. A
+   * downward chevron means "this expands"; pointing it at a link tells the reader the
+   * card is about to unfold in place, and then the page navigates instead. Small, and it
+   * was on the primary action of every card in the patient portal.
+   *
+   * `arrowRight` is for "go" — it carries motion, which a chevron does not, and it is what
+   * the reference product uses in its own call-to-action links. `chevLeft`/`chevRight` are
+   * for stepping through a sequence, where the pair reads as one control.
+   */
   chev: <path d="m6 9 6 6 6-6" />,
+  chevUp: <path d="m18 15-6-6-6 6" />,
+  chevLeft: <path d="m15 18-6-6 6-6" />,
+  chevRight: <path d="m9 18 6-6-6-6" />,
+  arrowRight: (
+    <>
+      <path d="M4 12h15" />
+      <path d="m13 6 6 6-6 6" />
+    </>
+  ),
+  arrowLeft: (
+    <>
+      <path d="M20 12H5" />
+      <path d="m11 18-6-6 6-6" />
+    </>
+  ),
   sun: (
     <>
       <circle cx="12" cy="12" r="4.2" />

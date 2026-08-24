@@ -1,0 +1,916 @@
+/* ============================================================
+   The clinic console's own layer.
+
+   WHY THIS FILE EXISTS AT ALL, GIVEN THAT packages/ui IS THE PLACE FOR SHARED CSS
+
+   Three kinds of rule end up here and nothing else is allowed to:
+
+     1. Contrast corrections that belong in packages/ui and cannot be made there by this
+        change, because that package is being edited by somebody else. Every one carries
+        its arithmetic, and every one deletes with no other edit the day the token layer
+        raises the value at source.
+     2. Decisions that are TRUE OF THIS APP AND NOT OF THE OTHERS — table density and
+        sticky column headings. A pharmacist reads this screen for eight hours; a patient
+        reads a booking confirmation once. The same table should not be set the same way
+        for both, and putting the console's answer in the shared layer would impose it on
+        the portal.
+     3. Small named shapes this app repeats, each of which was an inline `style` on four
+        or five screens before the sweep — the disclosure summary, the record name, the
+        verbatim block. They are named for WHAT THEY ARE rather than for what they set,
+        which is the house rule for classes over utilities: `.disclose` cannot be
+        reassembled wrongly at a call site the way `.mt-4 .flex .items-center` can.
+
+   NOTHING HERE IS A UTILITY AND NOTHING HERE IS A COLOUR A CLINIC CHOSE. The console is
+   Carevelo's surface: it reads --primary and never --brand-*. The single exception is
+   PortalPreview, which draws a picture of the PATIENT portal inside a staff screen and is
+   therefore the one place --brand-* is correct here; its rules are at the bottom of this
+   file and say so again.
+
+   THE TOKEN BLOCK IS SCOPED TO THE TWO FRAMES THIS APP RENDERS — `.layout` (ConsoleShell)
+   and `.auth-page` (sign-in, sign-out, set-password). Redefining a custom property on a
+   frame is the mechanism custom properties exist for; it is not a cascade fight and it
+   cannot be won or lost by import order. The two class-selector overrides further down
+   ARE cascade, are scoped under `.layout` to win on specificity rather than on order, and
+   each says why it could not be a token.
+
+   @see packages/ui/src/tokens/colors.css — where the first block belongs
+   @see apps/platform-admin/src/app/admin.css — the same stopgap, on the other staff app
+   ============================================================ */
+
+/* ------------------------------------------------------------
+   1. THE LIGHT THEME'S FAINT INK AND ITS "GOOD" GREEN, BOTH MEASURED FAILURES
+
+   Computed WCAG 2.1 contrast ratios against the ground each colour actually lands on in
+   this app. The floor for text below 18.66px bold / 24px is 4.5:1, which
+   docs/30-architecture/frontend-nextjs.md commits to and every colour below is under.
+
+   --ink-faint is the colour of `.table th`, `.stat__label`, `.eyebrow` and `.fine`. On
+   this surface that is EVERY COLUMN HEADING IN THE PRODUCT — the pharmacy queue, the
+   dispatch board, the patient registry, the reconciliation table — plus every stat label
+   and every explanatory line under a control.
+
+     #8f9693 on --canvas    #ffffff  =  3.02:1   FAILS
+     #8f9693 on --parchment #f4f5f5  =  2.77:1   FAILS
+     #8f9693 on --surface-2 #fafafa  =  2.89:1   FAILS
+
+     #6a726f on --canvas    #ffffff  =  4.94:1   passes
+     #6a726f on --parchment #f4f5f5  =  4.52:1   passes
+     #6a726f on --surface-2 #fafafa  =  4.73:1   passes
+
+   AND THE HONEST PART, WHICH IS A FINDING RATHER THAN A FIX: --ink-muted is itself only
+   5.09:1 on white, so a compliant --ink-faint has to sit within 0.15 of it and the
+   three-step ink hierarchy the type scale assumes effectively collapses to two steps in
+   the light theme. That cannot be repaired from an app stylesheet. The repair is in
+   packages/ui — darken --ink-muted to reopen the gap below it, or stop spending
+   --ink-faint on body-sized text — and it is written up in the handover rather than
+   papered over here. Legibility wins the trade in the meantime: staff read this console
+   all day, and a column heading nobody can read is a column with no heading.
+
+   Note the value is two points darker than the #707774 platform-admin shipped for the
+   same stopgap. Not a disagreement: that app never puts faint ink on --parchment, and
+   #707774 is 4.20:1 there. Whichever value packages/ui adopts should be the darker one.
+
+   --good is `.badge-good`, which on this surface is the "Active" badge on every row of
+   the patient registry and the paid/dispensed states on the queues — the most common
+   badge on the most-read tables in the app. It is also the one place a state is said in
+   colour as well as in words, and the word is set in that colour.
+
+     #2e8f62 on --good-soft #e3f1ea  =  3.45:1   FAILS
+     #24734e on --good-soft #e3f1ea  =  4.96:1   passes
+
+   BOTH ARE GATED TO THE LIGHT THEME AND THAT GATE IS LOAD-BEARING. The dark palette's own
+   values already pass — --good #4cba82 on the resolved --good-soft is 5.37:1 — and an
+   ungated override would push the dark badge to #24734e on rgb(34,53,43), which computes
+   to 2.26:1. That is WORSE than the 3.45:1 this block exists to repair, and it would land
+   invisibly the moment dark mode was wired. The `:not([data-theme='dark'])` is what makes
+   the gate work for the default "system" state as well, where no attribute is stamped at
+   all.
+   ------------------------------------------------------------ */
+:root:not([data-theme='dark']) .layout,
+:root:not([data-theme='dark']) .auth-page {
+  --ink-faint: #6a726f;
+  --good: #24734e;
+}
+
+/* ------------------------------------------------------------
+   2. THE DARK THEME'S FAINT INK
+
+   Never rendered before this change — dark mode reaches this app for the first time here —
+   so this is the first time the value has been checked against anything.
+
+     #6a716e on --canvas    #121513  =  3.68:1   FAILS
+     #6a716e on --parchment #161917  =  3.54:1   FAILS
+     #6a716e on --surface   #1b1f1d  =  3.33:1   FAILS
+     #6a716e on --surface-2 #222725  =  3.03:1   FAILS
+
+     #8b928f on --canvas    #121513  =  5.78:1   passes
+     #8b928f on --parchment #161917  =  5.57:1   passes
+     #8b928f on --surface   #1b1f1d  =  5.24:1   passes
+     #8b928f on --surface-2 #222725  =  4.77:1   passes
+
+   The hierarchy survives here in a way it does not in light: dark's --ink-muted #949b98 is
+   6.48:1 on --canvas against this 5.78:1, so faint still reads as fainter. Which is the
+   clearest statement of where the light problem actually is — the dark ground has enough
+   range under its muted ink and the light ground does not.
+
+   --good, --warn, --bad and --info are deliberately NOT touched in dark. Measured on the
+   resolved translucent grounds they carry there: good 5.37:1, warn 5.58:1, bad 4.63:1,
+   info 4.76:1. All pass, and every one of them would be broken by inheriting the light
+   block above.
+   ------------------------------------------------------------ */
+:root[data-theme='dark'] .layout,
+:root[data-theme='dark'] .auth-page {
+  --ink-faint: #8b928f;
+}
+
+/* ------------------------------------------------------------
+   3. WHITE TEXT ON THE PRIMARY AND DANGER BUTTONS, WHICH DARK MODE BREAKS OUTRIGHT
+
+   `packages/ui/src/tokens/components.css` sets both foregrounds as a literal:
+
+       .btn-primary { background: var(--primary); color: #fff; }
+       .btn-danger  { background: var(--bad);     color: #fff; }
+
+   That is correct in light and cannot be in dark, because the dark theme lightens the
+   BACKGROUND and leaves the hard-coded foreground where it was:
+
+     #ffffff on --primary #1f6f5c (light)  =  6.02:1   passes
+     #ffffff on --primary #62b39d (dark)   =  2.48:1   FAILS
+     #ffffff on --bad     #c0392b (light)  =  5.44:1   passes
+     #ffffff on --bad     #e8776b (dark)   =  2.88:1   FAILS
+
+   In this app that is "Book for a caller", "Open consultation", "Issue this prescription",
+   "Confirm on the clinic's authority", "Cancel and release the slot" — the primary control
+   on every screen staff actually act on. It is the same class of bug as the one the house
+   rules call out on --brand-primary-fg, on --primary instead, and it is latent today only
+   because nothing in this app had ever rendered dark.
+
+   THE FIX IS `var(--canvas)` AND IT IS A NO-OP IN LIGHT. --canvas is #ffffff in light, so
+   this rule changes nothing there; in dark it resolves to #121513:
+
+     #121513 on --primary     #62b39d  =  7.40:1   passes
+     #121513 on --primary-press #4e9c87 =  5.63:1  passes  (:hover)
+     #121513 on --bad         #e8776b  =  6.37:1   passes
+
+   THIS IS THE ONE PLACE IN THIS FILE THAT CLAIMS A SELECTOR packages/ui ALSO CLAIMS, and
+   there was no token route: the foreground is a literal in that file, so there is nothing
+   to redefine. It is scoped under `.layout` to win on specificity rather than on import
+   order, and this stylesheet is loaded by this app alone. `.btn-brand` is NOT touched and
+   must never be — its foreground is --brand-primary-fg, computed server-side for AA
+   against the clinic's own colour, and a rule that clobbered it recently cost 3.18:1.
+   ------------------------------------------------------------ */
+.layout .btn-primary,
+.auth-page .btn-primary {
+  color: var(--canvas);
+}
+
+.layout .btn-danger,
+.auth-page .btn-danger {
+  color: var(--canvas);
+}
+
+/* ------------------------------------------------------------
+   4. FINE PRINT INSIDE A TONED NOTICE, WHICH FAILS ON EVERY TONE IN BOTH THEMES
+
+   Found by measuring rather than by looking: `.fine` is `--ink-faint`, and `--ink-faint` is
+   chosen against the page grounds — `--canvas`, `--parchment`, `--surface`, `--surface-2`.
+   A toned `<Notice>` is none of those. It paints `--good-soft`/`--warn-soft`/`--bad-soft`/
+   `--info-soft`, which are lighter than the page in the light theme and lighter than the
+   surface in the dark one, and the faint ink that clears 4.5:1 on the page does not clear it
+   there. Every tone fails, in both themes, with the corrected `--ink-faint` values this file
+   already sets in sections 1 and 2:
+
+     LIGHT, --ink-faint #6a726f          DARK, --ink-faint #8b928f (over --surface)
+       on --good-soft #e3f1ea  4.24        on --good-soft  rgb(34,53,43)  4.11
+       on --warn-soft #f6efdd  4.31        on --warn-soft  rgb(55,51,37)  3.97
+       on --bad-soft  #f9e7e4  4.14        on --bad-soft   rgb(58,44,41)  4.20
+       on --info-soft #e6eef3  4.21        on --info-soft  rgb(39,51,54)  4.10
+
+   In this app that is the compliance screen's data-controller note and the staff record's
+   copy of it — sentences about who is legally responsible for patient records, set in the
+   one size that was already hardest to read.
+
+   THE FIX IS `inherit`, AND IT IS THE TONE'S OWN COLOUR RATHER THAN A NEW ONE. `.notice-info`
+   and friends already set a colour on the notice, measured against the ground they also set;
+   `.fine` was overriding it with an ink chosen for a different ground entirely. Inheriting
+   puts the fine print back in the notice's own colour, where it passes with room:
+
+     LIGHT   good #24734e 4.96   warn #7a5c1f 5.42   bad #c0392b 4.55   info #1f4f6f 7.43
+     DARK    good #4cba82 5.39   warn #d3a552 5.58   bad #e8776b 4.63   info #6ba3c7 4.77
+
+   It is also the right answer visually, which is worth saying because a contrast fix that
+   fights the design usually gets reverted. The alternative was `--ink-2`, which clears 8:1
+   everywhere and makes the fine print DARKER than the notice's own body text — subordinate
+   copy rendered heavier than what it is subordinate to. Inheriting keeps the hierarchy where
+   it was: same colour, smaller size.
+
+   THE NEUTRAL NOTICE IS DELIBERATELY NOT INCLUDED. It sets no colour, so `inherit` would
+   resolve to full `--ink` and do exactly the damage described above. It also does not need
+   the fix: its ground is `--surface-2`, which is one of the grounds `--ink-faint` was
+   measured against, and it passes there — 4.73:1 light, 4.77:1 dark.
+
+   This belongs in packages/ui beside `.fine`, and it is here for the same reason sections 1
+   and 2 are: that package is being edited by somebody else this round. It deletes with no
+   other edit the day the shared layer takes it.
+   ------------------------------------------------------------ */
+.layout .notice-info .fine,
+.layout .notice-warn .fine,
+.layout .notice-bad .fine,
+.auth-page .notice-info .fine,
+.auth-page .notice-warn .fine,
+.auth-page .notice-bad .fine {
+  color: inherit;
+}
+
+/* ------------------------------------------------------------
+   5. TELLING THE BROWSER WHICH THEME IT IS RENDERING
+
+   `color-scheme` computed to `normal` on every element in this app, in both themes, and
+   nothing in the token layer declares it. That is not a cosmetic gap: it is the only way to
+   tell the browser that the page is dark, and the parts of a page the browser draws ITSELF
+   are the parts no stylesheet can reach.
+
+   What stays light in dark mode without it, all of it measured on this console:
+
+     - the popup a `<select>` opens. Every filter on every list screen is a native select —
+       status on the registry, the lane on the queues, the clinician on the schedule — and
+       the list that drops out of it is drawn by the browser, not by us. White panel, dark
+       page.
+     - the calendar panel of `<input type="date">`, which is the reconciliation screen's day
+       picker and the date of birth on registration.
+     - the checkbox and radio glyphs, which are UA-drawn unless a rule replaces them.
+     - the autofill highlight, which the browser paints pale yellow over our dark field.
+     - the scrollbar.
+
+   None of these are contrast failures in the WCAG sense — the browser's own light widgets
+   are internally legible — so the contrast sweep did not and could not find them. They are
+   found by knowing the property exists.
+
+   THIS IS SCOPED TO THE TWO FRAMES AND IS THEREFORE A PARTIAL FIX, DELIBERATELY. Everything
+   in the list above except the SCROLLBAR is inside `.layout` or `.auth-page` and is fixed
+   here. The document scrollbar is drawn from the root element and cannot be reached from an
+   app stylesheet that is not allowed to style `:root` — the correct home for this is one
+   line in packages/ui beside the palette it belongs to:
+
+       :root { color-scheme: light }
+       :root[data-theme='dark'] { color-scheme: dark }
+
+   It is in the report. Until then this covers the controls, which is where staff actually
+   meet the problem — a receptionist opening the status filter on the patient registry.
+
+   The light arm is stated rather than left to `normal` for the same reason the gate in
+   section 1 is written the way it is: `normal` lets the browser fall back to the OS
+   preference, so a staff member whose laptop is in dark mode would get dark widgets on our
+   deliberately light page. The theme here is an explicit choice and both arms have to say
+   so.
+   ------------------------------------------------------------ */
+:root:not([data-theme='dark']) .layout,
+:root:not([data-theme='dark']) .auth-page {
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] .layout,
+:root[data-theme='dark'] .auth-page {
+  color-scheme: dark;
+}
+
+/* ------------------------------------------------------------
+   6. THE THEME TOGGLE, WHICH SITS ON A BAND THAT IS DARK IN BOTH THEMES
+
+   `.site-theme-btn` in the shared layer was drawn for the patient portal's header, which
+   sits on `--canvas`. It takes `--hairline` for its border and `--ink-2` for its glyph,
+   and both of those are near-black in the light theme. The console puts the control in
+   `.topbar`, whose ground is `--topbar-bg` #0d3d33 — a constant dark band, present in the
+   light theme and the dark one, because that is what makes a console feel like one product
+   rather than a set of pages. So in the LIGHT theme the button arrived as a dark glyph in
+   an all-but-invisible dark box on a dark green band:
+
+     --ink-2 #3c4340 on --topbar-bg #0d3d33  =  1.19:1   FAILS, and is close to unseeable
+     --topbar-ink #e9f2f0 on #0d3d33         =  10.63:1  passes
+
+   The band already owns three tokens for exactly this, put there by whoever wrote the
+   topbar and until now spent only on `.topbar__meta`. This is what they are for: the ink
+   the band was measured against, its hairline, and the translucent white it lifts a
+   surface with. Nothing here is a new colour.
+
+   Scoped to `.topbar` rather than to `.layout`, so that if this control is ever added to
+   the sign-in screen — which is `.auth-page` on `--canvas`, where the shared rule is
+   already correct — it does not inherit a band's colours onto a page that has no band.
+   ------------------------------------------------------------ */
+.layout .topbar .site-theme-btn {
+  color: var(--topbar-ink);
+  border-color: var(--topbar-line);
+}
+
+.layout .topbar .site-theme-btn:hover {
+  background: var(--topbar-surface);
+  color: var(--topbar-ink);
+}
+
+/* ------------------------------------------------------------
+   7. TABLE DENSITY
+
+   The shared `.table` is set for a document: 12px above and below every cell, which on a
+   patient's booking confirmation is right and on a dispensing queue is four rows fewer per
+   screen. This console is a worklist. A pharmacist scanning for the order that has waited
+   longest, or a dispatcher looking for one reference among forty, is doing a job that gets
+   measurably easier the more of the list is in front of them at once.
+
+   8px above and below, 12px either side — the vertical is tightened and the horizontal is
+   left alone, because the horizontal is what keeps a reference and a status from reading as
+   one string. A row goes from roughly 45px to roughly 37px, which is about four more rows
+   on a 900px viewport and still comfortably above the point where the eye starts losing its
+   place between columns.
+
+   `.table tbody th` is tightened alongside `td` because DataTable renders the column that
+   NAMES a row as a `<th scope="row">`, and a row-header cell that kept the old padding
+   would be taller than the cells beside it and pull its whole row open again.
+   ------------------------------------------------------------ */
+.layout .table td,
+.layout .table tbody th {
+  padding: var(--space-3) var(--space-4);
+}
+
+/* The caption reads as part of the table, on the left, where the first column starts.
+
+   `<caption>` centres by default in every engine, which is a hangover from the days when a
+   table was a figure with a title over it. On these screens the caption is a sentence about
+   how the rows are ordered or what the numbers are NOT — "Oldest first", "Amounts are what
+   we asked the aggregator to collect, not what reached your account" — and a sentence
+   floating in the middle above a left-aligned grid reads as a page heading rather than as
+   the table's own note. Three screens were writing `style={{ textAlign: 'left' }}` on the
+   caption for exactly this, two of them alongside `captionSide: 'bottom'`.
+
+   DataTable renders the caption at the top, which is where the element belongs: it is the
+   accessible NAME of the scroll region as well as of the table, so a screen-reader user
+   reaching the region hears it before the columns rather than after forty rows. */
+.layout .table caption {
+  text-align: left;
+}
+
+/* ------------------------------------------------------------
+   8. STICKY COLUMN HEADINGS ON THE LONG QUEUES
+
+   Applied by passing `className="queue"` to DataTable on the pharmacy queue, the dispatch
+   board and the patient registry — the three lists long enough that the headings scroll
+   away before the rows do. Not applied to the short tables (staff, working hours, an
+   order's own items), where bounding the height would introduce a scroll region over five
+   rows for no benefit.
+
+   WHY A BOUNDED HEIGHT RATHER THAN STICKING AGAINST THE PAGE. `.table-scroll` sets
+   `overflow-x: auto`, and CSS computes the other axis to `auto` when one axis is not
+   `visible` — so the wrapper is ALREADY a scroll container in both directions, and a
+   `position: sticky` heading inside it resolves against that container rather than against
+   the viewport. With the container's height equal to its content there is nothing for the
+   heading to stick to and it would simply never move. Giving the container a height is what
+   turns the sticky into a fact instead of a declaration.
+
+   This costs nothing in accessibility because DataTable already renders the wrapper as
+   `role="region"` with `tabIndex={0}` and the caption as its accessible name: the scroll
+   region is reachable and operable from the keyboard, which is the requirement a bounded
+   scroller has to meet and the reason this could not simply be `overflow: auto` on a div.
+
+   `min()` rather than a bare `vh` so a very tall monitor does not produce an 1100px table
+   that has to be scrolled twice — once inside and once outside.
+
+   The background on the heading is not decoration. A sticky cell with a transparent ground
+   lets the rows pass underneath it and both stay readable, which is worse than either. And
+   the hairline is an inset box-shadow rather than `border-bottom`, because under
+   `border-collapse: collapse` the border on a sticky cell belongs to the collapsed grid and
+   is left behind at the original scroll position by every engine we tested.
+   ------------------------------------------------------------ */
+.layout .queue {
+  max-height: min(68vh, 720px);
+}
+
+.layout .queue thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface);
+  border-bottom: none;
+  box-shadow: inset 0 -1px 0 var(--hairline);
+}
+
+/* ------------------------------------------------------------
+   9. THE TOOLBAR ABOVE A LIST
+
+   One shape above every list in the console, so that "where the filters are" is a thing
+   staff learn once. Before this each screen invented its own: some put the filters in a
+   full `.card` with 24px of padding, some left them loose on the page ground, and the
+   registry's and the reconciliation screen's looked nothing like each other.
+
+   Quieter than a `.card` on purpose — 12px/16px rather than 24px, and a plain `--r-md`
+   corner. A toolbar is furniture attached to the list under it, not a panel of its own with
+   something to say; giving it card weight made it compete with the data it filters.
+
+   `row-gap` separately from the `gap` that `.row-wrap` already sets, so that when the
+   filters wrap on a narrow window the rows separate without the controls in one row
+   drifting apart horizontally.
+   ------------------------------------------------------------ */
+.layout .console-bar {
+  padding: var(--space-4) var(--space-5);
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-md);
+  row-gap: var(--space-4);
+}
+
+/* ------------------------------------------------------------
+   10. A CARD WHOSE ENTIRE CONTENT IS ONE TABLE
+
+   `.card` pads by 24px, which puts a 24px margin of surface around a table that already
+   has its own cell padding and looks like a mistake. Two screens were writing
+   `style={{ padding: 0 }}` on a `.card` to undo it.
+
+   `overflow: hidden` is the half that was missing from both: without it the first and last
+   rows square off the card's own 11px corners, and a table that scrolls sideways inside a
+   rounded card paints its overflow over the corner.
+   ------------------------------------------------------------ */
+.layout .panel-table {
+  padding: 0;
+  overflow: hidden;
+}
+
+/* ------------------------------------------------------------
+   11. A `<details>` WHOSE SUMMARY IS A CONTROL
+
+   Six screens open a form from a `<summary className="lnk">` — cancel an appointment,
+   confirm one without payment, amend a note, correct an order, withdraw a consent. Every
+   one of them was setting the same three properties inline, and every one of them was
+   setting them because `.lnk` alone leaves a summary below the 44px touch floor that
+   `--touch-min` exists to hold. A clinician does this one-handed between rooms.
+
+   `list-style: none` plus the WebKit pseudo-element removes the disclosure triangle, which
+   is right here for a reason that is not taste: each of these summaries already carries an
+   Icon that says which way it goes, and a native marker beside it reads as two controls.
+   The open/closed state stays in the accessibility tree either way — it is carried by
+   `<details>` itself, not by the marker.
+   ------------------------------------------------------------ */
+.layout .disclose {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--touch-min);
+  list-style: none;
+  /* Six of the seven wear `.lnk` as well, which already sets this. The seventh — the
+     version-and-fingerprint disclosure on the consent desk — is not a link and was setting
+     it inline, and a summary is a control whichever way it is painted. Stating it here is a
+     no-op for the six and the whole of what the seventh needed. */
+  cursor: pointer;
+}
+
+.layout .disclose::-webkit-details-marker {
+  display: none;
+}
+
+/* ------------------------------------------------------------
+   12. THE NAME OF THE THING A BLOCK IS ABOUT
+
+   The patient on an appointment card, the person chosen in assisted booking, the prescriber
+   signing a prescription, the patient a prescription is for. Five screens, and before the
+   sweep five sizes — 14.5px, 16px, 17px and two different weights — for one idea. Set once
+   here at the step between body and `.title-sm`, which is where all five were aiming.
+
+   Not `.title-sm`: that is the display face and it labels a REGION. This labels a RECORD,
+   sits inside a block that already has a heading, and is set in the body face for the same
+   reason a name in a paragraph is.
+   ------------------------------------------------------------ */
+.layout .record-name {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+/* The time at the head of an appointment card. The display face, because on this screen the
+   time is the thing being scanned for and everything else is a qualifier on it. Tabular
+   figures come from `.tnum` at the call site, which every use already carries. */
+.layout .slot-time {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+/* ------------------------------------------------------------
+   13. A VALUE THAT MUST BE READ CHARACTER BY CHARACTER
+
+   The one-time password issued with a portal account, and the policy identifier under a
+   consent record. Both are read off the screen and typed or spoken somewhere else, and
+   both can be longer than the column they land in.
+
+   `break-all` rather than `break-word`: these have no words in them, so there is no word
+   boundary to prefer, and `break-word` leaves a 40-character identifier overflowing its
+   container rather than wrapping. `.tnum` at the call site does the digit alignment.
+   ------------------------------------------------------------ */
+.layout .credential {
+  font-size: 17px;
+  word-break: break-all;
+}
+
+.layout .identifier {
+  font-size: 12.5px;
+  word-break: break-all;
+}
+
+/* The one-time password issued with a portal account, which is a THIRD thing and not a
+   larger `.credential`.
+
+   `.credential` above is for a value read off the screen and typed somewhere else, and it
+   breaks anywhere because an email address has no word boundaries worth preferring. This
+   string is read ALOUD across a counter to the person it belongs to, once, and never shown
+   again — it is stored as a hash and nobody, including Carevelo, can produce it a second
+   time. The two failures that matter are therefore a MISREAD CHARACTER and a line break in
+   the middle of it, which is why the face is `--mono` (it disambiguates the glyphs a
+   proportional face runs together), the tracking is opened up, and `word-break` is
+   deliberately ABSENT rather than inherited.
+
+   The ground and the padding are part of the same argument: this is the one thing on the
+   screen the person at the desk has to read out, and it should be findable at a glance
+   rather than located by reading the labels around it. `user-select: all` makes one click
+   select the whole string, so it cannot be half-copied.
+
+   It is a class rather than the seven inline properties it replaces because those seven
+   only make sense together — a call site that kept six of them would be a password that
+   wraps, or one in a proportional face, and neither failure is visible in review. */
+.layout .password-once {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: var(--space-5);
+  border-radius: var(--r-md);
+  background: var(--surface-sunken);
+  user-select: all;
+}
+
+/* A PAGE WHOSE TITLE IS A MACHINE-READABLE REFERENCE.
+
+   `PageHeader` takes `title` as a STRING and offers no way to wrap it, which is the property
+   that guarantees one <h1> per page and is worth more than the convenience it costs. The
+   payment record's title is the aggregator's own reference — the value an administrator
+   copies into their aggregator dashboard and compares character by character — and it was
+   set in `--mono` for that reason. So the face is asked for on the header instead.
+
+   ONLY THE PAYMENT RECORD WEARS THIS TODAY, and that is a preservation rather than a
+   preference: the delivery and dispense-order screens title themselves with a reference too
+   and have never been monospaced. Making all three agree is a visual change to two screens
+   and belongs to whoever decides which way they should agree. */
+.layout .ref-title h1 {
+  font-family: var(--mono);
+}
+
+/* ------------------------------------------------------------
+   14. TEXT THAT MUST SURVIVE EXACTLY AS IT WAS TYPED
+
+   A clinical note, shown back to the clinician who wrote it. Clinicians write these in short
+   lines and lists because that is how a document meant to be re-read by somebody else gets
+   written, and without `pre-wrap` every newline collapses to a single space and the whole
+   thing arrives as one undifferentiated block. That is not a styling regression; it is the
+   loss of structure the author deliberately put there, on the one kind of text in this
+   product where structure carries meaning.
+
+   The font stays the body face rather than becoming `--mono`: this is prose that happens to
+   have line breaks in it, not code.
+   ------------------------------------------------------------ */
+.layout .verbatim {
+  white-space: pre-wrap;
+  font-family: inherit;
+  font-size: 14px;
+  margin: 0;
+}
+
+/* ------------------------------------------------------------
+   15. A SHORT LINE IN A STATUS COLOUR
+
+   Three screens set `.fine` and then a colour inline. Named here instead, because "this
+   small line is a caution" and "this small line is a refusal" are two different things to
+   say and the colour is how they are said.
+
+   Both are checked. --warn #7a5c1f on --surface is 6.23:1 light and #d3a552 is 7.33:1 dark;
+   --bad #c0392b is 5.94:1 light and #e8776b 6.42:1 dark. They pass at 12px, which is the
+   size that matters since `.fine` is the class they are worn with.
+   ------------------------------------------------------------ */
+.layout .note-warn {
+  color: var(--warn);
+}
+
+.layout .note-bad {
+  color: var(--bad);
+}
+
+/* A paragraph of consequence beside a control that has one — the vouching text under
+   "confirm without payment". Held to a reading measure so it does not run the full width of
+   a 1280px console, where a line of 160 characters loses the reader between one line and
+   the next. `ch` and not `px` because the measure is a count of characters and should follow
+   the type, not the viewport. */
+.layout .measure {
+  max-width: 52ch;
+}
+
+/* ------------------------------------------------------------
+   16. THE CONSENT POLICY, RENDERED AS THE DOCUMENT THE PATIENT IS AGREEING TO
+
+   The policy text arrives from the API as headings, paragraphs and lists, and it is on the
+   screen rather than behind a link because consent obtained from wording the patient never
+   read is not consent. So it is set as a document: its headings tracked a little wider than
+   a form label so they read as headings rather than as captions, and its lists given back
+   the marker and the indent the reset removes — a list of what the clinic will do with
+   somebody's health data is a list, and a screen reader should say so.
+   ------------------------------------------------------------ */
+.layout .policy-heading {
+  letter-spacing: 0.04em;
+}
+
+.layout .policy-list {
+  padding-left: var(--space-6);
+  list-style: disc;
+}
+
+/* The optical nudge that sits a tick or a bullet glyph on the first line's centre rather
+   than on the top of its box. The same 2px `.choice__input` takes in the shared layer, for
+   the same reason and against the same 14.5px line. */
+.layout .li-mark {
+  margin-top: 2px;
+}
+
+
+/* ------------------------------------------------------------
+   17. THE TWO ELEMENTS THE LAYOUT PRIMITIVES DELIBERATELY WILL NOT TAKE
+
+   Stack's and Grid's `as` unions stop at the elements that are layout, and they stop there
+   on purpose. `<dl>` promises a screen reader that what follows is term-and-definition
+   pairs and its only legal children are `<dt>`, `<dd>` and the `<div>`s that group them;
+   `<fieldset>` owns a `<legend>` whose position is measured against the fieldset's OWN
+   border box, so moving the column onto an inner wrapper moves the box the legend is laid
+   against. Neither can take a primitive on it and neither can take one inside it.
+
+   That left eight call sites writing `className="grid"` or `className="stack"` and then
+   restating a gap inline, which is the exact shape — the token was right, the mechanism was
+   missing — that the layout layer was built to end. These two classes are that mechanism for
+   the two elements the layer cannot reach. The values are the scale's, not pixels.
+
+   `.pairs` is a grid rather than a flex column because that is what four of the five sites
+   already were, and a single-column grid with a gap and a flex column with the same gap
+   render identically here — the pairs are `<div>`s, so nothing is being placed in a track.
+   Going the other way would have meant changing four to match one.
+   ------------------------------------------------------------ */
+.layout .pairs {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.layout .field-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* ------------------------------------------------------------
+   18. THE BODY OF A DISCLOSURE, HELD OFF THE CONTROL THAT OPENED IT
+
+   `<summary>` has to be the FIRST child of `<details>` or the disclosure does not work at
+   all, which means the summary and the body it opens are ALWAYS siblings inside `<details>`
+   and never two children of a container a `gap` could go on. Putting `display: flex` on the
+   `<details>` itself is not the way out: Chrome renders the content while the disclosure is
+   CLOSED once you do. So the offset has to be a margin on the body, and it was a margin on
+   the body at six call sites — amend a note, add an addendum, cancel an appointment, confirm
+   one without payment, correct a dispense order, edit a service.
+
+   The six had drifted to three different values (8px, 12px, 16px), each of them matching
+   whatever the gap of the Stack inside it happened to be. That is not a rhythm anybody
+   chose; it is six people making the same decision separately. 12px is the middle one and
+   the one four of the six already used. Named for what it is, so the seventh disclosure
+   somebody writes gets it without having to notice.
+   ------------------------------------------------------------ */
+.layout .disclose-body {
+  margin-top: var(--space-4);
+}
+
+/* ------------------------------------------------------------
+   19. THE HALF-STEPS AROUND BODY SIZE THAT THIS APP ACTUALLY USES
+
+   `--text-base-size` is 14.5px and `.fine` is 12px, and there is nothing between them. Six
+   call sites had each picked their own way across that gap — 13, 13.5, 14, 14.5, 15 and
+   15.5 — and every one of them was a number typed where a scale was not to hand. Four of the
+   six are the SAME IDEA said four ways: a muted line that qualifies the thing above it. They
+   are one class now, at 13.5px, which is where two of the four already were and within half
+   a pixel of a third.
+
+   These live here rather than in the shared type scale because they are the console's
+   answer. A patient reading a booking confirmation once does not need a step below body
+   size; a receptionist reading forty appointment rows does, because the qualifier under each
+   record name has to be subordinate to it at a glance and not merely darker.
+   ------------------------------------------------------------ */
+
+/* The line under an answer or a record name that says what it is OF — the service and
+   clinician under a patient's name, the date a consent was last answered, the note under a
+   fingerprint. `.muted` at the call site carries the colour; this carries only the step. */
+.layout .qualifier {
+  font-size: 13.5px;
+}
+
+/* The one line a clinician reads back before signing a prescription. A half-step ABOVE body
+   size rather than below it, and the only thing on this surface set that way: everything
+   else on the screen is being scanned and this one line is being checked. */
+.layout .read-back {
+  font-size: 15.5px;
+}
+
+/* The consent policy, which is the only block of continuous PROSE in the console. The size
+   is the base size stated rather than inherited, because this block is read aloud across a
+   counter and must not shrink if it is ever nested somewhere that sets its own; the line
+   height is the part that actually differs — 1.6 against the interface's 1.5, because prose
+   read start to finish needs more leading than a label glanced at. */
+.layout .policy-doc {
+  font-size: var(--text-base-size);
+  line-height: 1.6;
+}
+
+/* A clinical note that is a SUPERSEDED draft, and one that is current. `.verbatim` is 14px
+   flat, and the two states were separated inline by size alone. Kept as size, because the
+   colour is already doing work here (`.muted` on the earlier ones) and a second signal that
+   is structural rather than chromatic survives a reader who cannot use the first. */
+.layout .verbatim--sm {
+  font-size: 13px;
+}
+
+.layout .verbatim--lg {
+  font-size: 15px;
+}
+
+/* ------------------------------------------------------------
+   20. WEIGHT 600, WHICH THE TYPE SCALE HAS NO STEP FOR
+
+   `.title-sm` is 700 in the display face and `.record-name` is 600 at 16px, and between them
+   there is nothing that says "this line is the important one of the two" at body size. Four
+   call sites wrote the weight inline. `<strong>` is not the answer for any of them: it is
+   700, and it announces an emphasis that nobody put on a clinician's own name or on the
+   first line of a checkbox label.
+
+   Two names for one declaration, on purpose. They are two different things — a control's own
+   label, and the name of the person a document is signed by — and they will not stay one
+   declaration: the signatory line is the more likely of the two to want its own colour the
+   day a prescription is previewed on paper. Naming them apart now costs nothing and means
+   that change does not have to start by splitting a class.
+   ------------------------------------------------------------ */
+.layout .control-label,
+.layout .signatory {
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------
+   21. THE FOUR REMAINING NAMED SHAPES, EACH OF WHICH WAS AN INLINE STYLE
+
+   Small, and each one is the whole of what a call site was setting by hand.
+   ------------------------------------------------------------ */
+
+/* A `.card` that is ITSELF the link — the five settings tiles, and the forty patient cards a
+   receptionist picks a caller from. Two things were being set inline and both are floors
+   rather than decoration. `display: flex` because an `<a>` is inline by default and would
+   break its own padding and border across line boxes at the first wrap, and the column
+   direction so a card that also carries `.stack` keeps the direction it already had rather
+   than having it silently reversed by a later rule. `min-height` because the whole card is
+   one tap target for a thumb; `.card`'s 24px of padding happens to clear 44px today, which
+   is precisely the accident that stops being true the first time somebody tries a tighter
+   card here. A floor that is currently satisfied is still the thing keeping it satisfied. */
+.layout .card-link {
+  display: flex;
+  flex-direction: column;
+  min-height: var(--touch-min);
+}
+
+/* An appointment that is a HOLD rather than a booking. Structural and not chromatic, so it
+   survives a colour-blind reader and a printed rota; the badge beside it says the same thing
+   in words. It was a conditional inline style, which is the one case where the conditional
+   belongs on the CLASS LIST instead — the condition is a state of the record, and a state of
+   a record is what a modifier class is for. */
+.layout .card-held {
+  border-style: dashed;
+}
+
+/* A checkbox and the two lines that label it. The `<label>` is the control's extended hit
+   area, which is why the 44px floor is on it and not on an inner wrapper: putting the row on
+   a child and the floor on the parent is two places to get one target wrong. `.row`'s own
+   gap is 12px and a box beside its own label wants 8. */
+.layout .check-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--touch-min);
+}
+
+/* The hairline between WHAT is being prescribed and WHO is prescribing it, on the document a
+   clinician reads back before signing. Not a space-scale step and not a border anything else
+   on this surface draws, so there was nothing for a layout primitive to take — but there is
+   something for a name to take, because the rule and the space under it only mean anything
+   together. */
+.layout .signed-off {
+  border-top: 1px solid var(--hairline);
+  padding-top: var(--space-4);
+}
+
+/* `.stat__note` is an inline span everywhere else it is used, because everywhere else it
+   sits in a `.stat` flex column that has already put it on its own line. Inside a `<dd>` it
+   sits beside the value and runs on after an aggregator reference as if it were part of it,
+   which on a payment record is a hint being read as digits. A modifier of the shared class
+   rather than a new one, and here rather than in the shared layer because it serves one
+   `<dd>` in one console and four apps should not download it. */
+.layout .stat__note--block {
+  display: block;
+}
+
+/* ------------------------------------------------------------
+   22. THE PORTAL PREVIEW — THE ONE PLACE ON THIS SURFACE THAT PAINTS --brand-*
+
+   PortalPreview draws a picture of the PATIENT-facing portal inside the branding settings
+   screen, so that the administrator choosing a colour can see what their patients will see.
+   The console's rule — Carevelo's --primary, never the clinic's --brand-* — is not suspended
+   here; it is satisfied, because what these rules paint is not console chrome. The tokens
+   are set on that subtree as a style OBJECT by the component itself, which is what keeps a
+   tenant-supplied hex out of markup, and they reach only what is inside it.
+
+   The header and the logo inside the preview wear `.site__header` and `.site__logo` from the
+   shared layout layer — the REAL classes the real portal header wears — so the preview
+   cannot drift away from the thing it is a preview of. Only what has no counterpart there is
+   defined below.
+
+   NO FOREGROUND IS COMPUTED ANYWHERE IN HERE. --brand-primary-fg and --brand-secondary-fg
+   arrive already decided by the server for WCAG AA against the colours they sit on. A
+   preview that derived one would be at its most confident and most wrong on exactly the case
+   the preview exists for: the pale brand that needs black text where the last one needed
+   white.
+   ------------------------------------------------------------ */
+.preview {
+  padding: 0;
+  overflow: hidden;
+}
+
+.preview__body {
+  padding: var(--space-6);
+  background: var(--surface);
+}
+
+/* The service card a patient picks from.
+
+   --brand-wash AND NOT --brand-surface, AND THE DIFFERENCE WAS A 1.05:1 DEFECT.
+
+   This rule used to paint --brand-surface — the clinic's own pale tint, exactly as the API
+   sent it. That tint is chosen against WHITE and it is absent from the dark palette on
+   purpose, so it does not move when the theme does. The ink on top of it does: --ink is
+   #1e2422 in light and #eceeed in dark. In dark, therefore, this card was near-white text on
+   a pale mint ground.
+
+     --ink #eceeed on --brand-surface #edf5f2  =  1.05:1   FAILS, and is not visible at all
+     --ink-faint on the same ground            =  2.87:1   FAILS
+
+   Measured on the branding screen with the demo clinic's palette. It is the screen an
+   administrator opens to CHOOSE a colour, so the one card they are there to look at was the
+   one card that disappeared.
+
+   --brand-wash is the token the shared layer already created for this exact situation — its
+   own comment calls an unmixed --brand-surface on a dark ground "a headlight in a dark
+   room". It is defined as `var(--brand-surface)` in light, so this line changes nothing
+   there, and as the clinic's hue mixed INTO --surface in dark, which keeps the hue theirs
+   and lets the ground decide the lightness:
+
+     --ink #eceeed on the dark wash  =  12.1:1 to 13.3:1 across the brand hues sampled
+                                        (teal, green, maroon, navy, ochre)
+
+   The fine line under the service name takes --ink-2 rather than the --ink-faint it
+   inherits from `.fine`, and that is the tenant-dependent half of the same problem. No
+   ratio on --brand-surface can be guaranteed from here: it is a hex this stylesheet sees
+   for the first time in the browser, and the clinic's own tint at 12px was already 4.46:1
+   in light — under the floor before dark mode was ever involved. --ink-2 is the only ink
+   that holds across the range of tints a clinic can plausibly send: 8.1:1 to 10.2:1 in
+   light, higher in dark. It is heavier than fine print normally wants, and that is the
+   correct trade on a surface whose ground is chosen by somebody else.
+
+   THE RESIDUAL RISK IS STILL REAL AND IS NAMED IN THE REPORT: a clinic that sends a genuinely
+   dark --brand-surface would invert this again, and the honest repair is a server-computed
+   --brand-surface-fg alongside the --brand-primary-fg that already exists. Nothing here can
+   compute one — see the note at the top of this section about why no foreground is derived
+   in this subtree. */
+.preview__offer {
+  background: var(--brand-wash);
+  border: 1px solid var(--hairline-soft);
+  border-radius: var(--r-md);
+  padding: var(--space-5);
+}
+
+.preview__offer .fine {
+  color: var(--ink-2);
+}
+
+/* The two buttons in the preview are pictures of buttons: they are inside an element with
+   `role="img"`, they are not focusable, and there is nowhere for them to go. Killing pointer
+   events stops the cursor and the hover state promising otherwise. */
+.preview__control {
+  pointer-events: none;
+}
+
+/* The secondary control. There is no `.btn-secondary` in the shared layer and there should
+   not be one for this — the clinic's secondary colour appears on exactly one element in the
+   whole product, and inventing a shared class for a single preview is how a shared folder
+   becomes a junk drawer. */
+.preview__control--secondary {
+  background: var(--brand-secondary);
+  color: var(--brand-secondary-fg);
+}

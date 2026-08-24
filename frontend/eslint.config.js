@@ -119,6 +119,103 @@ export default tseslint.config(
     },
   },
 
+  /*
+   * INLINE STYLE IS BANNED IN APP CODE, and the number behind this rule is 477.
+   *
+   * That is how many `style={{...}}` there were across the four apps when this landed: 185
+   * hand-set marginTop, 171 hand-set gap, 49 hand-set fontSize. None of it was careless —
+   * `var(--space-*)` appears inline 404 times, so people reached for the RIGHT token and
+   * had nowhere to put it. The design system had components and no layout layer.
+   *
+   * It has one now: Stack, Inline, Grid, PageHeader, Stat, Toolbar, DataTable in
+   * @carevelo/ui, whose spacing props take scale KEYS rather than numbers, so a caller
+   * cannot reintroduce an arbitrary value even by accident.
+   *
+   * This rule is what stops the 477 coming back. This repo's own eslint config says it
+   * elsewhere: a rule that cannot fire is worse than no rule, and a convention that lives
+   * only in a README erodes on a deadline.
+   *
+   * THE ONE SANCTIONED EXCEPTION is the clinic's brand tokens, which are genuinely dynamic
+   * — they arrive per tenant from the API and are set as a style OBJECT precisely so no
+   * tenant value is ever concatenated into markup. `brandStyle()` and `fontStyle` are
+   * allow-listed by name below; anything else that truly must be dynamic should join them
+   * here with a comment, rather than being disabled at the call site.
+   */
+  {
+    /*
+     * SCOPED, AND THE SCOPE WAS A RATCHET. IT IS NOW CLOSED — all four apps are in it.
+     *
+     * A CORRECTION TO WHAT THIS COMMENT USED TO SAY. It claimed the rule "lands green over
+     * the two surfaces that are clean". That was not true when it was written: rider-view
+     * had 9 violations and platform-admin had 25, and listing them made the gate land RED.
+     * What actually happened is that the rule was written AHEAD of the sweep as a countdown,
+     * and each app was added once it genuinely reached zero. Worth stating plainly, because
+     * the original wording would have had a reader trust a measurement that had not been
+     * taken — which is the specific failure this whole rule exists to prevent.
+     *
+     * The countdown, and where it ended:
+     *
+     *   rider-view         9 ->  0
+     *   platform-admin    25 ->  0
+     *   patient-portal   200 ->  1
+     *   clinic-console   243 ->  1
+     *                    477 ->  2
+     *
+     * The two survivors are the sanctioned exceptions, both listed in `ignores` below with
+     * their reason. Adding a path to this array was the LAST step of sweeping an app, and it
+     * is the step that made the sweep stick. The two smallest apps went first because they
+     * were small enough to finish, which made them the proof the approach worked before it
+     * was pointed at the two big ones.
+     *
+     * PACKAGES/UI IS DELIBERATELY NOT IN SCOPE, and briefly was by mistake. It caught two
+     * lines immediately: EmptyState's action margin and PageHeader's eyebrow, both
+     * token-valued, both commented, both correct. A primitive's whole job is to make one
+     * spacing decision so that no screen has to; doing that with `var(--space-5)` inline is
+     * the layout layer working, not leaking. The thing worth banning is a LAYOUT DECISION
+     * TAKEN ON A SCREEN — and that is what `apps/` means here.
+     */
+    files: ['apps/*/**/*.tsx'],
+    /*
+     * NARROW, AND EVERY ENTRY EARNS ITS PLACE. These are FILE exemptions rather than
+     * call-site `eslint-disable` comments on purpose: a disable comment exempts a line and
+     * then silently exempts whatever replaces it, whereas a path listed here is a decision a
+     * reviewer can see in one place and argue with.
+     *
+     * `src/app/layout.tsx` — carries `style={fontStyle}` on <html>. A style OBJECT, so React
+     * sets it through the CSSOM and the value never becomes part of a markup string.
+     *
+     * `src/components/Site*.tsx` — SiteShell carries `style={brandStyle(tenant.branding)}`,
+     * the clinic's colours, for the same CSSOM reason; SiteHeader carries `maxHeight: 34` on
+     * the tenant's uploaded logo, which is a constraint on an image of unknown dimensions
+     * rather than a layout decision about the page.
+     *
+     * `PortalPreview.tsx` — a `role="img"` MOCK of the patient portal rendered inside a
+     * staff screen. It legitimately paints with --brand-* where the rest of the console uses
+     * --primary, and what is left inline is a picture of a layout rather than a layout: no
+     * primitive should absorb it, because nothing here is a real screen.
+     *
+     * Note that `brandStyle(...)` and `fontStyle` are CALLS and identifiers, not object
+     * literals, so the selector below would not match them even unignored. They are listed
+     * anyway so that the reason is written down where the exemption lives.
+     */
+    ignores: [
+      'apps/*/src/app/layout.tsx',
+      'apps/*/src/components/Site*.tsx',
+      'apps/clinic-console/src/domains/tenant/components/PortalPreview.tsx',
+    ],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            'JSXAttribute[name.name="style"] > JSXExpressionContainer > ObjectExpression',
+          message:
+            'Inline style is banned in app code. Use Stack, Inline, Grid, PageHeader or Stat from @carevelo/ui — their spacing props take scale keys, so the value stays in the token layer. The clinic brand tokens are the one exception and are already allow-listed.',
+        },
+      ],
+    },
+  },
+
   // Tests reach for the filesystem and for deliberately wrong types when proving a
   // runtime guard holds against input the compiler says cannot happen.
   {

@@ -1,3 +1,18 @@
 packages:
   - 'apps/*'
   - 'packages/*'
+
+# Build scripts we decline to run, recorded rather than re-prompted.
+#
+# pnpm asks before executing a dependency's install-time build script, because that script runs
+# with full permissions on whatever machine installs. Both of these arrived with the test
+# tooling and neither is needed: @swc/core ships prebuilt binaries for this platform, and
+# @parcel/watcher is a filesystem watcher used by tooling we do not run in watch mode here.
+#
+# Declining is the safe default and, more usefully, it is a DECISION rather than a prompt —
+# without this block `pnpm install` fails in any non-interactive context (CI, an agent, a
+# script) with ERR_PNPM_IGNORED_BUILDS, and pnpm runs an implicit install before every
+# `pnpm <script>`, so the whole workspace becomes unusable headlessly.
+allowBuilds:
+  '@parcel/watcher': false
+  '@swc/core': false

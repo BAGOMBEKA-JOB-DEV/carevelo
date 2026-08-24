@@ -1,0 +1,202 @@
+/* ============================================================
+   The control plane's own layer — every rule measured.
+
+   WHY THIS FILE EXISTS, GIVEN THAT packages/ui IS THE PLACE FOR THE FIRST ONE
+
+   It is, and the first block belongs there. It is here because it is a WCAG AA failure that
+   reaches this surface THROUGH the shared primitives — `Stat` paints its label with it and
+   `DataTable` paints every column header with it — and packages/ui is being edited by
+   somebody else. A scoped override with the arithmetic written into it is the honest way to
+   fix a contrast failure today without reaching into a package this change does not own.
+   The moment `colors.css` raises these two at source, the first block deletes with no other
+   change anywhere.
+
+   EVERY RULE IS SCOPED — the tokens to `.layout`, which is the control-plane frame, and the
+   one class is prefixed. Nothing here can escape into the console, the portal or the rider
+   view, and only one rule below claims a selector packages/ui already claims, which says so
+   where it sits. Redefining a custom property on a frame is the mechanism custom properties
+   exist for; it is not a cascade fight, and it cannot be won or lost by import order.
+
+   THE DARK THEME REACHES THIS APP FOR THE FIRST TIME IN THIS CHANGE, and that is why the
+   first block below has grown a gate it did not have. `public/theme-init.js`, the script tag
+   in `src/app/layout.tsx` and the `<ThemeToggle>` in `ControlPlaneShell.tsx` arrive
+   together; until they did, `:root[data-theme='dark']` in colors.css was a palette nobody
+   could reach, and an override written for the light ground could sit here doing no harm
+   because the dark ground never existed. It does now, so every colour in this file had to be
+   measured against BOTH grounds rather than one, and two of them changed answer.
+   ============================================================ */
+
+/* ---- Two AA failures, both reached THROUGH the shared primitives ----
+
+   Computed WCAG 2.1 contrast ratios against the ground each colour actually lands on here.
+   Both currently fail the 4.5:1 floor for normal text that
+   docs/30-architecture/frontend-nextjs.md commits to.
+
+   --ink-faint  #8f9693 on --canvas #ffffff = 3.02:1   FAILS
+                #707774 on --canvas #ffffff = 4.59:1   passes
+
+   `--ink-faint` is the colour of `.eyebrow`, `.stat__label`, `.fine` and `.table th`. On
+   this surface that means it is the colour of every column heading in the tenant register —
+   "Clinic", "Subdomain", "State", "Trial ends", "District" — and of every stat label on the
+   overview and the break-glass screen, including the label above the live-grant count,
+   which is the single most consequential figure this app displays. #707774 is still lighter
+   than --ink-muted (5.09:1), so the three-step ink hierarchy the type scale depends on
+   survives intact.
+
+   --good       #2e8f62 on --good-soft #e3f1ea = 3.45:1  FAILS
+                #24734e on --good-soft #e3f1ea = 4.96:1  passes
+
+   `--good` is `.badge-good`, and `STATUS_TONE.active` is `'good'` — so this is the badge on
+   every ACTIVE clinic in the register, which is the most common row on the most-read table
+   in the app. The badge is also the one place a clinic's lifecycle state is stated as a
+   colour as well as a word, and the word is set in that colour.
+
+   BOTH ARE NOW GATED TO THE LIGHT THEME, AND THE GATE IS THE POINT OF THIS EDIT. Custom
+   properties inherit, so a value set on `.layout` reaches every descendant and beats
+   `:root[data-theme='dark']` outright — not on specificity, but because it is set on a
+   nearer element. An ungated override here therefore does not coexist with the dark
+   palette; it replaces it. Measured on the grounds this app actually paints:
+
+     --ink-faint  #707774 on --canvas    #121513 (dark) =  4.01:1   FAILS
+                  #707774 on --parchment #161917 (dark) =  3.86:1   FAILS
+                  #707774 on --surface   #1b1f1d (dark) =  3.63:1   FAILS
+                  #707774 on --surface-2 #222725 (dark) =  3.31:1   FAILS
+
+     --good       #24734e on --good-soft over --canvas  #1a2c23  =  2.54:1   FAILS
+                  #24734e on --good-soft over --surface #22352b  =  2.26:1   FAILS
+
+   The `--good` number is the one worth stopping on: 2.26:1 is WORSE than the 3.45:1 this
+   block exists to repair, so leaving the override ungated would have made the "Active"
+   badge less readable in dark than the bug it fixes in light — dark green on dark green, on
+   the most common row of the most-read table in the app.
+
+   `:not([data-theme='dark'])` rather than a bare selector plus a dark override, because the
+   default "system" state stamps no attribute at all: light has to be the branch that catches
+   "no attribute", not the branch that catches `data-theme="light"`. */
+:root:not([data-theme='dark']) .layout {
+  --ink-faint: #707774;
+  --good: #24734e;
+}
+
+/* ---- The dark theme's faint ink ----
+
+   Never rendered before this change, so this is the first time the value has been checked
+   against anything. On this surface `--ink-faint` is every column heading in the tenant
+   register and every stat label on the overview and the break-glass screen — including the
+   label above the live-grant count, which is the single most consequential figure this app
+   displays.
+
+     #6a716e on --canvas    #121513  =  3.68:1   FAILS
+     #6a716e on --parchment #161917  =  3.54:1   FAILS
+     #6a716e on --surface   #1b1f1d  =  3.33:1   FAILS
+     #6a716e on --surface-2 #222725  =  3.03:1   FAILS
+
+     #8b928f on --canvas    #121513  =  5.78:1   passes
+     #8b928f on --parchment #161917  =  5.57:1   passes
+     #8b928f on --surface   #1b1f1d  =  5.24:1   passes
+     #8b928f on --surface-2 #222725  =  4.77:1   passes
+
+   The same value the clinic console and the rider view adopted, deliberately: three apps
+   disagreeing about the repair for one shared token is how a token layer ends up with four
+   answers and no fix. The ink hierarchy survives here in a way it does not in light — dark's
+   --ink-muted #949b98 is 6.48:1 on --canvas against this 5.78:1, so faint still reads as
+   fainter.
+
+   `--good`, `--warn`, `--bad` and `--info` are deliberately NOT restated for dark. Measured
+   on the translucent grounds they resolve to here: good 6.05:1 on --canvas and 5.39:1 on
+   --surface, warn 6.28/5.58, bad 5.18/4.63, info 5.36/4.77. Every one passes, and every one
+   would have been broken by inheriting the light block above. */
+:root[data-theme='dark'] .layout {
+  --ink-faint: #8b928f;
+}
+
+/* ---- White text on the primary and danger buttons, which dark mode breaks outright ----
+
+   `packages/ui/src/tokens/components.css` sets both foregrounds as a literal:
+
+       .btn-primary { background: var(--primary); color: #fff; }
+       .btn-danger  { background: var(--bad);     color: #fff; }
+
+   That is correct in light and cannot be in dark, because the dark theme lightens the
+   BACKGROUND and leaves the hard-coded foreground where it was:
+
+     #ffffff on --primary #1f6f5c (light)   =  6.02:1   passes
+     #ffffff on --primary #62b39d (dark)    =  2.48:1   FAILS
+     #ffffff on --primary-press #4e9c87     =  3.27:1   FAILS  (:hover)
+     #ffffff on --bad     #c0392b (light)   =  5.44:1   passes
+     #ffffff on --bad     #e8776b (dark)    =  2.88:1   FAILS
+
+   In this app `.btn-primary` is "Grant break-glass access", "Provision this clinic" and
+   every submit on the tenant panel — the control that carries out the consequential act on
+   each screen. `.btn-danger` renders nowhere here today; it is corrected alongside its pair
+   so that the first destructive control somebody adds does not ship at 2.88:1.
+
+   THE FIX IS `var(--canvas)` AND IT IS A NO-OP IN LIGHT. --canvas is #ffffff in light, so
+   this rule changes nothing there; in dark it resolves to #121513:
+
+     #121513 on --primary       #62b39d  =  7.40:1   passes
+     #121513 on --primary-press #4e9c87  =  5.63:1   passes  (:hover)
+     #121513 on --bad           #e8776b  =  6.37:1   passes
+
+   THIS IS THE ONE PLACE IN THIS FILE THAT CLAIMS A SELECTOR packages/ui ALSO CLAIMS, and
+   there was no token route: the foreground is a literal in that file, so there is nothing to
+   redefine. It is scoped under `.layout` to win on specificity rather than on import order,
+   and this stylesheet is loaded by this app alone. `.btn-brand` is NOT touched and must
+   never be — its foreground is --brand-primary-fg, computed server-side for AA against the
+   clinic's own colour, and this surface carries no --brand-* tokens in any case. */
+.layout .btn-primary,
+.layout .btn-danger {
+  color: var(--canvas);
+}
+
+/* ---- The theme toggle, which sits on a band that is dark in BOTH themes ----
+
+   `.site-theme-btn` in the shared layer was drawn for the patient portal's header, which
+   sits on `--canvas`. It takes `--hairline` for its border and `--ink-2` for its glyph, and
+   both of those are near-black in the light theme. This app puts the control in `.topbar`,
+   whose ground is `--topbar-bg` #0d3d33 — a constant dark band, present in the light theme
+   and the dark one, because that is what makes the product feel like one product. So in the
+   LIGHT theme the button arrived as a dark glyph in an all-but-invisible dark box on a dark
+   green band:
+
+     --ink-2 #3c4340 on --topbar-bg #0d3d33  =  1.19:1   FAILS, and is close to unseeable
+     --topbar-ink #e9f2f0 on #0d3d33         =  10.63:1  passes
+     --topbar-ink on the hover fill #204d43  =  8.40:1   passes
+
+   The band already owns three tokens for exactly this — the ink it was measured against,
+   its hairline, and the translucent white it lifts a surface with. Nothing here is a new
+   colour.
+
+   Scoped to `.topbar` rather than to `.layout`, so that a control ever added to a page with
+   no band does not inherit a band's colours. */
+.layout .topbar .site-theme-btn {
+  color: var(--topbar-ink);
+  border-color: var(--topbar-line);
+}
+
+.layout .topbar .site-theme-btn:hover {
+  background: var(--topbar-surface);
+  color: var(--topbar-ink);
+}
+
+/* ---- Text that must survive exactly as it was typed ----
+
+   The break-glass reason. It is written by an operator during an incident, in the knowledge
+   that somebody who was not in the room will read it months later, and it is the whole of
+   what that reviewer has to go on. Operators write these in short paragraphs and lists,
+   because that is how you write something you know will be read as evidence.
+
+   Without `pre-wrap` every newline collapses to a single space and the whole thing arrives
+   as one undifferentiated block — which is not a styling regression, it is the loss of
+   structure the author deliberately put there. GrantCard's own docblock already refuses to
+   truncate this field for exactly the same reason: "Truncating it here would make the
+   register look tidy and make the review impossible." Reflowing it is the same mistake with
+   a smaller footprint.
+
+   It is a class rather than an inline style because inline style is banned in app code by
+   eslint.config.js, and that rule is why this file is worth its existence: it is the
+   "somewhere to put it" for the handful of declarations in this app that are not spacing
+   and therefore have no primitive to move into. */
+.admin-verbatim {
+  white-space: pre-wrap;
+}

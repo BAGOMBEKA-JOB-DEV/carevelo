@@ -79,10 +79,92 @@
 .card-tight { padding: var(--space-5); }
 .card-brand { background: var(--brand-surface); border-color: transparent; }
 
+/* ---- The heading that names the record a card is about ----
+
+   Three screens open a card with an `<h2>` that names one thing — the service in a
+   booking, the service in the catalogue, the service on an appointment row — and all
+   three had written `style={{ fontSize: 19, fontWeight: 650 }}` (18 in one of them) to
+   get there. It is a real gap rather than three people being careless: the type scale
+   jumps from `.title-sm` at 17.5px in the DISPLAY face to `.title` at 21px in the body
+   face, and what a record card wants is between them and in the body face, because a
+   service name is data and the display face is for chrome.
+
+   650 rather than 600 or 700, kept from the call sites: it is the weight that reads as a
+   heading beside `.badge` and `.stat__label` without going as heavy as `.page-head h1`.
+   The 18px site becomes 19px, which is the point of having a step at all — a heading one
+   pixel smaller than its twin on the next screen is not a decision anybody made. */
+.card-title { font-size: 19px; font-weight: 650; letter-spacing: -0.01em; }
+
 .stat { display: flex; flex-direction: column; gap: var(--space-1); }
 .stat__label { font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint); }
 .stat__value { font-family: var(--head); font-size: 28px; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 .stat__note { font-size: 12.5px; color: var(--ink-muted); }
+
+/* ---- Stat value, sized down ----
+
+   `.stat__value` is 28px because a stat value is normally a COUNT: "1,240", "6", a
+   shilling total. Three or four glyphs, and the size is what makes them the thing your
+   eye lands on. Then the same block got used for a NAME — the clinic's trading name, a
+   service, a clinician, a prescribed medicine — and 28px of display face wraps a
+   trading name to three lines inside a `.cell` on a 360px phone.
+
+   Fourteen call sites had answered that by hand with `style={{ fontSize: N }}`, at 19px,
+   21px and 22px. The 21 and the 22 were the same decision taken twice a fortnight apart,
+   which is the whole failure mode: a size chosen at a call site cannot be revisited
+   anywhere, so it drifts, and after a year the product has fifteen of them and no scale.
+
+   TWO STEPS, AND BOTH ARE SIZES THIS PRODUCT ALREADY USES IN THE DISPLAY FACE. 19px is
+   `.cell__n`; 21px is the auth surface's section heading. So neither modifier introduces
+   a number, it names one — which is what lets `--md` absorb the stray 22px without
+   inventing a third step to preserve a 1px difference nobody chose.
+
+   There is deliberately no `--lg`: nothing has asked for one, and a modifier added on a
+   guess is a modifier the next person has to work out the meaning of. Everything else —
+   the display face, the weight, the tracking and the tabular figures — is inherited from
+   `.stat__value`, because a smaller stat value is still a stat value and must not
+   silently become a different typeface partway down a page. */
+.stat__value--sm { font-size: 19px; }
+.stat__value--md { font-size: 21px; }
+
+/* ============================================================
+   DISCLOSURES
+
+   A native `<details>`, which is how this product folds anything away: it opens with no
+   JavaScript, the browser's own in-page search finds text inside a closed one, and it
+   survives a stalled bundle on a 2G connection. Four screens open one — the registration
+   form's optional fields, the consent screen's second language, the consent history's
+   evidence, an appointment's cancel form — and all four had written the geometry out by
+   hand, twice as a shared `SUMMARY` constant copied between two files and twice inline.
+   AppointmentRow.tsx's comment named `.disclosure` as the fix by name; this is it.
+
+   A `<summary>` IS A CONTROL, and that is the whole argument for these rules. It is
+   clicked, it is tabbed to, it toggles state — so it answers to the same 44px floor as
+   `.btn` does, for the same patient on the same cracked screen in the same bad light.
+   The user agent renders it as a text run of whatever the line-height happens to be, and
+   a 13px cancel link is a ~31px target. `min-height` with `align-items: center` gives it
+   the band without moving the text off its own baseline.
+
+   `.disclosure` on the `<details>` itself, rather than a wrapper: `<summary>` must be the
+   first child of `<details>`, so nothing may come between them, and a column laid out on
+   the `<details>` is the only place a gap can exist that includes the summary. That is
+   why the `marginTop` on the first element after a summary could never become a Stack
+   gap — a `<Stack>` renders a div, and a div cannot hold a summary.
+   ============================================================ */
+.disclosure { display: flex; flex-direction: column; gap: var(--space-3); }
+
+.disclosure__summary {
+  display: flex; align-items: center;
+  min-height: var(--touch-min);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+/* The quieter one, for a disclosure that is not the point of the card it sits in — the
+   cancel form under an appointment, the evidence under a consent record. Smaller and in
+   the secondary ink so it does not compete with the row's own heading; the touch band
+   above is NOT reduced with it, because a target that is easy to ignore still has to be
+   easy to hit deliberately. */
+.disclosure__summary--quiet { font-size: 13px; color: var(--ink-2); }
 
 /* ============================================================
    BADGES
@@ -125,8 +207,69 @@
   width: 100%;
 }
 .textarea { padding: var(--space-4); min-height: 120px; resize: vertical; line-height: 1.55; }
-.input[aria-invalid='true'], .textarea[aria-invalid='true'] { border-color: var(--bad); }
-.input:disabled, .textarea:disabled { background: var(--surface-sunken); cursor: not-allowed; }
+/* The select is named in both lists deliberately: it was in neither, so a <select> inside a
+   field that had failed validation carried aria-invalid and showed no red border, and a
+   disabled one looked editable. An omission with no symptom until a form comes back wrong. */
+.input[aria-invalid='true'], .select[aria-invalid='true'], .textarea[aria-invalid='true'] { border-color: var(--bad); }
+.input:disabled, .select:disabled, .textarea:disabled { background: var(--surface-sunken); cursor: not-allowed; }
+
+/* ---- Choice: a group of radios or checkboxes ----
+
+   The ROW is the target, not the 18px circle inside it. `--touch-min` on the row is what
+   makes that true, and it answers to the same floor as every other control here: a patient
+   picking a payment method is doing it one-handed, outdoors, possibly on a cracked screen.
+
+   The selected state reads --brand-primary, and that is correct on BOTH kinds of surface
+   rather than a patient-only decision that leaked into a shared class. colors.css defines
+   --brand-primary as var(--primary) until a tenant overrides it, and only the patient
+   portal ever calls brandStyle() -- so this resolves to the clinic's colour where the
+   clinic is speaking and to Carevelo's teal on a staff screen, which is the same split the
+   rest of this file spells with two separate classes.
+
+   The ground of a selected row is --brand-wash, NOT --brand-primary, which is why the text
+   on it inherits --ink and is left alone. --brand-primary-fg would be wrong here: it was
+   computed for AA against --brand-primary, and this is not that colour. */
+.choice__options { display: flex; flex-direction: column; gap: var(--space-3); }
+
+.choice__option {
+  display: flex; align-items: flex-start; gap: var(--space-4);
+  min-height: var(--touch-min);
+  padding: var(--space-4);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-md);
+  background: var(--canvas);
+  cursor: pointer;
+}
+.choice__option:hover { border-color: var(--ink-faint); }
+.choice__option:has(.choice__input:checked) { border-color: var(--brand-primary); background: var(--brand-wash); }
+.choice__option:has(.choice__input:disabled) { opacity: 0.45; cursor: not-allowed; }
+
+.choice__input {
+  width: 18px; height: 18px; flex: none;
+  /* Nudged onto the first line's optical centre rather than the top of its box. */
+  margin: 2px 0 0;
+  accent-color: var(--brand-primary);
+}
+
+.choice__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: 14.5px; font-weight: 550; }
+/* What choosing this will actually do. Weight reset, because it is the explanation rather
+   than the choice. */
+.choice__note { font-size: 12.5px; font-weight: 400; color: var(--ink-muted); }
+
+/* The focus ring belongs on the ROW, since the row is the target -- left to the reset it
+   lands on the 18px control and a keyboard user has to hunt for a dot. GUARDED, and that
+   is the point of the @supports: moving the ring means suppressing the inner one, and a
+   browser without :has() would apply the suppression, fail to match the row rule, and be
+   left with no visible focus at all. Everything above degrades to a plain bordered row
+   with a native radio in it, which is merely plainer; this one would degrade to a
+   keyboard trap you cannot see. */
+@supports selector(:has(*)) {
+  .choice__option:has(.choice__input:focus-visible) {
+    outline: 2px solid var(--primary-focus);
+    outline-offset: 2px;
+  }
+  .choice__option:has(.choice__input:focus-visible) .choice__input { outline: none; }
+}
 
 /* ============================================================
    TABLES
@@ -142,6 +285,27 @@
 .table td { padding: var(--space-4); border-bottom: 1px solid var(--hairline-soft); }
 .table tr:last-child td { border-bottom: none; }
 .table .tnum { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* ---- The cell that NAMES a row ----
+
+   A `<th scope="row">` is how a screen reader says "DX-4471, State, Awaiting payment"
+   instead of announcing a status with nothing attached to it, and DataTable renders one
+   for the column a caller marks `rowHeader`. But `.table th` above dresses every header
+   cell as a small uppercase column label, which is right in a <thead> and unreadable in a
+   <tbody>: it would set the reference — the most-read value in the table — in 11.5px grey
+   capitals, narrower and fainter than the cells beside it.
+
+   So the tbody's header cells are dressed as the cells they sit among, weighted slightly
+   up because they are the row's name. Scoped to `tbody` so nothing about the column
+   headings changes. This is the one rule the layout layer had to add: the class existed,
+   the element inside it did not. */
+.table tbody th {
+  font-size: inherit; font-weight: 550; letter-spacing: normal; text-transform: none;
+  color: var(--ink); white-space: normal;
+  padding: var(--space-4);
+  border-bottom: 1px solid var(--hairline-soft);
+}
+.table tbody tr:last-child th { border-bottom: none; }
 
 /* A table wider than its container scrolls inside itself. The page body must never
    scroll sideways — on a phone that hides the primary action. */
@@ -176,6 +340,27 @@
 }
 @keyframes skeleton-pulse { 50% { opacity: 0.55; } }
 
+/* A turning ring, for the one indeterminate wait this product actually has -- a
+   mobile-money collection resolving -- and never on its own; see Spinner.tsx for why the
+   words beside it carry the meaning.
+
+   currentColor on a single edge, so the ring takes the colour of whatever it sits inside:
+   the clinic's foreground within a .btn-brand, --ink in body text, no second class needed.
+
+   Under prefers-reduced-motion the reset caps every animation at one 0.01ms iteration, so
+   this renders as a static ring. That is the intended outcome rather than an accident of
+   the cascade -- nothing here is understood through the movement. */
+.spinner {
+  display: inline-block;
+  width: 18px; height: 18px;
+  flex: none;
+  border: 2px solid var(--hairline);
+  border-top-color: currentColor;
+  border-radius: var(--r-pill);
+  animation: spinner-turn 0.7s linear infinite;
+}
+@keyframes spinner-turn { to { transform: rotate(360deg); } }
+
 /* ============================================================
    NOTICES
 
@@ -193,3 +378,157 @@
 .notice-warn { background: var(--warn-soft); border-color: transparent; color: var(--warn); }
 .notice-bad  { background: var(--bad-soft);  border-color: transparent; color: var(--bad); }
 .notice-info { background: var(--info-soft); border-color: transparent; color: var(--info); }
+
+/* ---- Subtitle, sized down ----
+
+   `.subtitle` is 16px, which is a LEDE: the sentence under a card heading that a reader
+   is meant to read. Six call sites on the patient surface were using it for something
+   else — the parenthetical under a `<summary>`, the note above a field group, the line
+   that says what a consent decision covered — and every one of them had written
+   `style={{ fontSize: 13 }}` or `13.5` to stop a 16px sentence competing with the
+   heading it sits under.
+
+   Four sites said 13 and two said 13.5, which is the same decision taken twice by two
+   people three weeks apart, and is exactly the drift `.stat__value--md` was added to
+   stop. One step absorbs both, and it is 13.5 rather than 13 because 13.5 is a size this
+   product already sets — `.stat-band__l` and `.feat-card .more` in site.css — while 13
+   appears nowhere else in the token layer. Half a pixel is not a difference anybody
+   chose; a size that exists in one place and nowhere else is.
+
+   It inherits the weight and the muted ink from `.subtitle`, because a small subtitle is
+   still a subtitle: the thing that changes is how loudly it speaks, not what it is. */
+.subtitle--sm { font-size: 13.5px; }
+
+/* ============================================================
+   DEFINITION LISTS
+
+   The name/value pairs on a receipt, a prescription item and a payment reference. A
+   `<dl>` and not a table, because these are pairs rather than a grid: there is no column
+   to compare down, and a table announced as "table, 2 columns, 6 rows" tells a screen
+   reader user to expect one.
+
+   WHY THIS CLASS EXISTS AT ALL: reset.css normalises `h1`–`h4`, `p` and the layout
+   utilities, and deliberately stops there — it is downloaded by all four apps and every
+   element rule in it is a rule nobody can opt out of. It does not touch `dl`/`dd`, so
+   every `<dd>` in the product arrives with the user agent's 40px `margin-inline-start`
+   and every `<dl>` with a block margin, and four call sites had answered that with
+   `style={{ margin: 0 }}` written once per list and once per value.
+
+   An opt-in class rather than a bare `dd { margin: 0 }` in the reset, for the reason
+   above: a definition list on a page nobody has written yet should still get the
+   browser's own indent until somebody decides otherwise. Here, the layout is a `.stack`
+   or a `.row` and the indent is a hanging 40px that puts the value out of line with
+   everything else in the card.
+   ============================================================ */
+.deflist,
+.deflist dt,
+.deflist dd { margin: 0; }
+
+/* A `<dl>` whose pairs are DIRECT children needs the term to sit nearer its own value
+   than it does to the pair above, or four lines of alternating label and value read as
+   one block of eight. `.stack`'s 6px sets the first distance and this adds 8px to the
+   second, which is the 14px the consent history's evidence list was writing by hand on
+   its second `<dt>` — where it was one `<dt>` away from being forgotten. Written as a
+   sibling rule it applies to the fifth pair somebody adds without them knowing it exists.
+
+   `> dt ~ dt` and not `dt:not(:first-child)`: a `<dl>` may also wrap each pair in a
+   `<div>`, which is the shape `Fact` in PaymentReceiptCard.tsx uses and the shape a
+   `.stack` column wants, and in that shape every `<dt>` is a first child of its own
+   wrapper and the spacing belongs to the column instead. This rule stays out of it. */
+.deflist > dt ~ dt { margin-top: var(--space-3); }
+
+/* Somebody else's words, quoted. Same story as `<dd>` above and the same reason it is a
+   class rather than an element rule in the reset: `<blockquote>` arrives with the user
+   agent's 40px inline margin, the reset covers `h1`–`h4` and `p` and stops there on
+   purpose, and the one call site — the aggregator's own refusal sentence, inside the
+   `.notice` that frames it — had corrected it with `style={{ margin: 0 }}`.
+
+   The element stays a `<blockquote>` and is not swapped for a `<p>`. Marking a quotation
+   as one is how a screen reader is told these are not the product's words, which on a
+   screen reporting a failed payment is the difference between the aggregator saying it
+   and us saying it. */
+.quote { margin: 0; }
+
+/* ---- A reference somebody reads out loud ----
+
+   A payment or order reference is not prose. It is read down a telephone, character by
+   character, to a member of staff hunting for the same string on the clinic's aggregator
+   dashboard — and 0.04em is what separates a run of monospace glyphs enough to be
+   dictated without being re-read. `.mono` sets the face and nothing else, so the tracking
+   had been written as `style={{ letterSpacing: '0.04em' }}` at the one call site.
+
+   NAMED `.reference` AND DELIBERATELY NOT `.identifier`, which is the obvious name and is
+   the one that would have done damage. The clinic console already writes
+   `className="identifier"` on a `<dd>` in ConsentDeskScreen.tsx against a rule that exists
+   nowhere in the token layer; defining that name here would silently restyle a screen this
+   sweep does not own, from a file its owner was not editing. A name nothing else claims
+   changes exactly the markup that asks for it. The console's dangling class is reported
+   rather than adopted. */
+.reference { letter-spacing: 0.04em; }
+
+/* ---- A fingerprint printed whole ----
+
+   The consent policy's SHA-256, shown in full on the consent history so a patient can
+   check that the words they agreed to are the words on file. A shortened hash cannot be
+   checked against anything, which would make showing it theatre — so it is never
+   truncated, and `overflow-wrap: anywhere` is what stops 64 characters with no space in
+   them pushing the card wider than a 360px phone.
+
+   `overflow-wrap` rather than the `word-break: break-all` this was written as inline:
+   `break-all` breaks EVERY word at the edge including ordinary prose, while
+   `overflow-wrap: anywhere` breaks only a run that cannot fit any other way — which is
+   the actual rule wanted, and the one that stays correct if a label ever ends up inside
+   the same element. 12.5px matches `.stat__note`, so the fingerprint is the same size as
+   every other supporting figure in the product rather than a size chosen once here. */
+.hash { overflow-wrap: anywhere; font-size: 12.5px; }
+
+/* A term column wide enough that its values line up. On a prescription item the four
+   terms — Form, Strength, Quantity, Directions — sit beside their values in a row each,
+   and without a floor under the term the values step in and out down the card, which is
+   the one thing a column of related facts must not do.
+
+   A CONTENT measure in `ch`, and that is why it is not on the space scale: `ch` is the
+   width of the words themselves, so the column widens with the type and with a
+   translation, where a pixel or a `--space-*` step would be a number chosen against
+   English at one size. The scale is this product's vocabulary for distances BETWEEN
+   things; the size of a thing is a different question, and Skeleton's block heights draw
+   the same line for the same reason. */
+.term-col { min-width: 9ch; }
+
+/* ---- A stat standing alone inside a block card ----
+
+   `.card` is a plain block with no gap of its own — deliberately, because a card holds
+   prose as often as it holds a column — so anything inside it that needs air brings its
+   own. Three payment screens drop a single `.stat` into the middle of a card to state the
+   amount, and all three had written `style={{ marginBlock: 'var(--space-5)' }}` to give it
+   that air on both sides.
+
+   `margin-block` and not a `margin-top`: the figure needs separating from the sentence
+   above it AND from whatever follows, and on the one screen where the amount is the last
+   thing before a notice the bottom half is what stops the two touching. It is one
+   declaration precisely because it is the same decision on all three. */
+.stat--banded { margin-block: var(--space-5); }
+
+/* ---- The two distances a block card separates its own contents by ----
+
+   `.card` is a plain block with no gap of its own, and that is deliberate: a card holds
+   prose at least as often as it holds a column, and a container that puts 16px between
+   every child would push an eyebrow away from the heading it labels. So a card's contents
+   bring their own space — which is correct, and which the four payment screens had been
+   doing thirteen times over with `style={{ marginTop: 'var(--space-5)' }}` and
+   `style={{ marginTop: 'var(--space-6)' }}` written out at each site.
+
+   THERE ARE EXACTLY TWO OF THEM, AND THE DIFFERENCE IS REAL rather than drift. 16px is the
+   card's paragraph rhythm — the next block of prose, the reference under the sentence that
+   explains it. 18px marks a break between SECTIONS: a titled block of its own, or the row
+   of buttons that closes the card. An irreversible tap wants visibly more air above it
+   than a paragraph does, so that "Try again" and the sentence saying what failed do not
+   read as one continuous run of things to touch.
+
+   WHY THESE ARE CLASSES AND NOT A `<Stack>`. Both are a space AROUND a block rather than
+   BETWEEN a column's children, and the layout layer models only the second on purpose —
+   see Stack's docblock, and PageBody's, for the block-formatting-context reasoning that
+   makes converting a card like this to a flex column a silent change to every distance in
+   it. Named here, the thirteen call sites become two decisions that can be revisited. */
+.card__flow    { margin-top: var(--space-5); }
+.card__section { margin-top: var(--space-6); }

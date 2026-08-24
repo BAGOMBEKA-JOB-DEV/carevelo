@@ -42,6 +42,52 @@
 
 /* ==================== FRAME ==================== */
 
+/* ------------------------------------------------------------
+   TELLING THE BROWSER WHICH THEME IT IS RENDERING
+
+   `color-scheme` computes to `normal` on every element in this app in both themes, and
+   nothing in the token layer declares it. That is not a cosmetic gap. It is the only way to
+   tell the browser the page is dark, and the parts of a page the BROWSER draws itself are
+   the parts no stylesheet can reach. Measured on this surface, in dark mode:
+
+     - the calendar panel of `<input type="date">` — the date of birth on the registration
+       form, which is the first form a patient ever meets. A white panel unfolding out of a
+       dark page on a cheap handset does not read as a light widget; it reads as a broken
+       page, on the screen where somebody is deciding whether to trust this clinic online.
+     - the popup a `<select>` opens: the sex field on the same form, and the day and
+       clinician filters on /book.
+     - the autofill highlight, which the browser paints pale yellow over our dark field —
+       on the sign-in password box, every single time.
+     - checkbox and radio glyphs, wherever a rule has not replaced them.
+     - the scrollbar.
+
+   None of these is a contrast failure in the WCAG sense: the browser's own light widgets
+   are internally legible. So a contrast sweep does not and cannot find them. They are found
+   by knowing the property exists.
+
+   THIS IS SCOPED TO `.site-root` AND IS THEREFORE A PARTIAL FIX, DELIBERATELY, and it is
+   the same partial fix the clinic console has just made for `.layout` in its own
+   stylesheet. Every control listed above is inside this frame and is covered. The
+   SCROLLBAR is not: it is drawn from the root element, and the portal's sign-in and
+   set-password screens are `.auth-page`, which is not inside `.site-root` and belongs to
+   tokens/auth.css. The correct home for all of it is two lines in packages/ui beside the
+   palette they belong to —
+
+       :root { color-scheme: light }
+       :root[data-theme='dark'] { color-scheme: dark }
+
+   — which is colors.css, and would cover all four apps and both frames at once. That is in
+   the report rather than done here: three apps and a shared palette is not a change to make
+   on other people's behalf from inside a sweep of one surface.
+
+   THE LIGHT ARM IS STATED rather than left to `normal`, for the reason theme-init.js gives
+   at length: light is this product's default by DECISION and not by absence, and `normal`
+   lets the browser fall back to the OS preference — so a patient whose phone is in night
+   mode would get dark widgets on our deliberately light page.
+   ------------------------------------------------------------ */
+:root:not([data-theme='dark']) .site-root { color-scheme: light; }
+:root[data-theme='dark'] .site-root { color-scheme: dark; }
+
 .site-root {
   display: flex;
   flex-direction: column;
@@ -65,8 +111,18 @@
 
 /* reset.css paints every <a> in Carevelo's own --primary. On a clinic's surface that
    is the one colour that must never appear by accident, so links inherit their ink
-   here and the few places that WANT the clinic's colour ask for it by name. */
-.site-root a { color: inherit; text-decoration: none; }
+   here and the few places that WANT the clinic's colour ask for it by name.
+
+   :not(.btn) IS LOAD-BEARING, and its absence was a WCAG failure on every primary action
+   in the portal. Most "buttons" here are links — "Book a consultation", "Sign in", every
+   card call-to-action — and `.site-root a` outranks `.btn-brand` on specificity, so
+   `color: inherit` beat `color: var(--brand-primary-fg)` and the label took --ink instead.
+   Near-black on the clinic's green measured 3.18:1 where AA needs 4.5:1.
+
+   The irony is that the backend had it right the whole way: BrandPalette computes
+   #FFFFFF for this clinic and sweeps the entire RGB cube to guarantee the pairing. The
+   contrast was lost in the last inch, in a rule written to protect the clinic's colour. */
+.site-root a:not(.btn) { color: inherit; text-decoration: none; }
 
 .site-wrap {
   max-width: var(--maxw);
@@ -74,6 +130,47 @@
   padding-inline: 24px;
   width: 100%;
 }
+
+/* THE WORKING PAGE'S BAND, AND THE 27 INLINE STYLES IT REPLACES.
+
+   `.site-wrap` is a MEASURE — 1280px and a gutter — and it deliberately owns no vertical
+   space, because the marketing sections it was written for get theirs from
+   `.site-section`'s 88px band below. A signed-in page has no `.site-section`: the patient
+   came to do something rather than to read an argument, so 88px of air above a booking
+   form is 88px of scrolling before the first control. Every one of those pages therefore
+   wrote its own band, and wrote the same one — `style={{ paddingBlock: 'var(--space-8)' }}`
+   appeared 27 times in the patient portal, by a distance the most-repeated inline style in
+   the app.
+
+   None of those 27 was careless. --space-8 was the right token every single time; there
+   was simply nowhere to put it, so it went in a style attribute, 27 times, where 27
+   chances existed to type --space-7 by mistake and no diff would have shown it. This is
+   the modifier that gives it somewhere to live. It is page CHROME — the frame every
+   working page in this app wears — and not a layout decision a screen gets to take, which
+   is exactly the distinction that makes it a class here rather than a prop on Stack.
+
+   NO MEDIA QUERY, unlike `.site-section` above it. 30px is already the small end of this
+   file's rhythm and a phone needs the content nearer the top, not further from it. The
+   gutter still tapers to 18px below 480px, from `.site-wrap` itself. */
+.site-wrap--page { padding-block: var(--space-8); }
+
+/* THE FORM COLUMN'S MEASURE, WHICH IS NOT `.site-wrap`'s.
+
+   `.site-wrap` is 1280px, and 1280px is right for a marketing band and for a grid of
+   cards. It is wrong for a column of text inputs: a `Field` stretched to 1280px gives a
+   patient a 1200px-wide box to type a phone number into, and gives their eye 1280px to
+   travel back along between the label and the control below it. Four screens had said so
+   by hand — registration, its loading fallback, the profile form and the consent
+   screen's decision list all wrote `style={{ maxWidth: 640 }}` — and 640px is the number
+   all four picked, because it is about 70 characters of this app's 14.5px body face,
+   which is the measure the rest of this file already works to (`.site-lede` caps at 60ch,
+   `.site-doc` at 820px of 15.5px prose).
+
+   A MEASURE AND NOTHING ELSE. It sets no gap and no padding, so it composes with whatever
+   `<Stack>` the screen puts inside it rather than competing with one — which is the same
+   division of labour `.site-wrap` keeps, and the reason both are a `max-width` and a
+   margin rather than a layout. */
+.site-form { max-width: 640px; }
 
 .site-section { padding-block: 88px; }
 .site-section--tint { background: var(--surface-2); border-block: 1px solid var(--hairline-soft); }
@@ -137,6 +234,12 @@
   max-width: 60ch;
 }
 .site-sec-head { max-width: 66ch; }
+/* A section head centred over the full band. The 66ch measure above is what makes the
+   centring worth a modifier rather than a `text-align` on the element: without the auto
+   margins the block stays hard left inside a 1280px wrap and only its TEXT centres, which
+   reads as a mistake at any width past about 900px. Both halves of that belong together
+   and neither is a decision the page should be able to take one of. */
+.site-sec-head--center { margin-inline: auto; text-align: center; }
 .site-sec-head .site-lede { margin-top: 14px; }
 
 /* ==================== BUTTONS AND LINKS ====================
@@ -705,6 +808,36 @@
 @media (max-width: 768px) { .cellgrid { margin-top: 32px; } }
 @media (max-width: 680px) { .cellgrid--2, .cellgrid--3, .cellgrid--4 { grid-template-columns: 1fr; } }
 
+/* ---- The account hub's vertical rhythm ----
+
+   THIS PAGE IS A BLOCK FORMATTING CONTEXT AND HAS TO STAY ONE, which is why its spacing
+   is here in a stylesheet rather than in a `<Stack>` in the page.
+
+   `.cellgrid` carries the 52px `margin-top` above, and `.page-head` carries a 24px
+   `margin-bottom` from components.css. In a block container those two COLLAPSE, and the
+   distance from the heading block to the first panel is 52px — the larger of the pair,
+   which is what margin collapsing means and what the two values were chosen against.
+   Wrap the same children in a flex `<Stack>` and collapsing stops: the 24px and the 52px
+   both apply, the Stack's own gap lands on top of them, and the page silently opens up by
+   somewhere between 24 and 76px depending on the step chosen. Nothing fails, nothing
+   shows in a diff, and the page is simply wrong afterwards. `PageBody`'s docblock is
+   where that reasoning is kept; this is the other half of it.
+
+   So the four distances down the hub — 30px, 52px, 24px, 18px — stay margins. Three of
+   them were inline styles on the elements themselves, which is the version of margins
+   that cannot be revisited; they are named here instead, scoped to the one page that has
+   this shape, so that the next person changing the hub's rhythm changes it in one place
+   and can see all four distances at once. The fourth is `.cellgrid`'s 52px, ten lines up.
+
+   SCOPED TO `.site-hub` RATHER THAN TO `.site-wrap--page` deliberately. A rule reading
+   `.site-wrap--page > .notice` would reach into every working page in the app and add
+   24px above a notice that some future screen puts at the top of its column — a spacing
+   change nobody asked for, arriving from a file they were not editing. The hub opts in by
+   name; every other page is untouched. */
+.site-hub > .site-h2 { margin-top: var(--space-8); }
+.site-hub > .notice  { margin-top: var(--space-7); }
+.site-hub > .fine    { margin-top: var(--space-6); }
+
 .cell {
   background: var(--surface);
   padding: 30px 28px;
@@ -803,6 +936,26 @@ a.feat-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
   padding: 20px;
 }
 
+/* The two ruled bands inside that body, and the block between them.
+
+   These were eleven inline style properties on the landing page — two hand-built flex
+   rows that each restated `display: flex`, a `justify-content` and a gap, plus their own
+   borders, plus four `marginTop`s between the lines of the middle block. The LAYOUT half
+   of that is `<Inline justify="between">`, which is a primitive and belongs in the page;
+   what is left here is only the PAINT — a rule and the air either side of it — because
+   that is what the mockup looks like, and the mockup is drawn in this file beside the
+   frame that contains it. A landing page should describe the fake prescription, not draw
+   a border.
+
+   No colour, size or radius is invented: the rules are `--hairline`, the same token the
+   frame and body above already use, and every piece of type is inherited. */
+.mockup__row--head { padding-bottom: var(--space-4); border-bottom: 1px solid var(--hairline); }
+.mockup__row--foot { margin-top: var(--space-5); padding-top: var(--space-4); border-top: 1px solid var(--hairline); }
+.mockup__line { margin-top: var(--space-5); }
+/* The disclaimer under the footer rule sits closer than the bands do: it is a footnote to
+   the card rather than another band of it. */
+.mockup__note { margin-top: var(--space-4); }
+
 /* ==================== CTA BAND ==================== */
 
 .cta-band {
@@ -866,7 +1019,12 @@ a.feat-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
 .site-footer__cols { display: grid; grid-template-columns: 1.7fr 1fr 1fr 1fr; gap: 40px; }
 @media (max-width: 820px) { .site-footer__cols { grid-template-columns: 1fr 1fr; gap: 30px; } }
 .site-footer p { color: var(--ink-muted); font-size: 14px; max-width: 34ch; margin-top: 14px; }
-.site-footer h4 {
+/* `h2` and not `h4`, and the level is the semantic decision rather than this one: these
+   are the last headings in the document and at h4 every page announced a jump from h1 or
+   h2 straight to h4. The SIZE is unchanged and is set here, which is the whole reason the
+   type scale in typography.css is classes rather than element rules — a heading's level is
+   a structural fact a screen reader needs, and its size is a visual one the page decides. */
+.site-footer h2 {
   font-size: 12.5px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -879,6 +1037,23 @@ a.feat-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
 .site-footer li { color: var(--ink-muted); font-size: 14.5px; }
 .site-footer a { color: var(--ink-muted); font-size: 14.5px; }
 .site-footer a:hover { color: var(--brand-primary); }
+
+/* The language chooser is the fourth block in the footer's first column, and this file
+   already sets the rhythm of the other three on the elements themselves — `p`, `h4` and
+   `ul` above. So the form gets its distance the same way, in the same place, instead of
+   the `style={{ marginTop: 'var(--space-6)' }}` it carried: a footer column laid out by
+   element margins is not a column any `<Stack>` can be, and half a rhythm in a stylesheet
+   and half in a component is the version nobody can read at once.
+
+   The `<fieldset>` reset is a USER-AGENT correction rather than a layout decision, and it
+   belongs here for the same reason it does not belong in reset.css: `<fieldset>` arrives
+   with a border, 2px of inline margin and asymmetric padding from the browser's own sheet,
+   reset.css normalises `h1`–`h4`, `p` and the layout utilities and deliberately stops
+   there, and this is the only fieldset on the surface. Scoped to the footer, it corrects
+   the one that exists and cannot reach a fieldset somebody writes elsewhere expecting the
+   browser's own frame. */
+.site-footer form { margin-top: var(--space-6); }
+.site-footer fieldset { border: 0; margin: 0; padding: 0; }
 .site-footer__bottom {
   display: flex;
   justify-content: space-between;
@@ -899,6 +1074,18 @@ a.feat-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
 /* ==================== LEGAL PROSE (/privacy, /terms) ==================== */
 
 .site-doc { max-width: 820px; margin-inline: auto; padding: 0 24px 88px; }
+
+/* The same prose treatment, EMBEDDED rather than standing alone. `/privacy` and `/terms`
+   are whole documents and get the 820px measure and the 88px tail; the consent policy is
+   the same prose rendered INSIDE a card on the consent screen, where the card already owns
+   the measure and the padding and a second copy of each inset the policy from its own
+   heading. Both call sites had said so with `style={{ maxWidth: 'none', padding: 0 }}`.
+
+   A modifier rather than a second `.site-doc-ish` class, because everything that makes
+   the policy readable — the 15.5px at 1.7, the 36px above an h2, the muted ink — has to
+   stay identical between the page a patient reads before consenting and the page they
+   read afterwards. Two classes could disagree about that; a modifier cannot. */
+.site-doc--inline { max-width: none; padding: 0; }
 .site-doc h1 { font-family: var(--head); font-size: 38px; font-weight: 700; letter-spacing: -0.02em; color: var(--ink); }
 .site-doc .updated { color: var(--ink-faint); font-size: 14px; margin-top: 10px; }
 .site-doc h2 { font-size: 20px; font-weight: 700; color: var(--ink); margin: 36px 0 10px; }

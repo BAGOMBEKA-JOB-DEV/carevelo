@@ -186,6 +186,26 @@ class ConsentController extends Controller
      * patient data whatsoever -- only the clinic's own name, which the portal
      * already renders in its branding.
      */
+    /**
+     * The current consent policy, in every language it is published in.
+     *
+     * KNOWN CONTRACT IMPRECISION, recorded rather than papered over. The generator infers
+     * this response from the runtime shape, and PHP cannot distinguish a map from a list, so
+     * two fields come out wrong in openapi.yaml and therefore in the typed client:
+     *
+     *   - `text` publishes as an untyped array. It is a MAP keyed by language code
+     *     (`en`, `lg`), which is why the consent screen cannot ask for a language by key and
+     *     narrows it by hand instead.
+     *   - `version` publishes as the literal current value, because the constant is visible
+     *     and looks like a fixed part of the contract. It is the opposite — it is designed to
+     *     change, and a client that pinned it would break on the first policy revision.
+     *
+     * Neither is wrong on the wire; both are wrong in the type. Fixing it properly means
+     * publishing `text` as a list of `{language, body}` objects, which the generator can
+     * describe exactly — a small breaking change worth making before a second consumer
+     * exists, and deliberately not made mid-flight while the consent screen was being built
+     * against the current shape.
+     */
     public function currentPolicy(Request $request): JsonResponse
     {
         $text = $this->renderedPolicy($this->tenantOf($request));

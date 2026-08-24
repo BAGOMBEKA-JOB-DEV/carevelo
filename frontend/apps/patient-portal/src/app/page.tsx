@@ -1,6 +1,7 @@
 import Link from 'next/link'
+import { getTranslations } from 'next-intl/server'
 import { clinicMetadata } from '@/lib/metadata'
-import { Icon } from '@carevelo/ui'
+import { Icon, Inline, Stack } from '@carevelo/ui'
 import { resolveTenant } from '@/lib/tenant'
 import { currentUser } from '@/lib/session'
 import { SiteShell } from '@/components/SiteShell'
@@ -24,15 +25,27 @@ import { SiteShell } from '@/components/SiteShell'
  * which is true on the first day of the first clinic. An invented "12,000 patients" would
  * be the single fastest way to lose a clinic owner who knows the market.
  *
- * Zero client JavaScript on this page. Every icon is a server-rendered <svg>, the FAQ is
- * native <details>, and the only component that hydrates on the whole surface is the
- * header's scroll listener.
+ * IT NOW READS IN THE LANGUAGE IT ADVERTISES. The chip below the hero has said "English &
+ * Luganda" since the first commit and the feature cell further down has promised that a
+ * patient chooses which — "including the consent you are asked to give" — while there was
+ * not one translation primitive in the tree and <html lang> was hard-coded. Every string
+ * on this page comes out of messages/ now, and the footer carries the control that
+ * switches between them.
+ *
+ * Zero client JavaScript on this page, still. Every icon is a server-rendered <svg>, the
+ * FAQ is native <details>, the translations are resolved on the server, and the only
+ * component that hydrates on the whole surface is the header's scroll listener.
  *
  * @see docs/10-product/white-labeling-and-branding.md
  */
 export default async function HomePage() {
-  const [tenant, user] = await Promise.all([resolveTenant(), currentUser()])
-  const clinic = tenant.trading_name ?? 'this clinic'
+  const [tenant, user, t, common] = await Promise.all([
+    resolveTenant(),
+    currentUser(),
+    getTranslations('Home'),
+    getTranslations('Common'),
+  ])
+  const clinic = tenant.trading_name ?? common('thisClinic')
   const district = tenant.contact?.district
 
   return (
@@ -45,32 +58,40 @@ export default async function HomePage() {
         <div className="site-hero__bg" aria-hidden="true" />
 
         <div className="site-wrap site-hero__inner">
-          <span className="site-eyebrow">{district ? `${district} · Uganda` : 'Uganda'}</span>
+          <span className="site-eyebrow">
+            {district ? t('eyebrowDistrict', { district }) : t('eyebrowCountry')}
+          </span>
 
+          {/*
+           * `t.rich` rather than a sentence split in two around the highlighted span. The
+           * emphasis falls on a phrase, and which phrase that is depends on the language:
+           * a translator who receives "See a clinician at {clinic}" and "without leaving
+           * home." as two separate strings cannot move the break, and in a language whose
+           * clause order differs from English the break is in the wrong place.
+           */}
           <h1 className="site-h1">
-            See a clinician at {clinic} <span className="g">without leaving home.</span>
+            {t.rich('heroTitle', {
+              clinic,
+              g: (chunks) => <span className="g">{chunks}</span>,
+            })}
           </h1>
 
-          <p className="site-lede">
-            Book a consultation, speak to a clinician by video, voice or chat, pay with
-            mobile money, and have your medicine dispensed and brought to you. Your records
-            stay with {clinic}.
-          </p>
+          <p className="site-lede">{t('heroLede', { clinic })}</p>
 
           <div className="site-hero__cta site-btn-row">
             {user ? (
               /* Somebody with a session does not need to be sold the product they are
                  already inside. One button, straight to their care. */
               <Link className="btn btn-brand btn-lg" href="/account">
-                Go to my care
+                {t('goToMyCare')}
               </Link>
             ) : (
               <>
                 <Link className="btn btn-brand btn-lg" href="/sign-in">
-                  Book a consultation
+                  {t('bookConsultation')}
                 </Link>
                 <Link className="btn btn-quiet btn-lg" href="#how">
-                  See how it works
+                  {t('seeHowItWorks')}
                 </Link>
               </>
             )}
@@ -78,13 +99,13 @@ export default async function HomePage() {
 
           <div className="site-chips">
             <span className="site-chip">
-              <Icon name="check" /> MTN &amp; Airtel money
+              <Icon name="check" /> {t('chipMobileMoney')}
             </span>
             <span className="site-chip">
-              <Icon name="check" /> Works on any phone with a browser
+              <Icon name="check" /> {t('chipAnyPhone')}
             </span>
             <span className="site-chip">
-              <Icon name="check" /> English &amp; Luganda
+              <Icon name="check" /> {t('chipLanguages')}
             </span>
           </div>
         </div>
@@ -93,36 +114,40 @@ export default async function HomePage() {
       {/* ---- The journey, in four numbers ----
           Sitting on the hero's bottom edge. Read them as claims and every one is checkable
           against the product rather than against a database we would have to be trusted
-          about. */}
+          about.
+
+          The numeral and its unit are ONE message with a <u> tag rather than two strings,
+          for the same reason as the hero: "4 steps" is one noun phrase and a language that
+          puts the count after the noun needs to be able to say so. */}
       <div className="site-wrap stat-band--overlap">
         <div className="stat-band">
           <div className="stat-band__it">
             <div className="stat-band__n">
-              4 <span className="u">steps</span>
+              {t.rich('stats.stepsValue', { u: (chunks) => <span className="u">{chunks}</span> })}
             </div>
-            <div className="stat-band__l">from booking to medicine in hand</div>
+            <div className="stat-band__l">{t('stats.stepsLabel')}</div>
           </div>
 
           <div className="stat-band__it">
             <div className="stat-band__n">
-              24<span className="u">/7</span>
+              {t.rich('stats.hoursValue', { u: (chunks) => <span className="u">{chunks}</span> })}
             </div>
-            <div className="stat-band__l">book whenever it suits you</div>
+            <div className="stat-band__l">{t('stats.hoursLabel')}</div>
           </div>
 
           <div className="stat-band__it">
             <div className="stat-band__n">
-              100<span className="u">%</span>
+              {t.rich('stats.shareValue', { u: (chunks) => <span className="u">{chunks}</span> })}
             </div>
             {/* Not a rounding. The payment architecture is non-custodial: the money moves
                 from the patient to the clinic's own merchant account and Carevelo is never
                 in the path. */}
-            <div className="stat-band__l">of what you pay goes to the clinic</div>
+            <div className="stat-band__l">{t('stats.shareLabel')}</div>
           </div>
 
           <div className="stat-band__it">
-            <div className="stat-band__n">0</div>
-            <div className="stat-band__l">queues to sit in</div>
+            <div className="stat-band__n">{t('stats.queuesValue')}</div>
+            <div className="stat-band__l">{t('stats.queuesLabel')}</div>
           </div>
         </div>
       </div>
@@ -131,49 +156,34 @@ export default async function HomePage() {
       <section className="site-section site-section--tint" id="how">
         <div className="site-wrap">
           <div className="site-sec-head">
-            <span className="site-eyebrow">How it works</span>
-            <h2 className="site-h2">Four steps, start to medicine in hand.</h2>
-            <p className="site-lede">
-              Nothing to install and nothing to post. If you can open a web page, you can do
-              all of this.
-            </p>
+            <span className="site-eyebrow">{t('how.eyebrow')}</span>
+            <h2 className="site-h2">{t('how.title')}</h2>
+            <p className="site-lede">{t('how.lede')}</p>
           </div>
 
           <div className="cellgrid cellgrid--4">
             <div className="cell">
               <div className="cell__n">1</div>
-              <h3>Book</h3>
-              <p>
-                Choose a clinician and a time that suits you. {clinic} confirms it, and you
-                get a reminder before it starts.
-              </p>
+              <h3>{t('how.bookTitle')}</h3>
+              <p>{t('how.bookBody', { clinic })}</p>
             </div>
 
             <div className="cell">
               <div className="cell__n">2</div>
-              <h3>Pay</h3>
-              <p>
-                Approve the payment on your phone with MTN or Airtel money. The fee belongs
-                to {clinic}, and you see it before you approve anything.
-              </p>
+              <h3>{t('how.payTitle')}</h3>
+              <p>{t('how.payBody', { clinic })}</p>
             </div>
 
             <div className="cell">
               <div className="cell__n">3</div>
-              <h3>Consult</h3>
-              <p>
-                Speak to your clinician by video, by voice, or by typing when the network is
-                poor. You choose, and so can they.
-              </p>
+              <h3>{t('how.consultTitle')}</h3>
+              <p>{t('how.consultBody')}</p>
             </div>
 
             <div className="cell">
               <div className="cell__n">4</div>
-              <h3>Collect</h3>
-              <p>
-                Read your prescription, then collect your medicine from {clinic} or have it
-                brought to you.
-              </p>
+              <h3>{t('how.collectTitle')}</h3>
+              <p>{t('how.collectBody', { clinic })}</p>
             </div>
           </div>
         </div>
@@ -183,12 +193,9 @@ export default async function HomePage() {
       <section className="site-section" id="care">
         <div className="site-wrap">
           <div className="site-sec-head">
-            <span className="site-eyebrow">Your care</span>
-            <h2 className="site-h2">Everything about your visit, in one place.</h2>
-            <p className="site-lede">
-              One account at {clinic}, holding the consultation, what was prescribed, where
-              the medicine is, and what you paid.
-            </p>
+            <span className="site-eyebrow">{t('care.eyebrow')}</span>
+            <h2 className="site-h2">{t('care.title')}</h2>
+            <p className="site-lede">{t('care.lede', { clinic })}</p>
           </div>
 
           <div className="cellgrid cellgrid--3">
@@ -196,66 +203,50 @@ export default async function HomePage() {
               <div className="cell__ic">
                 <Icon name="phone" />
               </div>
-              <h3>Consult however the network allows</h3>
-              <p>
-                Video when the connection is good, voice when it is not, and typing when it
-                is worse. The consultation does not fail because the signal did.
-              </p>
+              <h3>{t('care.consultTitle')}</h3>
+              <p>{t('care.consultBody')}</p>
             </div>
 
             <div className="cell">
               <div className="cell__ic">
                 <Icon name="file" />
               </div>
-              <h3>Read your own prescription</h3>
-              <p>
-                What was prescribed, how much of it and how to take it — in writing, on your
-                phone, for as long as you need it.
-              </p>
+              <h3>{t('care.prescriptionTitle')}</h3>
+              <p>{t('care.prescriptionBody')}</p>
             </div>
 
             <div className="cell">
               <div className="cell__ic">
                 <Icon name="truck" />
               </div>
-              <h3>Follow your delivery</h3>
-              <p>
-                See when your medicine leaves {clinic} and when it is close. The rider is
-                told where to go, never what is in the package.
-              </p>
+              <h3>{t('care.deliveryTitle')}</h3>
+              <p>{t('care.deliveryBody', { clinic })}</p>
             </div>
 
             <div className="cell">
               <div className="cell__ic">
                 <Icon name="coins" />
               </div>
-              <h3>Keep every receipt</h3>
-              <p>
-                Every payment you make to {clinic} is receipted and kept, so you can show
-                what you paid and when.
-              </p>
+              <h3>{t('care.receiptsTitle')}</h3>
+              <p>{t('care.receiptsBody', { clinic })}</p>
             </div>
 
             <div className="cell">
               <div className="cell__ic">
                 <Icon name="users" />
               </div>
-              <h3>Book for your family</h3>
-              <p>
-                A parent or guardian can book and consult on behalf of a child, with the
-                consent recorded properly rather than assumed.
-              </p>
+              <h3>{t('care.familyTitle')}</h3>
+              <p>{t('care.familyBody')}</p>
             </div>
 
             <div className="cell">
               <div className="cell__ic">
                 <Icon name="help" />
               </div>
-              <h3>Ask in your language</h3>
-              <p>
-                The portal reads in English and Luganda, and you choose which — including
-                the consent you are asked to give.
-              </p>
+              <h3>{t('care.languageTitle')}</h3>
+              {/* The claim this whole change exists to make true. The control that
+                  delivers it is in the footer. */}
+              <p>{t('care.languageBody')}</p>
             </div>
           </div>
         </div>
@@ -265,8 +256,8 @@ export default async function HomePage() {
       <section className="site-section site-section--tint" id="trust">
         <div className="site-wrap site-split">
           <div>
-            <span className="site-eyebrow">Safety and privacy</span>
-            <h2 className="site-h2">Your clinic. Your records. Your money.</h2>
+            <span className="site-eyebrow">{t('trust.eyebrow')}</span>
+            <h2 className="site-h2">{t('trust.title')}</h2>
 
             <ul className="ticklist">
               <li>
@@ -274,12 +265,8 @@ export default async function HomePage() {
                   <Icon name="check" />
                 </span>
                 <div>
-                  <b>Care from a licensed clinic.</b>{' '}
-                  <span>
-                    {clinic} is a licensed private clinic and the clinician you speak to is
-                    registered to practise. Carevelo provides the software — never the care,
-                    and never the diagnosis.
-                  </span>
+                  <b>{t('trust.licensedLead')}</b>{' '}
+                  <span>{t('trust.licensedBody', { clinic })}</span>
                 </div>
               </li>
 
@@ -292,14 +279,12 @@ export default async function HomePage() {
                    * Load-bearing, and not marketing. Carevelo never holds patient money:
                    * the clinic's own merchant credentials sit at a licensed aggregator and
                    * collections go directly to the clinic. Saying so here is the
-                   * promise the payments architecture actually keeps.
+                   * promise the payments architecture actually keeps — and it has to
+                   * survive translation, which is why the whole claim is one message
+                   * rather than a sentence assembled around the clinic's name.
                    */}
-                  <b>Payment goes to the clinic.</b>{' '}
-                  <span>
-                    Money moves from you to {clinic}, through the clinic&apos;s own mobile
-                    money account. Carevelo never holds it, never keeps it for you, and
-                    cannot take anything out of your account.
-                  </span>
+                  <b>{t('trust.paymentLead')}</b>{' '}
+                  <span>{t('trust.paymentBody', { clinic })}</span>
                 </div>
               </li>
 
@@ -308,12 +293,8 @@ export default async function HomePage() {
                   <Icon name="check" />
                 </span>
                 <div>
-                  <b>Only your clinic sees your records.</b>{' '}
-                  <span>
-                    Your consultation notes and prescriptions belong to {clinic} and are
-                    visible to the staff there involved in your care. No other clinic using
-                    Carevelo can reach them.
-                  </span>
+                  <b>{t('trust.recordsLead')}</b>{' '}
+                  <span>{t('trust.recordsBody', { clinic })}</span>
                 </div>
               </li>
             </ul>
@@ -326,6 +307,13 @@ export default async function HomePage() {
            * like. Nothing here is advice, and the panel says so at the bottom, because a
            * plausible-looking prescription with no such line is a thing somebody will
            * eventually screenshot and act on.
+           *
+           * THE DOSE LINE IS ON THE TRANSLATION WORKLIST AND MUST STAY THERE UNTIL A
+           * HUMAN CLEARS IT. "One capsule, three times a day, after food" is dosage
+           * language, and dosage language guessed at in a second language is the one kind
+           * of wrong string on this page that could hurt somebody. Until a translator
+           * writes it, the Luganda catalogue holds the English sentence — visibly foreign,
+           * which is the honest failure — rather than a plausible invention.
            *
            * Built from inline values rather than a class, deliberately: this is one sample
            * on one page, and a set of .rx-* rules in the shared token layer would be CSS
@@ -341,49 +329,40 @@ export default async function HomePage() {
               </div>
 
               <div className="mockup__body">
-                <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    gap: 'var(--space-4)',
-                    paddingBottom: 'var(--space-4)',
-                    borderBottom: '1px solid var(--hairline)',
-                  }}
-                >
-                  <span className="stat__label">Prescription · sample</span>
-                  <span className="fine">Written by your clinician</span>
-                </div>
+                {/* THE MOCKUP'S OWN BANDS, NOW DRAWN WHERE THE MOCKUP IS DRAWN. Two ruled
+                    rows and the block between them were eleven inline style properties
+                    here — two hand-built flex rows each restating `display: flex`, a
+                    `justify-content` and a gap, and four `marginTop`s. The LAYOUT half is
+                    `<Inline justify="between">`, which is the primitive for a row whose
+                    last child goes to the far edge; the PAINT half — a hairline and the
+                    air either side of it — is `.mockup__row--head` / `--foot` in
+                    tokens/site.css, beside the frame that contains them. */}
+                <Inline justify="between" gap="4" className="mockup__row--head">
+                  <span className="stat__label">{t('mockup.label')}</span>
+                  <span className="fine">{t('mockup.writtenBy')}</span>
+                </Inline>
 
-                <div style={{ marginTop: 'var(--space-5)' }}>
-                  <div className="title-sm">Amoxicillin 500mg</div>
-                  <div className="fine" style={{ marginTop: 'var(--space-2)' }}>
-                    Capsule · 21 capsules
-                  </div>
-                  <p style={{ marginTop: 'var(--space-3)', color: 'var(--ink-muted)' }}>
-                    One capsule, three times a day, after food — for seven days.
-                  </p>
-                </div>
+                {/* Two distances here, not one, so they nest: the medicine and its form are
+                    one label at 6px, and the dose sits 8px below the pair as a separate
+                    line to read. */}
+                <Stack gap="3" className="mockup__line">
+                  <Stack gap="2">
+                    <div className="title-sm">{t('mockup.drug')}</div>
+                    <div className="fine">{t('mockup.form')}</div>
+                  </Stack>
 
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: 'var(--space-4)',
-                    marginTop: 'var(--space-5)',
-                    paddingTop: 'var(--space-4)',
-                    borderTop: '1px solid var(--hairline)',
-                  }}
-                >
-                  <span style={{ color: 'var(--ink-muted)' }}>Dispensed by {clinic}</span>
+                  <p className="muted">{t('mockup.dose')}</p>
+                </Stack>
+
+                <Inline justify="between" gap="4" className="mockup__row--foot">
+                  <span className="muted">{t('mockup.dispensedBy', { clinic })}</span>
+
                   <span className="badge badge-good">
-                    <Icon name="check" /> 3 of 3 collected
+                    <Icon name="check" /> {t('mockup.collected')}
                   </span>
-                </div>
+                </Inline>
 
-                <p className="fine" style={{ marginTop: 'var(--space-4)' }}>
-                  A sample layout, not a prescription. Only your clinician can prescribe.
-                </p>
+                <p className="fine mockup__note">{t('mockup.disclaimer')}</p>
               </div>
             </div>
           </div>
@@ -396,75 +375,42 @@ export default async function HomePage() {
           on the exact page where somebody is hunting for the one answer they came for. */}
       <section className="site-section" id="questions">
         <div className="site-wrap">
-          <div className="site-sec-head" style={{ marginInline: 'auto', textAlign: 'center' }}>
-            <span className="site-eyebrow">Questions</span>
-            <h2 className="site-h2">The things people ask first.</h2>
+          <div className="site-sec-head site-sec-head--center">
+            <span className="site-eyebrow">{t('faq.eyebrow')}</span>
+            <h2 className="site-h2">{t('faq.title')}</h2>
           </div>
 
           <div className="faq">
             <details>
-              <summary>What does it cost?</summary>
-              <p>
-                {clinic} sets the price, not Carevelo. You see the consultation fee before
-                you approve any payment, and the price of any medicine before you agree to
-                it. There is no charge for having an account and no subscription to keep it.
-                Your mobile money provider may charge its own transaction fee, as it does
-                for any payment you make.
-              </p>
+              <summary>{t('faq.costQuestion')}</summary>
+              <p>{t('faq.costAnswer', { clinic })}</p>
             </details>
 
             <details>
-              <summary>Do I need a smartphone?</summary>
-              <p>
-                Not for all of it. The portal is an ordinary web page, so any phone with a
-                browser can open it to book, to read a prescription and to see what you
-                paid. A video consultation does need a smartphone and a connection that will
-                carry it — and where it will not, the clinician can continue by voice or by
-                typing. If you would rather not use a phone at all, {clinic} can still book
-                you the way it always has.
-              </p>
+              <summary>{t('faq.smartphoneQuestion')}</summary>
+              <p>{t('faq.smartphoneAnswer', { clinic })}</p>
             </details>
 
             <details>
-              <summary>What if the network drops in the middle of a consultation?</summary>
-              <p>
-                The consultation is built to fall back rather than fail: video drops to
-                voice, and voice to typing, without starting again. If you lose the
-                connection completely, open the same link and you return to the same
-                consultation rather than a new one. If it cannot be recovered at all,{' '}
-                {clinic} has your number and can reach you.
-              </p>
+              <summary>{t('faq.networkQuestion')}</summary>
+              <p>{t('faq.networkAnswer', { clinic })}</p>
             </details>
 
             <details>
-              <summary>Who can see my records?</summary>
-              <p>
-                Staff at {clinic} who are involved in your care. No other clinic using
-                Carevelo can reach them: the separation is enforced by the database itself
-                rather than by a setting somebody could get wrong. Carevelo&apos;s own staff
-                do not read patient records in the ordinary course of their work — support
-                access is restricted and recorded. Nobody buys your data from us, because we
-                do not sell it and it is not ours to sell.
-              </p>
+              <summary>{t('faq.recordsQuestion')}</summary>
+              <p>{t('faq.recordsAnswer', { clinic })}</p>
             </details>
 
             <details>
-              <summary>What if I do not have an email address?</summary>
-              <p>
-                {/*
-                 * The honest answer, and it is a no. Signing in is an email address and a
-                 * password; the phone one-time-code flow is gone from the product and its
-                 * endpoints are gone from the API. Papering over that with "contact us"
-                 * would send a patient round a loop that has no exit, so this says plainly
-                 * what to do instead — which is the thing that has always worked.
-                 */}
-                Then you cannot use this portal yet, and it is better to say so than to send
-                you round in a circle. Signing in needs an email address and a password, and
-                there is no code-by-text alternative. Ask {clinic} to book you by phone, as
-                you always have — nothing here replaces being able to ring the clinic. If
-                you do set up an email address later, {clinic} can create your account at the
-                front desk and give you a temporary password to change.
-              </p>
+              {/*
+               * The honest answer, and it is a no. Signing in is an email address and a
+               * password; the phone one-time-code flow is gone from the product and its
+               * endpoints are gone from the API. Papering over that with "contact us"
+               * would send a patient round a loop that has no exit, so this says plainly
+               * what to do instead — which is the thing that has always worked.
+               */}
+              <summary>{t('faq.emailQuestion')}</summary>
+              <p>{t('faq.emailAnswer', { clinic })}</p>
             </details>
           </div>
         </div>
@@ -474,27 +420,24 @@ export default async function HomePage() {
       <section className="site-section site-section--tint">
         <div className="site-wrap">
           <div className="cta-band">
-            <span className="site-eyebrow">Ready when you are</span>
-            <h2>{clinic}, on your phone.</h2>
-            <p>
-              Sign in to book a consultation, read your prescription and keep every receipt
-              in one place.
-            </p>
+            <span className="site-eyebrow">{t('close.eyebrow')}</span>
+            <h2>{t('close.title', { clinic })}</h2>
+            <p>{t('close.body')}</p>
 
             <div className="site-btn-row">
               {user ? (
                 <Link className="btn btn-brand btn-lg" href="/account">
-                  Go to my care
+                  {t('goToMyCare')}
                 </Link>
               ) : (
                 <Link className="btn btn-brand btn-lg" href="/sign-in">
-                  Sign in to {clinic}
+                  {t('close.signIn', { clinic })}
                 </Link>
               )}
 
               {tenant.contact?.phone ? (
                 <a className="site-textlink" href={`tel:${tenant.contact.phone}`}>
-                  <Icon name="phone" /> Or call {tenant.contact.phone}
+                  <Icon name="phone" /> {t('close.call', { phone: tenant.contact.phone })}
                 </a>
               ) : null}
             </div>

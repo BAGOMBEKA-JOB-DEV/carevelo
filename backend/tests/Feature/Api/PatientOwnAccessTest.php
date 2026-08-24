@@ -167,6 +167,43 @@ it('refuses a patient another patient\'s consultation', function () {
         ->assertForbidden();
 });
 
+it('lists a patient only their own consultations', function () {
+    // The index half, which failed differently from the show half above and
+    // could not be tested at all until GET /v1/consultations existed. A listing
+    // that authorises the patient and forgets to narrow returns every encounter
+    // in the clinic, and nothing about the response looks wrong.
+    $f = twoPatientsOfOneClinic();
+
+    [$mine, $theirs] = app(Tenancy::class)->run($f['tenant']->id, fn () => [
+        Consultation::factory()->create(['patient_id' => $f['patientA']->id]),
+        Consultation::factory()->create(['patient_id' => $f['patientB']->id]),
+    ]);
+
+    $ids = collect((array) $this->actingAs($f['userA'])
+        ->getJson(ownUrl($f['tenant'], '/api/v1/consultations'))
+        ->assertOk()
+        ->json('data'))->pluck('id');
+
+    expect($ids)->toContain($mine->id)
+        ->and($ids)->not->toContain($theirs->id);
+});
+
+it('ignores a patient_id filter naming another patient on the consultation list', function () {
+    $f = twoPatientsOfOneClinic();
+
+    app(Tenancy::class)->run(
+        $f['tenant']->id,
+        fn () => Consultation::factory()->create(['patient_id' => $f['patientB']->id])
+    );
+
+    $data = $this->actingAs($f['userA'])
+        ->getJson(ownUrl($f['tenant'], '/api/v1/consultations?patient_id='.$f['patientB']->id))
+        ->assertOk()
+        ->json('data');
+
+    expect($data)->toBe([]);
+});
+
 it('lists a patient only their own prescriptions', function () {
     $f = twoPatientsOfOneClinic();
 

@@ -927,11 +927,122 @@ paths:
           $ref: '#/components/responses/AuthorizationException'
         401:
           $ref: '#/components/responses/AuthenticationException'
+  '/v1/tenant/users/{user}/clinician':
+    get:
+      operationId: v1.staff.clinician.show
+      description: "Separate from GET /v1/clinicians and shaped differently on purpose. That\none is patient-facing and omits the registration number permanently; this\none is the administrator reading back a field they typed, on a route only\nthey can reach, so they can correct it."
+      summary: 'Read back what the clinic recorded, registration number included'
+      tags:
+        - ClinicianProfile
+      parameters:
+        -
+          name: user
+          in: path
+          required: true
+          description: 'The user ID'
+          schema:
+            type: string
+      responses:
+        200:
+          description: '`ClinicianProfileResource`'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/ClinicianProfileResource'
+                required:
+                  - data
+        403:
+          $ref: '#/components/responses/AuthorizationException'
+        404:
+          $ref: '#/components/responses/ModelNotFoundException'
+        401:
+          $ref: '#/components/responses/AuthenticationException'
+    post:
+      operationId: v1.staff.clinician.store
+      summary: "Record a colleague's registration details"
+      tags:
+        - ClinicianProfile
+      parameters:
+        -
+          name: user
+          in: path
+          required: true
+          description: 'The user ID'
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreClinicianRequest'
+      responses:
+        201:
+          description: '`ClinicianProfileResource`'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/ClinicianProfileResource'
+                required:
+                  - data
+        403:
+          $ref: '#/components/responses/AuthorizationException'
+        422:
+          $ref: '#/components/responses/ValidationException'
+        404:
+          $ref: '#/components/responses/ModelNotFoundException'
+        401:
+          $ref: '#/components/responses/AuthenticationException'
+    patch:
+      operationId: v1.staff.clinician.update
+      description: "The PRD's exception path lands here: a clinician saved without a\nregistration number carries `can_prescribe = false` and is prompted to\ncomplete it before prescribing. This is where that prompt leads."
+      summary: 'Correct or complete a clinical profile'
+      tags:
+        - ClinicianProfile
+      parameters:
+        -
+          name: user
+          in: path
+          required: true
+          description: 'The user ID'
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateClinicianRequest'
+      responses:
+        200:
+          description: '`ClinicianProfileResource`'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/ClinicianProfileResource'
+                required:
+                  - data
+        403:
+          $ref: '#/components/responses/AuthorizationException'
+        422:
+          $ref: '#/components/responses/ValidationException'
+        404:
+          $ref: '#/components/responses/ModelNotFoundException'
+        401:
+          $ref: '#/components/responses/AuthenticationException'
   /v1/consent-policies/current:
     get:
       operationId: v1.consent.policy
-      description: "A patient has to be able to read what they are agreeing to before they\nhave an account, so this endpoint carries no authentication and no\npatient data whatsoever -- only the clinic's own name, which the portal\nalready renders in its branding."
-      summary: 'The current consent policy. PUBLIC, by necessity'
+      description: "KNOWN CONTRACT IMPRECISION, recorded rather than papered over. The generator infers\nthis response from the runtime shape, and PHP cannot distinguish a map from a list, so\ntwo fields come out wrong in openapi.yaml and therefore in the typed client:\n\n  - `text` publishes as an untyped array. It is a MAP keyed by language code\n    (`en`, `lg`), which is why the consent screen cannot ask for a language by key and\n    narrows it by hand instead.\n  - `version` publishes as the literal current value, because the constant is visible\n    and looks like a fixed part of the contract. It is the opposite — it is designed to\n    change, and a client that pinned it would break on the first policy revision.\n\nNeither is wrong on the wire; both are wrong in the type. Fixing it properly means\npublishing `text` as a list of `{language, body}` objects, which the generator can\ndescribe exactly — a small breaking change worth making before a second consumer\nexists, and deliberately not made mid-flight while the consent screen was being built\nagainst the current shape."
+      summary: 'The current consent policy, in every language it is published in'
       tags:
         - Consent
       responses:
@@ -1099,6 +1210,106 @@ paths:
         422:
           $ref: '#/components/responses/ValidationException'
   /v1/consultations:
+    get:
+      operationId: v1.consultations.index
+      description: "The list a clinician opens to remember what they saw last week, and the\none an administrator opens to answer a question about a past encounter.\nIt carries no clinical content -- the resource never has -- so what is\nreturned is who, when, in which mode and with what outcome. Notes stay\nbehind their own endpoint, which audits every read of them separately."
+      summary: 'Past encounters, filtered'
+      tags:
+        - Consultation
+      parameters:
+        -
+          name: patient_id
+          in: query
+          schema:
+            type: string
+        -
+          name: clinician_id
+          in: query
+          schema:
+            type: string
+        -
+          name: outcome
+          in: query
+          schema:
+            $ref: '#/components/schemas/ConsultationOutcome'
+        -
+          name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        -
+          name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        -
+          name: sort
+          in: query
+          schema:
+            type: string
+            enum:
+              - started_at
+              - '-started_at'
+        -
+          name: per_page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+        -
+          name: cursor
+          in: query
+          schema:
+            type: string
+      responses:
+        200:
+          description: 'Paginated set of `ConsultationResource`'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ConsultationResource'
+                  links:
+                    type: object
+                    properties:
+                      first: { type: [string, 'null'] }
+                      last: { type: [string, 'null'] }
+                      prev: { type: [string, 'null'] }
+                      next: { type: [string, 'null'] }
+                    required:
+                      - first
+                      - last
+                      - prev
+                      - next
+                  meta:
+                    type: object
+                    properties:
+                      path: { type: [string, 'null'], description: 'Base path for paginator generated URLs.' }
+                      per_page: { type: integer, description: 'Number of items shown per page.', minimum: 0 }
+                      next_cursor: { type: [string, 'null'], description: 'The "cursor" that points to the next set of items.' }
+                      prev_cursor: { type: [string, 'null'], description: 'The "cursor" that points to the previous set of items.' }
+                    required:
+                      - path
+                      - per_page
+                      - next_cursor
+                      - prev_cursor
+                required:
+                  - data
+                  - links
+                  - meta
+        403:
+          $ref: '#/components/responses/AuthorizationException'
+        401:
+          $ref: '#/components/responses/AuthenticationException'
+        422:
+          $ref: '#/components/responses/ValidationException'
     post:
       operationId: v1.consultations.store
       summary: 'Start a consultation: the clinician has joined'
@@ -4246,6 +4457,46 @@ components:
         - supersedes_note_id
         - created_at
       title: ClinicalNoteResource
+    ClinicianProfileResource:
+      type: object
+      properties:
+        id:
+          type: string
+        user_id:
+          type: string
+        name:
+          type: string
+        registration_body:
+          type: string
+          description: "Recorded, never verified. A client rendering this must say so:\nCarevelo has no access to the UMDPC, AHPC or Nurses & Midwives\nregisters, and showing an attestation as though it were a check\nwould be false and, if relied upon, harmful."
+        registration_number:
+          type: string
+        specialty:
+          type:
+            - string
+            - 'null'
+        practising_licence_expires_at:
+          type:
+            - string
+            - 'null'
+        can_prescribe:
+          type: boolean
+        may_prescribe:
+          type: boolean
+        has_expired_licence:
+          type: boolean
+      required:
+        - id
+        - user_id
+        - name
+        - registration_body
+        - registration_number
+        - specialty
+        - practising_licence_expires_at
+        - can_prescribe
+        - may_prescribe
+        - has_expired_licence
+      title: ClinicianProfileResource
     ClinicianResource:
       type: object
       properties:
@@ -4653,6 +4904,11 @@ components:
           type: array
           items:
             type: string
+        patient_ids:
+          type: array
+          description: "THE RECORDS THIS ACCOUNT MAY ACT FOR, and without them the patient portal\ncannot function. Every patient-facing action is attached to a patient RECORD, not to a user\naccount: booking takes a patient_id, so do consents, orders and deliveries.\nThe link lives on patients.user_id and nothing exposed it, so the portal had\nno way to answer \"which record is mine\" — the booking screen was a dead end\nthat told the patient to telephone the clinic instead.\n\nA LIST, not a single id. ADR-0010 bought the one-account-to-many-records\ncardinality deliberately: a guardian holds their children's records as well\nas their own. A scalar here would quietly work for the common case and lose\na child's record for the case the column was designed for.\n\nStaff get an empty list, which is correct — a clinician acts on records\nthrough the clinical endpoints and their policies, never through \"mine\"."
+          items:
+            type: string
       required:
         - id
         - name
@@ -4660,6 +4916,7 @@ components:
         - phone
         - password_change_required
         - roles
+        - patient_ids
       title: MeResource
     MergePatientRequest:
       type: object
@@ -5174,6 +5431,14 @@ components:
       required:
         - mode
       title: RecordModeRequest
+    RegistrationBody:
+      type: string
+      description: "The three Ugandan registers a clinician can be on. CAPTURED, NEVER VERIFIED. Carevelo has no access to the UMDPC, AHPC or Nurses & Midwives registers and no API exists to check one against, so the value a clinic records is its own attestation and every surface showing it must say so. Automated licence verification is explicitly out of scope for H1, because implying a check we never performed would be worse than recording an attestation honestly.  The COLUMN is deliberately not cast to this enum. `registration_body` is snapshotted onto a prescription at the moment of issue, and that snapshot is part of a document a clinic may have to produce years later -- it has to reproduce exactly what was recorded, including rows written before this enum existed and rows written in a different case. So the enum guards the WAY IN, at validation, and reads stay plain strings.\n| |\n|---|\n| `umdpc` <br/> Uganda Medical and Dental Practitioners Council. |\n| `ahpc` <br/> Allied Health Professionals Council. |\n| `nurses_midwives` <br/> Uganda Nurses and Midwives Council. |"
+      enum:
+        - umdpc
+        - ahpc
+        - nurses_midwives
+      title: RegistrationBody
     RejectDispenseOrderRequest:
       type: object
       description: "The pharmacy declining to fill an order.\n\nA reason is required. An order that simply stops, with no record of why the\npharmacy would not fill it, leaves the prescribing clinician guessing and the\npatient with nothing to be told.\n\nThe reason stays on the record. It is not copied into the audit event or any\nnotification, because a pharmacist explaining a refusal will naturally name\nthe medicine."
@@ -5425,6 +5690,39 @@ components:
       required:
         - body
       title: StoreClinicalNoteRequest
+    StoreClinicianRequest:
+      type: object
+      description: "Recording a colleague's CLINICAL profile.\n\nThe staff invitation created a person with a role. This is the other half:\nthe registration details without which that person cannot prescribe, and\nwithout which -- because availability is generated per Clinician row -- the\nclinic has nobody to book.\n\n`user_id` is prohibited rather than absent. The clinician is named by the\npath, resolved against the administrator's own tenant, and a body field would\nbe a second way to say the same thing that nothing then checks. `tenant_id`\nis prohibited for the reason it is everywhere else: tenancy comes from the\nhost or the session and never from a payload."
+      properties:
+        registration_body:
+          $ref: '#/components/schemas/RegistrationBody'
+        registration_number:
+          type:
+            - string
+            - 'null'
+          description: "`present`, not `required`: the empty value is legitimate here. The PRD names the case directly -- a clinician whose registration\nnumber is not to hand is saved with prescribing off and prompted\nto complete it later -- and a clinic that cannot record the\ncolleague at all until someone finds a certificate simply does not\nfinish onboarding.\n\nBut it must be SAID rather than omitted. Leaving the key out of\nthe payload is how a client discovers weeks later that a number it\nthought it sent was never stored; sending it empty is a decision\nthe administrator made."
+          maxLength: 100
+        practising_licence_expires_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        specialty:
+          type:
+            - string
+            - 'null'
+          maxLength: 200
+        can_prescribe:
+          type: boolean
+          description: "Defaults to false, which is the safe direction. The single most\nimportant flag in the system is not one to switch on by omission."
+        tenant_id:
+          type: string
+        user_id:
+          type: string
+      required:
+        - registration_body
+        - registration_number
+      title: StoreClinicianRequest
     StoreConsentRequest:
       type: object
       description: "One consent decision, for one consent type.\n\nThe shape of this body is the compliance control. Three properties matter:\n\n  1. `consent_type` is singular. There is no array, so no client can bundle\n     three consents behind one tick -- DPPA 2019 requires consent to be\n     specific, and a bundle is not specific.\n  2. `affirmed` is REQUIRED and boolean. There is no default, because a\n     default is the absence of an affirmative action, and the absence of an\n     affirmative action is not consent. Omitting it is a 422, never a grant.\n  3. `policy_version` is required and must match what the server is currently\n     serving. A client showing stale wording collected consent to text we\n     cannot reconstruct, which fails the \"demonstrable\" test outright."
@@ -6042,6 +6340,34 @@ components:
         - environment
         - secret_key
       title: UpdateAggregatorAccountRequest
+    UpdateClinicianRequest:
+      type: object
+      description: "Correcting a clinician's registration details, or completing them.\n\nThis endpoint exists because of one line in the PRD: a clinician whose\nregistration number is not to hand is saved with `can_prescribe = false` and\nprompted to complete it before prescribing. Without a way back in, that\nprompt has nowhere to lead and the clinic is stuck with a colleague who can\nbe booked but can never prescribe.\n\nPATCH, so every field is `sometimes`: a partial update that blanked the\nregistration number because the client omitted it would silently strip a\nclinician of the right to prescribe."
+      properties:
+        registration_body:
+          $ref: '#/components/schemas/RegistrationBody'
+        registration_number:
+          type:
+            - string
+            - 'null'
+          maxLength: 100
+        practising_licence_expires_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        specialty:
+          type:
+            - string
+            - 'null'
+          maxLength: 200
+        can_prescribe:
+          type: boolean
+        tenant_id:
+          type: string
+        user_id:
+          type: string
+      title: UpdateClinicianRequest
     UpdatePasswordRequest:
       type: object
       properties:

@@ -22,7 +22,10 @@ use Illuminate\Support\Carbon;
  *
  * @property string $id
  * @property string $tenant_id
+ * @property string $user_id
+ * @property string $registration_body
  * @property string $registration_number
+ * @property ?string $specialty
  * @property bool $can_prescribe
  * @property ?Carbon $practising_licence_expires_at
  */

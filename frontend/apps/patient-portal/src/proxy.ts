@@ -63,8 +63,21 @@ export function proxy(request: NextRequest): NextResponse {
     // The clinic's logo is served from tenant-partitioned storage on our own origin.
     "img-src 'self' data: blob:",
     "font-src 'self'",
-    // The API shares the host, so the portal never talks to a third party.
-    "connect-src 'self'",
+    /*
+     * The API shares the host, so the portal never talks to a third party — and `ws:`/
+     * `wss:` do not change that. They are here because the portal subscribes to Reverb for
+     * payment and delivery state: a patient watching "awaiting your PIN" become "paid", or
+     * a rider's status reach their order page, is watching a websocket, and without this
+     * directive the connection is refused and the page just never updates. Silent in the
+     * usual way — it looks exactly like a payment that has not confirmed yet.
+     *
+     * `ws:` and `wss:` are SCHEME sources: they match any host and any port, which is why
+     * 'self' will not do the job. 'self' means same scheme, host AND port, and Reverb runs
+     * as its own supervised process rather than inside the app server, so a websocket to it
+     * is a different origin by the port alone. Looser than we would like, and worth
+     * narrowing to the concrete Reverb origin once that is fixed per environment.
+     */
+    "connect-src 'self' ws: wss:",
     "form-action 'self'",
     "base-uri 'none'",
     "object-src 'none'",

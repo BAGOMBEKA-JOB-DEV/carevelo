@@ -5,6 +5,7 @@ namespace App\Events;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
+use Illuminate\Contracts\Broadcasting\ShouldRescue;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Events\Dispatchable;
 use InvalidArgumentException;
@@ -29,9 +30,22 @@ use InvalidArgumentException;
  * unreachable must degrade the clinic to polling, never fail the dispensing
  * action that produced the event.
  *
+ * ShouldRescue is the other half of that promise, and it is not decoration.
+ * "Queued" means "handed to the queue connection", and under the sync driver —
+ * which is what local development runs, and what a small deployment can be
+ * talked into — the queue connection executes the job INLINE, inside the
+ * request that dispatched it. The publish to Reverb is an HTTP call, so a
+ * Reverb that is down or simply not started turns a refused connection into a
+ * 500 on the dispense, the payment attestation or the delivery update that
+ * raised the event. That is exactly the outcome the paragraph above forbids,
+ * arrived at from the queue side rather than the broadcast side. Rescued, the
+ * failure is reported and the domain action completes; the clinic falls back to
+ * polling and reconciles on the next refresh, which the payload rule already
+ * guarantees is safe — a frame is a hint, never the fact.
+ *
  * @see docs/30-architecture/realtime-broadcasting.md
  */
-abstract class TenantBroadcast implements ShouldBroadcast
+abstract class TenantBroadcast implements ShouldBroadcast, ShouldRescue
 {
     use Dispatchable;
     use InteractsWithSockets;

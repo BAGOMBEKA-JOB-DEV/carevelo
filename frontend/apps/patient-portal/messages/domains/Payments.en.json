@@ -1,0 +1,127 @@
+{
+  "Payments": {
+    "choose": {
+      "eyebrow": "Payment",
+      "title": "How would you like to pay?",
+      "subtitle": "You are paying {clinic}.",
+      "amountLabel": "Amount",
+      "payableAppointment": "For your appointment",
+      "payableOrder": "For your medicines",
+      "legend": "Choose how to pay",
+      "submit": "Pay {amount}",
+      "direct": "The money goes straight to {clinic}'s own account. Carevelo never holds it and takes nothing from it.",
+      "retrying": "This is a fresh attempt. Anything you started earlier is left as it is.",
+      "noMethods": "{clinic} has not switched on a way to pay from here yet. Call the clinic to arrange payment.",
+      "problem": "That did not work"
+    },
+    "methods": {
+      "mtn_momo": {
+        "label": "MTN Mobile Money",
+        "note": "A request comes to your phone. You enter your PIN to approve it."
+      },
+      "airtel_money": {
+        "label": "Airtel Money",
+        "note": "A request comes to your phone. You enter your PIN to approve it."
+      },
+      "card": {
+        "label": "Card",
+        "note": "Your bank checks the card. Carevelo never sees your card details."
+      },
+      "cash_at_clinic": {
+        "label": "Cash at the clinic",
+        "note": "Pay at the desk. A member of staff confirms it here."
+      },
+      "unknown": {
+        "label": "This payment",
+        "note": ""
+      }
+    },
+    "notStarted": {
+      "titleAggregator": "This payment has not started",
+      "bodyAggregator": "Nothing has been asked of your phone and nothing has left your account. This happens when {clinic}'s payment provider cannot be reached.",
+      "titleCash": "Pay at {clinic}",
+      "bodyCash": "Take {amount} to the clinic and give the reference below. A member of staff confirms it here once you have paid. Nothing has been paid yet."
+    },
+    "waiting": {
+      "title": "Check your phone",
+      "titleGeneric": "Waiting for confirmation",
+      "lede": "{method} has been asked to collect {amount} for {clinic}. A request should appear on the phone you pay with — enter your PIN to approve it.",
+      "ledeGeneric": "{method} is still working on this payment of {amount} for {clinic}.",
+      "howLongTitle": "How long this takes",
+      "howLong": "Most requests are approved within a minute. Some take several minutes. We keep asking for up to an hour before we say we could not find out.",
+      "checking": "This page checks again by itself while it is open. You can also press Check again.",
+      "checkingLabel": "Waiting for this payment to be confirmed",
+      "notPaidYet": "Nothing is confirmed yet. This page will say you have paid only once {method} tells us so.",
+      "doNotPayTwice": "Please do not pay for this again. If you are unsure, press Check again, or call {clinic} and give the reference below.",
+      "noRequest": "If no request reaches your phone within a few minutes, you can try another way to pay."
+    },
+    "failed": {
+      "title": "The payment did not go through",
+      "saidBy": "{method} said:",
+      "noReason": "{method} did not say why.",
+      "money": "If money has left your account, call {clinic} and give the reference below. The clinic can check its own records against it.",
+      "next": "You can try again, with the same way of paying or a different one."
+    },
+    "unresolved": {
+      "title": "We do not know yet whether this payment went through",
+      "lede": "There has been no answer from {method} in the time we wait. That is not the same as a failure: mobile money confirmations do arrive late, and we go on checking for up to a day.",
+      "doNotPayTwice": "Please do not pay for this again yet. If it did go through, paying again would take the money twice.",
+      "callClinic": "If you need an answer today, call {clinic} and give the reference below.",
+      "tryAnywayTitle": "If you would rather not wait",
+      "tryAnyway": "You can start a fresh attempt. The earlier one may still complete on its own, which is why calling the clinic first is the safer thing to do."
+    },
+    "reversed": {
+      "title": "This payment was reversed",
+      "body": "{method} reports that this payment was reversed after it went through. Call {clinic} and give the reference below — a reversal is always handled by a person."
+    },
+    "unknownState": {
+      "title": "We cannot tell the state of this payment",
+      "body": "Press Check again. If it stays like this, call {clinic} and give the reference below."
+    },
+    "paid": {
+      "title": "Paid",
+      "subtitle": "{clinic} has your payment."
+    },
+    "receipt": {
+      "title": "Receipt",
+      "paidTo": "Paid to",
+      "amount": "Amount",
+      "method": "How you paid",
+      "paidAt": "Paid on",
+      "reference": "Our reference",
+      "providerReference": "{method} reference",
+      "notRecorded": "Not recorded",
+      "unavailable": "The receipt could not be loaded just now. The details below are from the payment record itself.",
+      "forAppointment": "For your appointment",
+      "forOrder": "For your medicines"
+    },
+    "refunds": {
+      "title": "If you need money back",
+      "body": "Your money went straight to {clinic}'s own account, so Carevelo has nothing to give back. {clinic} makes any refund through the same provider that took the payment.",
+      "how": "Ask {clinic} and give the reference below. We record that you asked and what the clinic decided."
+    },
+    "reference": {
+      "label": "Reference",
+      "hint": "Give this if you call {clinic}."
+    },
+    "status": {
+      "initiated": "Not started",
+      "pending": "Waiting",
+      "succeeded": "Paid",
+      "failed": "Not paid",
+      "timed_out": "Not confirmed",
+      "reversed": "Reversed",
+      "unknown": "Unknown"
+    },
+    "actions": {
+      "checkAgain": "Check again",
+      "tryAgain": "Try another way to pay",
+      "callClinic": "Call {clinic} on {phone}"
+    },
+    "errors": {
+      "notAllowed": "This clinic's system did not let us start that payment. Call {clinic} to arrange it another way.",
+      "keyReused": "Something is wrong with this payment attempt. Reload this page and start again.",
+      "generic": "We could not start that payment."
+    }
+  }
+}

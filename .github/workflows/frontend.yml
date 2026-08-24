@@ -79,6 +79,30 @@ jobs:
         # build time, so a placeholder origin would be baked into the artefacts.
         run: pnpm check
 
+      - name: The booking path stays inside its JavaScript budget
+        # docs/30-architecture/frontend-nextjs.md:112 sets a first-load JavaScript budget for
+        # the patient portal, seven comments across the tree spend that number to justify a
+        # design decision -- the icon set is a server component, the brand mark skips
+        # next/image, no web fonts on the critical path -- and until this step existed nothing
+        # measured it. A budget nobody measures is the same defect as the lint config that was
+        # never run and the console command that was never scheduled: it reads as a control
+        # while permitting anything, and this one had already drifted 25KiB past its number.
+        #
+        # Placed immediately after `pnpm check` because it measures a build rather than
+        # producing one. check's last act is a production `next build` of all four apps, so the
+        # artefact this reads is already on disk. That is also exactly why `budget` is NOT a
+        # member of the composed `check` script: inside it the gate would silently depend on
+        # having been invoked after the build within the same run, and a developer running it
+        # against a cold tree would get "no production build to measure" where they expected an
+        # answer about their bundle.
+        #
+        # Its own step rather than a line appended to check, so the measurement lands as its own
+        # labelled block in the log. The script prints the sizes on success as well as failure,
+        # which is the point -- the number is in the log of every run, so a regression is
+        # visible as a diff between two build logs rather than only as a red tick on the day the
+        # ceiling finally breaks.
+        run: pnpm budget
+
       - name: The generator reproduces the committed client
         # `pnpm check` already ran api-client:check, which regenerates to a temp
         # file and compares -- so this step deliberately does NOT repeat that
