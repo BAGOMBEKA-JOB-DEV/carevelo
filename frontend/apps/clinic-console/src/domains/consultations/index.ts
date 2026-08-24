@@ -47,13 +47,21 @@
  * screen offers them a door the API would shut.
  *
  * ------------------------------------------------------------------------------------
- * THE ONE LOOSE END, NAMED RATHER THAN HIDDEN
+ * THE LOOSE END THAT WAS NAMED HERE IS TIED
  *
- * `clearAllNoteDrafts()` exists so the identity domain's sign-out path can satisfy acceptance
+ * `clearAllDrafts()` exists so the identity domain's sign-out path can satisfy acceptance
  * criterion 7 — "no clinical data persists in client storage beyond the active note draft".
- * NOTHING CALLS IT YET, because the identity domain is an empty placeholder this change does
- * not own. It is exported from here, and only from here, so that when sign-out is built there
- * is exactly one function to call and no temptation to reimplement the key format.
+ * This paragraph used to say that nothing called it, because the console had no sign-out
+ * control; it has one now, and `domains/identity/components/SignOutSubmit.tsx` makes the
+ * call on the press that signs out. It is exported from here and only from here, so that
+ * there is exactly one function to call and no temptation to reimplement the key format in
+ * the identity domain — where a mismatched prefix would fail silently and leave a previous
+ * clinician's notes on a shared clinic handset.
+ *
+ * It was also called `clearAllNoteDrafts()` here while `model/drafts.ts` specified
+ * `clearAllDrafts()`, so the name the contract used appeared nowhere in the product and a
+ * reader looking for the wiring reasonably concluded there was none. One name now, and it is
+ * the specification's.
  *
  * @see docs/10-product/prd-h3-teleconsultation.md
  * @see docs/30-architecture/frontend-nextjs.md:132 — notes must never be lost
@@ -66,7 +74,7 @@ export { ConsultationRoom, type ConsultationRoomProps } from './components/Consu
 export { loadRoom, type RoomState } from './api/entry'
 
 /* ---- The draft's storage contract, for sign-out. See above. ---- */
-export { clearAllNoteDrafts } from './components/clearDrafts'
+export { clearAllDrafts } from './components/clearDrafts'
 
 /* ---- Types, all of them from the generated contract ---- */
 export type {

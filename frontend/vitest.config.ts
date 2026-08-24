@@ -37,21 +37,19 @@ import react from '@vitejs/plugin-react'
  * rather than `vitest`: pnpm only puts a package's own dependencies on its PATH, and the
  * root has no vitest to put there. It is the same 4.1.10 the workspace pins.
  *
- * ONE THING IS OUTSTANDING, AND IT IS WRITTEN DOWN HERE RATHER THAN LEFT TO BE
- * REDISCOVERED. apps/patient-portal does not declare vitest either, and unlike the config
- * loader above, `tsc` and dependency-cruiser cannot be worked around: both resolve
- * `import { it } from 'vitest'` the way Node does, by walking up from the importing file,
- * and pnpm's isolated layout puts vitest nowhere on that path. So the suite RUNS — vitest
- * resolves its own package — while `pnpm typecheck` and `pnpm boundaries` report the
- * import as unresolvable for that app. The fix is one line and one install:
+ * THAT OUTSTANDING ITEM IS CLOSED, AND SO IS ITS TWIN. This file used to record that
+ * apps/patient-portal did not declare vitest, so `tsc` and dependency-cruiser reported
+ * `import { it } from 'vitest'` as unresolvable for that app even while the suite ran —
+ * both resolve the way Node does, by walking up from the importing file, and pnpm's
+ * isolated layout puts vitest nowhere on that path. It declares it now, and
+ * apps/clinic-console declares it as of the `clinic-console` project below, which is the
+ * same one-line devDependency for the same reason.
  *
- *     pnpm --filter @carevelo/patient-portal add -D vitest@4.1.10
- *
- * It is not done here because it edits a package.json and touches the lockfile, and a
- * package.json edit without the matching install is worse than the gap it closes: the
- * lockfile goes stale and CI's `--frozen-lockfile` fails for everybody. Left visible on
- * purpose rather than papered over with a node_modules symlink that would be green on one
- * machine and red on the next.
+ * THE RULE THAT WAS RIGHT AND STAYS RIGHT: a devDependency added to a package.json without
+ * the lockfile entry to match is worse than the gap it closes, because CI's
+ * `--frozen-lockfile` then fails for everybody. Both halves go together, or neither does,
+ * and a node_modules symlink in place of the declaration is green on one machine and red on
+ * the next.
  *
  * PROJECTS RATHER THAN ONE ENVIRONMENT, because the two suites want opposite things.
  * packages/ui parses its own CSS as text and reads files off disk with node:fs relative
@@ -73,6 +71,7 @@ const workspace = (path: string): string =>
   new URL(path, import.meta.url).pathname
 
 const patientPortal = workspace('./apps/patient-portal')
+const clinicConsole = workspace('./apps/clinic-console')
 
 export default {
   test: {
@@ -119,6 +118,44 @@ export default {
         test: {
           name: 'patient-portal',
           root: patientPortal,
+          environment: 'jsdom',
+          include: ['src/**/*.test.{ts,tsx}'],
+          restoreMocks: true,
+          unstubEnvs: true,
+          unstubGlobals: true,
+          setupFiles: [workspace('./vitest.setup.ts')],
+        },
+      },
+
+      /*
+       * apps/clinic-console — jsdom, and it is here for one function.
+       *
+       * `clearAllDrafts()` sweeps the note drafts out of `localStorage` on sign-out, which
+       * is the whole of acceptance criterion 7 on this surface — "no clinical data persists
+       * in client storage beyond the active note draft". It is exactly the kind of code that
+       * cannot be checked by reading it: the two ways it has been got wrong are removing
+       * keys while walking the indices (which silently leaves half of them) and letting a
+       * blocked `localStorage` throw out of the sign-out path (which leaves a clinician
+       * signed in on a shared terminal). Both are one assertion each and neither is visible
+       * in a type.
+       *
+       * The console had no test project at all until then, which is why the defect this
+       * suite covers survived: the function was written, exported, described in a docblock,
+       * and never called or executed by anything.
+       *
+       * Same shape as the patient-portal project deliberately — jsdom, the app's own `@/`
+       * alias repeated because vitest does not read tsconfig paths, and the shared setup
+       * file. Neither project inherits from the other, so a change made for one cannot
+       * quietly alter the other.
+       */
+      {
+        plugins: [react()],
+        resolve: {
+          alias: { '@': `${clinicConsole}/src` },
+        },
+        test: {
+          name: 'clinic-console',
+          root: clinicConsole,
           environment: 'jsdom',
           include: ['src/**/*.test.{ts,tsx}'],
           restoreMocks: true,

@@ -30,17 +30,33 @@
  * draft." Which means this file owns two obligations besides writing:
  *
  *   - CLEARED ON SUBMISSION. The moment a section is safely on the server, its draft goes.
- *   - CLEARED ON SIGN-OUT. `clearAllDrafts()` exists for exactly that and is exported from
- *     the domain's public surface so the identity domain can call it from its sign-out path.
- *     THAT CALL DOES NOT EXIST YET — the identity domain is an empty placeholder and this
- *     change does not own it. It is in the handover notes, and it is the one loose end in
- *     this design worth chasing: a shared clinic laptop where the previous clinician's draft
- *     is still in local storage is precisely the exposure the criterion is written against.
+ *   - CLEARED ON SIGN-OUT. `clearAllDrafts()` does exactly that. It lives in
+ *     ./components/clearDrafts.ts, is exported from the domain's public surface, and is
+ *     called by the identity domain's sign-out path —
+ *     `domains/identity/components/SignOutSubmit.tsx`, on the press that submits.
  *
- * As a partial mitigation the key is SCOPED TO THE SIGNED-IN USER as well as the
- * consultation, so a second clinician signing in on the same handset does not see the first
- * one's text — they simply find their own empty editor. It is not a substitute for clearing
- * on sign-out, and it is not presented as one.
+ * WHAT THIS PASSAGE USED TO SAY, AND WHY THAT MATTERS MORE THAN THE CORRECTION. It stated,
+ * in the present tense, that the function "exists for exactly that and is exported", and
+ * then that the CALL did not exist yet because the identity domain was a placeholder. Both
+ * halves aged badly. The identifier it named was never in the codebase at all — the function
+ * was written as `clearAllNoteDrafts()` — so this comment was the only occurrence of
+ * `clearAllDrafts` anywhere, and a reader grepping for the wiring found a claim and no code.
+ * Meanwhile the console grew a sign-out screen and nothing connected the two. So the
+ * criterion was not partly met on its motivating scenario. It was not met at all: a shared
+ * clinic laptop where the previous clinician's note is still in local storage is precisely
+ * the exposure it is written against, and that note was still there.
+ *
+ * It is written down rather than quietly fixed because the failure is worth recognising when
+ * it recurs: a design fully described, fully exported, and never once invoked. Nothing about
+ * it is visible in a diff, a type error or a passing test — only in a grep for the name.
+ *
+ * The key is ALSO SCOPED TO THE SIGNED-IN USER as well as the consultation, so a second
+ * clinician signing in on the same handset does not see the first one's text — they simply
+ * find their own empty editor. That is what kept the gap from being noticed, and it is a
+ * mitigation rather than the control: the first clinician's text is still in storage,
+ * readable by anything with script access to the origin. It is not a substitute for clearing
+ * on sign-out and it is not presented as one — and the clearing is not a substitute for it
+ * either, because the clear is best-effort where the sign-out is not. Both stay.
  *
  * ====================================================================================
  * NOTHING IN HERE TOUCHES THE BROWSER

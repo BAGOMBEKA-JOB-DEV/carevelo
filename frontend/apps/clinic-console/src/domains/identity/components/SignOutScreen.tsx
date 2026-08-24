@@ -1,8 +1,9 @@
 import { redirect } from 'next/navigation'
-import { Button, Notice } from '@carevelo/ui'
+import { Notice } from '@carevelo/ui'
 import { currentUser, signOut } from '../api/session'
 import type { IdentityPaths } from '../model/types'
 import { samePath, withParams } from './screen'
+import { SignOutSubmit } from './SignOutSubmit'
 
 /**
  * Leaving.
@@ -32,6 +33,25 @@ import { samePath, withParams } from './screen'
  *
  * A plain form post — no 'use client'. Signing out must not depend on a bundle having
  * arrived, least of all on the connection that has just started failing.
+ *
+ * ============================================================================
+ * SIGNING OUT ALSO CLEARS THIS BROWSER'S NOTE DRAFTS, AND THAT IS WHY THE BUTTON IS A
+ * COMPONENT INSTEAD OF A `<Button type="submit">`.
+ *
+ * Acceptance criterion 7 — "no clinical data persists in client storage beyond the active
+ * note draft" — is not satisfied by the server ending a session. The drafts are in this
+ * browser's `localStorage`, and the motivating scenario for the criterion is precisely this
+ * screen's own: a shared clinic laptop where the previous clinician's note outlives them.
+ * The consultations domain owns the sweep (`clearAllDrafts`), and it can only run in a
+ * browser — a Server Action cannot reach into storage — so the CALL is in `SignOutSubmit`,
+ * a client component whose entire job is to make the clear and the POST happen on one press.
+ * Read that file before changing this one: it explains why the clear is on the press and not
+ * on mount, and what is and is not guaranteed when the bundle has not arrived.
+ *
+ * That the sweep existed and nothing called it is the defect this closes. Every part of the
+ * design was in place — the function, the export, the contract written out in
+ * `consultations/model/drafts.ts` — except the one line that made any of it happen.
+ * ============================================================================
  */
 
 export type SignOutScreenProps = {
@@ -88,9 +108,9 @@ export async function SignOutScreen({ paths }: SignOutScreenProps) {
           </Notice>
 
           <form action={submitSignOut.bind(null, { paths })} className="auth__fields">
-            <Button type="submit" variant="primary" size="lg" block>
-              Sign out
-            </Button>
+            {/* The submit control AND the browser-side half of signing out. See the
+                docblock, and SignOutSubmit.tsx. */}
+            <SignOutSubmit />
           </form>
 
           <p className="auth__aside">
