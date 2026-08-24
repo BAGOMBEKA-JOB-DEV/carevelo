@@ -1,3 +1,4 @@
+import type { AuditPaths } from '@/domains/audit'
 import type { BreakGlassPaths } from '@/domains/break-glass'
 import type { IdentityPaths } from '@/domains/identity'
 import type { PlatformPaths } from '@/domains/platform'
@@ -28,9 +29,17 @@ import type { PlatformPaths } from '@/domains/platform'
  * other destination is: a Server Action must never take its destination from the request,
  * and the sign-in actions are the ones a form talks to before anybody is authenticated.
  *
- * `/audit` IS ABSENT FROM BOTH OBJECTS. It is in the nav and it is still a planned section:
- * `GET /v1/audit-events` is tenant-scoped and clinic-admin-only, and there is no
- * cross-tenant platform audit endpoint in the published contract to build it against.
+ * `/audit` IS A REAL SCREEN NOW, AND THIS PARAGRAPH USED TO SAY THE OPPOSITE. It said the
+ * section was planned because `GET /v1/audit-events` is tenant-scoped and clinic-admin-only
+ * and no cross-tenant audit endpoint existed to build against. `GET
+ * /v1/platform/audit-events` exists, and it publishes the projection the RBAC matrix
+ * describes rather than the tenant query with the scope taken off: Carevelo's own events in
+ * full, a clinic's as metadata only.
+ *
+ * `AUDIT_PATHS` carries `breakGlass` as well as its own route, because the audit screen has
+ * to point somewhere when it says a question is out of its reach. Record-level detail is a
+ * break-glass grant, and a screen that named the limit without naming the door would read
+ * as a product that is simply broken.
  */
 export const PLATFORM_PATHS: PlatformPaths = {
   overview: '/',
@@ -38,6 +47,12 @@ export const PLATFORM_PATHS: PlatformPaths = {
   provision: '/tenants/new',
   export: '/tenants/export',
   breakGlass: '/break-glass',
+}
+
+export const AUDIT_PATHS: AuditPaths = {
+  register: '/audit',
+  breakGlass: '/break-glass',
+  overview: '/',
 }
 
 export const IDENTITY_PATHS: IdentityPaths = {

@@ -1,59 +1,65 @@
 import type { ReactElement } from 'react'
-import { Card, Grid, PageHeader, Skeleton, Stack } from '@carevelo/ui'
+import { Card, PageHeader, Skeleton, Stack } from '@carevelo/ui'
 import { ControlPlaneShell } from '@/components/ControlPlaneShell'
 
 /**
- * Audit, in the shape it will arrive in.
+ * The audit register, in the shape it will arrive in.
  *
- * THE SHORTEST WAIT IN THE APP, AND STILL WORTH A FILE. Everything on this route is static
- * — `PlannedSection` renders words out of `sections.ts` and fetches nothing — but the page
- * above it awaits `authoriseOperator()` before it renders any of them, so there is exactly
- * one round trip during which nothing on screen changes. Without a fallback here Next walks
- * up to `app/loading.tsx`, and an operator clicking "Audit" would watch the OVERVIEW's
- * placeholder — a stat card and a clinics-by-state row — resolve into three paragraphs
- * about audit metadata, with the sidebar highlight sitting on nothing the whole time. A
- * skeleton of the wrong page is worse than no skeleton, and the fix is a small file rather
- * than a compromise in the shared one.
+ * THIS ROUTE GOT SLOWER WHEN IT BECAME REAL, which is why this file was rewritten rather
+ * than deleted. It used to render three paragraphs after one round trip. It now resolves
+ * the operator, then reads the clinic register AND a page of the audit trail, and only then
+ * renders — and the audit read is a cross-tenant query against a partitioned table. Without
+ * a fallback here Next walks up to `app/loading.tsx` and an operator clicking "Audit"
+ * watches the OVERVIEW's placeholder — a stat card and a clinics-by-state row — resolve
+ * into a table. A skeleton of the wrong page is worse than no skeleton.
  *
  * `active="audit"` is most of the value here: it is the only thing on screen during that
- * round trip that tells an operator their click registered.
+ * wait that tells an operator their click registered. See app/loading.tsx for why the frame
+ * is rendered for real and costs nothing.
  *
- * See app/loading.tsx for why the frame is rendered for real and costs nothing.
+ * ------------------------------------------------------------------------------------
+ * NOTHING HERE SKETCHES AN EVENT, AN ACTOR OR A CLINIC.
  *
- * THE HEADING IS REAL, and unusually there is no argument to have about it: "Audit" is the
- * section's label in `sections.ts`, the topbar's title and the page's <h1>, and none of the
- * three depends on anything fetched.
+ * Every row on this screen names a clinic and an account, and half of them are Carevelo's
+ * own break-glass grants. A placeholder that outlined "action / when / clinic / actor" is a
+ * shape somebody starts reading before any of it is true, on a screen opened during an
+ * incident. The blocks below reserve height and draw nothing that resembles a record — and
+ * in particular nothing that resembles the "Withheld" badge, which is a claim about what
+ * the API returned and this file has no basis for making it.
  *
- * WHAT IS NOT RENDERED IS THE "Not built yet" BADGE. It sits in the page head's actions
- * slot and it is a statement about the state of the product; a fallback has no business
- * making that statement a moment before the page makes it properly, and a grey rectangle
- * where a badge goes is a badge to anybody glancing.
+ * THE BADGE IN THE PAGE HEAD IS NOT RENDERED EITHER. It says whether the platform trail or
+ * a clinic's is being read, which is the single most important fact on the screen; a grey
+ * rectangle in that position is a trail name to anybody glancing.
+ * ------------------------------------------------------------------------------------
  */
 export default function AuditLoading(): ReactElement {
   return (
     <ControlPlaneShell title="Audit" active="audit">
       <PageHeader title="Audit" />
 
-      <Stack gap="5">
-        {/* The standing notice that nothing on this screen works yet, and under it the
-            caution about metadata-only reads of a clinic's events. Both are unconditional
-            on this route, so both have their height reserved. */}
+      <Stack gap="6">
+        {/* The two links that open the section: the overview and the break-glass register. */}
+        <Skeleton lines={1} />
+
+        {/* The two standing notices — what the register withholds, and that reading it is
+            itself audited. Both are unconditional on this route, so both have their height
+            reserved unconditionally. */}
         <Skeleton block="sm" />
         <Skeleton block="sm" />
 
-        {/* The three planned screens, in the two-column grid that collapses to one at the
-            same width the real one does. */}
-        <Grid cols={2} gap="5">
-          {Array.from({ length: 3 }, (_unused, index) => (
-            /* Index as key: generated from a count, never reordered, no state to carry. */
-            <Card key={index}>
-              <Stack gap="3">
-                <Skeleton lines={1} className="title-sm" />
-                <Skeleton lines={3} />
-              </Stack>
-            </Card>
-          ))}
-        </Grid>
+        {/* The filter bar: the trail picker, the action, the actor and the two dates. */}
+        <Card as="section" padding="tight">
+          <Skeleton block="sm" />
+        </Card>
+
+        {/* The register itself. One block, not a striped table: rows drawn here would be
+            read as rows. */}
+        <Card as="section" padding="tight">
+          <Skeleton block="lg" />
+        </Card>
+
+        {/* The cursor pager under it. */}
+        <Skeleton lines={1} />
       </Stack>
     </ControlPlaneShell>
   )

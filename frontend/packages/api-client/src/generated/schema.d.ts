@@ -1366,6 +1366,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/platform/audit-events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["v1.platform.audit-events.index"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/platform/auth/sign-in": {
         parameters: {
             query?: never;
@@ -2710,6 +2726,36 @@ export interface components {
             failure_message: string | null;
             initiated_at: string | null;
             resolved_at: string | null;
+        };
+        /** PlatformAuditEventResource */
+        PlatformAuditEventResource: {
+            id: string;
+            /**
+             * @description Null on a platform event, which is what makes it one. The screen reads this
+             *     to say "Carevelo" rather than naming a clinic.
+             */
+            tenant_id: string | null;
+            action: string;
+            actor_type: string;
+            actor_id: string | null;
+            actor_role: string | null;
+            /** @description The KIND of thing acted on, never which one. See the class docblock. */
+            subject_type: string | null;
+            subject_id: string | null;
+            occurred_at: string;
+            ip_address: string | null;
+            user_agent: string | null;
+            /**
+             * @description Kept on both projections. It holds nothing about anybody -- it is the join
+             *     key to the application logs, and an operator diagnosing an incident from
+             *     metadata alone needs the half of the story the logs hold.
+             */
+            request_id: string | null;
+            metadata: {
+                [key: string]: unknown;
+            } | null;
+            /** @enum {string} */
+            projection: "metadata_only" | "full";
         };
         /**
          * PlatformSignInRequest
@@ -6185,6 +6231,61 @@ export interface operations {
             401: components["responses"]["AuthenticationException"];
             403: components["responses"]["AuthorizationException"];
             404: components["responses"]["ModelNotFoundException"];
+        };
+    };
+    "v1.platform.audit-events.index": {
+        parameters: {
+            query?: {
+                /**
+                 * @description `exists`, so an unknown clinic is a 422 naming the field rather than an empty
+                 *     page that reads as "this clinic has done nothing". Not a disclosure worth
+                 *     worrying about on this surface: the operator holding a verified platform
+                 *     session can already list every tenant at GET /v1/platform/tenants.
+                 */
+                tenant_id?: string;
+                action?: string;
+                actor_id?: string;
+                from?: string;
+                to?: string;
+                per_page?: number;
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated set of `PlatformAuditEventResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["PlatformAuditEventResource"][];
+                        links: {
+                            first: string | null;
+                            last: string | null;
+                            prev: string | null;
+                            next: string | null;
+                        };
+                        meta: {
+                            /** @description Base path for paginator generated URLs. */
+                            path: string | null;
+                            /** @description Number of items shown per page. */
+                            per_page: number;
+                            /** @description The "cursor" that points to the next set of items. */
+                            next_cursor: string | null;
+                            /** @description The "cursor" that points to the previous set of items. */
+                            prev_cursor: string | null;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            403: components["responses"]["AuthorizationException"];
+            422: components["responses"]["ValidationException"];
         };
     };
     "v1.platform.auth.sign-in": {

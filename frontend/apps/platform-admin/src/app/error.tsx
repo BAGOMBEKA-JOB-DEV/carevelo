@@ -37,13 +37,18 @@ import { Button, Card, Inline, Stack } from '@carevelo/ui'
  * ------------------------------------------------------------------------------------
  *
  * IT DOES NOT RENDER `ControlPlaneShell`, FOR THE REASON `clinic-console/src/app/error.tsx`
- * SETS OUT AND WITH A LARGER NUMBER ATTACHED. This file is a client component, so anything
- * it imports joins the route's client bundle — and `ControlPlaneShell` imports
- * `components/sections.ts`, which carries a lede, a caution and three planned-screen
- * paragraphs per section, roughly nine kilobytes of prose, in order to produce three
- * navigation links. This app ships no client JavaScript at all today. Paying that on every
- * route to decorate a screen almost nobody reaches is the wrong trade, and `loading.tsx`
- * renders the full frame instead — it can, because it is a server component.
+ * SETS OUT. This file is a client component, so everything it imports joins the route's
+ * client bundle, and this app ships one client component in total — the theme toggle. The
+ * shell and the nav data behind it are server-rendered on every other route and would stop
+ * being so the moment this file imported them, on every route at once, to decorate a screen
+ * almost nobody reaches.
+ *
+ * The number that used to be attached to this paragraph is gone with the thing it measured:
+ * `components/sections.ts` carried a lede, a caution and three planned-screen paragraphs per
+ * section — roughly nine kilobytes of prose — to produce three navigation links, and it was
+ * trimmed to a label and a route when the last planned section became a real screen. The
+ * argument stands without the number, which is why it is still here. `loading.tsx` renders
+ * the full frame instead, as it always could, because it is a server component.
  *
  * So the ways out are stated rather than implied by a sidebar: the retry, the register, and
  * the overview. All three are routes that exist. `sections.ts` records what happened the
