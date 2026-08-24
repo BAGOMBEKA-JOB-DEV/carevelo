@@ -1,6 +1,17 @@
 import type { ReactElement, ReactNode } from 'react'
 import { redirect } from 'next/navigation'
-import { Badge, Button, DateTime, EmptyState, Icon, Notice, PageHeader } from '@carevelo/ui'
+import {
+  Badge,
+  Button,
+  Card,
+  DataTable,
+  DateTime,
+  EmptyState,
+  Icon,
+  Notice,
+  PageHeader,
+  Stack,
+} from '@carevelo/ui'
 import { attempt } from '../api/http'
 import { listPatients, mergePatient, tryReadPatient } from '../api/patients'
 import type { Patient } from '../api/types'
@@ -138,13 +149,19 @@ export async function MergeScreen({
       <>
         {heading}
         <Notice tone="warn" icon="users" announce title="This record was itself a duplicate">
-          Its history already moved elsewhere, so nothing can be merged into it. Open the record
-          that survived and merge from there.
-          <div style={{ marginTop: 'var(--space-4)' }}>
-            <Button href={paths.record(survivor.merged_into_patient_id)}>
-              Open the record that survived
-            </Button>
-          </div>
+          {/* A Notice's children land in a plain block, so the button under the sentence was
+              being pushed down by a margin of its own. The column says it once. */}
+          <Stack gap="4">
+            <p>
+              Its history already moved elsewhere, so nothing can be merged into it. Open the
+              record that survived and merge from there.
+            </p>
+            <div>
+              <Button href={paths.record(survivor.merged_into_patient_id)}>
+                Open the record that survived
+              </Button>
+            </div>
+          </Stack>
         </Notice>
       </>
     )
@@ -244,71 +261,92 @@ async function ChooseStep({
             ?? 'The request did not reach the API. Nothing has been changed; try again in a moment.'}
         </Notice>
       ) : candidates.length === 0 ? (
-        <div className="card">
-          <EmptyState icon="users" title="No other patients on this page">
-            Page through the register to find the duplicate registration.
-          </EmptyState>
-        </div>
+        <div className="card">{NO_CANDIDATES}</div>
       ) : (
         <div className="card panel-table">
-          <div className="table-scroll">
-            <table className="table">
-              <caption className="sr-only">
-                Patients that could be folded into this record
-              </caption>
-              <thead>
-                <tr>
-                  <th scope="col">Name</th>
-                  <th scope="col">Phone</th>
-                  <th scope="col">Date of birth</th>
-                  <th scope="col">Status</th>
-                  <th scope="col">Registered</th>
-                  <th scope="col">
-                    <span className="sr-only">Choose</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {candidates.map((candidate) => (
-                  <tr key={candidate.id}>
-                    <td>
-                      {candidate.family_name}, {candidate.given_name}
-                    </td>
-                    <td className="tnum">{candidate.phone}</td>
-                    <td>
-                      {candidate.date_of_birth === null ? (
-                        <span className="muted">—</span>
-                      ) : (
-                        <DateTime value={candidate.date_of_birth} format="date" />
-                      )}
-                    </td>
-                    <td>
-                      <Badge tone={statusDisplay(candidate.status).tone}>
-                        {statusDisplay(candidate.status).label}
-                      </Badge>
-                    </td>
-                    <td>
-                      {candidate.created_at === null ? (
-                        <span className="muted">—</span>
-                      ) : (
-                        <DateTime value={candidate.created_at} format="date" />
-                      )}
-                    </td>
-                    <td>
-                      {/* A link, not a submit. Choosing is not the merge — it opens the
-                          confirmation, which is the step that actually asks. */}
-                      <a
-                        className="lnk"
-                        href={`${returnHref}?duplicate=${encodeURIComponent(candidate.id)}`}
-                      >
-                        This is the duplicate
-                      </a>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          {/*
+            `<DataTable>` rather than the table this was written out as. The markup was
+            already close — a real `<table>`, a `.table-scroll` wrapper, `scope` on every
+            column header, and an `.sr-only` word inside the action header rather than an
+            empty cell — and two things were still missing.
+
+            The scroll wrapper was not focusable, so the columns that overflow on a narrow
+            screen could not be reached by anyone not holding a mouse. And the name column
+            was a `<td>`: this table has six columns and the fifth is a date, so a screen
+            reader reading across a row announced five values with no idea whose they were.
+            `rowHeader` makes the name the row's accessible name, which is the whole point of
+            the component. It is also visible: `.table tbody th` in console.css carries the
+            weight a row's name is supposed to have, so this column now reads as the name it
+            is rather than as the first of six equal cells.
+          */}
+          <DataTable
+            caption="Patients that could be folded into this record"
+            captionHidden
+            rows={candidates}
+            rowKey={(candidate) => candidate.id}
+            /* Unreachable: the branch above catches an empty page first and keeps the plain
+               card this screen has always shown for it. `empty` is required by construction,
+               so it names the same node rather than a second wording that could drift. */
+            empty={NO_CANDIDATES}
+            columns={[
+              {
+                key: 'name',
+                header: 'Name',
+                rowHeader: true,
+                cell: (candidate) => `${candidate.family_name}, ${candidate.given_name}`,
+              },
+              {
+                key: 'phone',
+                header: 'Phone',
+                numeric: true,
+                cell: (candidate) => candidate.phone,
+              },
+              {
+                key: 'dob',
+                header: 'Date of birth',
+                cell: (candidate) =>
+                  candidate.date_of_birth === null ? (
+                    <span className="muted">—</span>
+                  ) : (
+                    <DateTime value={candidate.date_of_birth} format="date" />
+                  ),
+              },
+              {
+                key: 'status',
+                header: 'Status',
+                cell: (candidate) => (
+                  <Badge tone={statusDisplay(candidate.status).tone}>
+                    {statusDisplay(candidate.status).label}
+                  </Badge>
+                ),
+              },
+              {
+                key: 'registered',
+                header: 'Registered',
+                cell: (candidate) =>
+                  candidate.created_at === null ? (
+                    <span className="muted">—</span>
+                  ) : (
+                    <DateTime value={candidate.created_at} format="date" />
+                  ),
+              },
+              {
+                key: 'choose',
+                header: 'Choose',
+                headerHidden: true,
+                /* A link, not a submit. Choosing is not the merge — it opens the
+                   confirmation, which is the step that actually asks. */
+                cell: (candidate) => (
+                  <a
+                    className="lnk"
+                    href={`${returnHref}?duplicate=${encodeURIComponent(candidate.id)}`}
+                  >
+                    This is the duplicate
+                  </a>
+                ),
+              },
+            ]}
+          />
         </div>
       )}
 
@@ -445,45 +483,60 @@ function RecordColumn({
   tone: 'good' | 'warn'
 }): ReactElement {
   return (
-    <section className="card stack" aria-label={`${role}: ${patient.given_name} ${patient.family_name}`}>
-      <div className="row between">
-        <h2 className="title-sm grow">
-          {patient.given_name} {patient.family_name}
-        </h2>
-        <Badge tone={tone}>{role}</Badge>
-      </div>
+    <Card as="section" aria-label={`${role}: ${patient.given_name} ${patient.family_name}`}>
+      {/* The heading row and the note were flush and the list was pushed down by a margin.
+          Nesting says both: `gap="2"` is what `.card stack` gave the first pair, and the
+          outer gap is the class gap and the margin added together, on the scale. */}
+      <Stack gap="6">
+        <Stack gap="2">
+          <div className="row between">
+            <h2 className="title-sm grow">
+              {patient.given_name} {patient.family_name}
+            </h2>
+            <Badge tone={tone}>{role}</Badge>
+          </div>
 
-      <p className="muted">{note}</p>
+          <p className="muted">{note}</p>
+        </Stack>
 
-      <dl className="grid" style={{ gap: 'var(--space-4)', marginTop: 'var(--space-4)' }}>
-        <Row label="Phone">
-          <span className="tnum">{patient.phone}</span>
-        </Row>
-        <Row label="Date of birth">
-          {patient.date_of_birth === null ? (
-            <span className="muted">Not recorded</span>
-          ) : (
-            <DateTime value={patient.date_of_birth} format="date" />
-          )}
-        </Row>
-        <Row label="National ID">
-          {patient.national_id_number ?? <span className="muted">Not recorded</span>}
-        </Row>
-        <Row label="Address">{patient.address ?? <span className="muted">Not recorded</span>}</Row>
-        <Row label="Status">
-          <Badge tone={statusDisplay(patient.status).tone}>
-            {statusDisplay(patient.status).label}
-          </Badge>
-        </Row>
-        <Row label="Registered">
-          {patient.created_at === null ? (
-            <span className="muted">—</span>
-          ) : (
-            <DateTime value={patient.created_at} format="date" />
-          )}
-        </Row>
-      </dl>
-    </section>
+        {/*
+          SURVIVING INLINE STYLE, and it is one gap on a `<dl>`. Neither Stack's element
+          union nor Grid's includes a description list, deliberately: `<dl>` promises a
+          screen reader that its children are term-and-definition pairs, and the only legal
+          children are `<dt>`, `<dd>` and the `<div>`s grouping them — so a primitive can go
+          neither on it nor inside it. `.grid`'s own gap is 18px and these pairs want 12, so
+          the step has to be stated. It is still the token's value, not a pixel.
+        */}
+        <dl className="grid" style={{ gap: 'var(--space-4)' }}>
+          <Row label="Phone">
+            <span className="tnum">{patient.phone}</span>
+          </Row>
+          <Row label="Date of birth">
+            {patient.date_of_birth === null ? (
+              <span className="muted">Not recorded</span>
+            ) : (
+              <DateTime value={patient.date_of_birth} format="date" />
+            )}
+          </Row>
+          <Row label="National ID">
+            {patient.national_id_number ?? <span className="muted">Not recorded</span>}
+          </Row>
+          <Row label="Address">{patient.address ?? <span className="muted">Not recorded</span>}</Row>
+          <Row label="Status">
+            <Badge tone={statusDisplay(patient.status).tone}>
+              {statusDisplay(patient.status).label}
+            </Badge>
+          </Row>
+          <Row label="Registered">
+            {patient.created_at === null ? (
+              <span className="muted">—</span>
+            ) : (
+              <DateTime value={patient.created_at} format="date" />
+            )}
+          </Row>
+        </dl>
+      </Stack>
+    </Card>
   )
 }
 
@@ -495,6 +548,21 @@ function Row({ label, children }: { label: string; children: ReactNode }): React
     </div>
   )
 }
+
+/**
+ * What the candidate list says when a page of the register holds nobody else.
+ *
+ * ONE NODE, TWO PLACES. The screen renders it in a plain card when the page comes back
+ * empty, and `<DataTable>` requires an `empty` of its own — see that component for why a
+ * table that can render an empty body is a table that renders nothing at all. Naming it
+ * once is what stops the two wordings drifting into saying different things about the same
+ * state.
+ */
+const NO_CANDIDATES = (
+  <EmptyState icon="users" title="No other patients on this page">
+    Page through the register to find the duplicate registration.
+  </EmptyState>
+)
 
 /** Previous and next, as links. Cursor pagination, never offset — see `listPatients`. */
 function Pager({

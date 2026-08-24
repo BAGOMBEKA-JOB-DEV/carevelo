@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { Button, Card, Notice } from '@carevelo/ui'
+import { Button, Card, DataTable, Inline, Notice, Stack } from '@carevelo/ui'
 import { attempt, writeFailure } from '../api/http'
 import { listWorkingHours, replaceWorkingHours } from '../api/workingHours'
 import { WEEK, byDay, opensAtAll, toTimeInput, weekFromForm } from '../model/week'
@@ -82,65 +82,110 @@ export async function WorkingHoursScreen(props: WorkingHoursScreenProps) {
       )}
 
       <Card as="section">
-        <span className="eyebrow">Opening hours</span>
-        <h2 className="title-sm">The week, as patients will be offered it</h2>
-        <p className="muted">
-          All times are Africa/Kampala. Saving replaces the whole week at once — a day you
-          mark closed stops being offered immediately.
-        </p>
+        {/* One column for the card: the heading block was flush in normal flow and the form
+            was pushed down by a hand-set margin, so `gap="none"` keeps the first exactly as
+            it was and the outer gap IS the second. */}
+        <Stack gap="6">
+          <Stack gap="none">
+            <span className="eyebrow">Opening hours</span>
+            <h2 className="title-sm">The week, as patients will be offered it</h2>
+            <p className="muted">
+              All times are Africa/Kampala. Saving replaces the whole week at once — a day you
+              mark closed stops being offered immediately.
+            </p>
+          </Stack>
 
-        <form
-          action={saveWeek.bind(null, { selfPath: paths.hours })}
-          style={{ marginTop: 'var(--space-6)' }}
-        >
-          <div className="table-scroll">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th scope="col">Day</th>
-                  <th scope="col">Opens</th>
-                  <th scope="col">Closes</th>
-                  <th scope="col">Closed all day</th>
-                </tr>
-              </thead>
-              <tbody>
-                {WEEK.map((day) => {
-                  const row = stored.get(day.value)
-                  const closed = row === undefined || row.is_closed
+          <form action={saveWeek.bind(null, { selfPath: paths.hours })}>
+            <Stack gap="6">
+              {/*
+                `<DataTable>` rather than the hand-written table this was. The markup here was
+                already good — a real `<table>`, `scope` on every header, a `.table-scroll`
+                wrapper — and the two things it was missing are the two this component makes
+                impossible to leave out. It had no `<caption>`, so a screen-reader user
+                landing in it was given seven rows of time inputs with nothing saying what
+                week they belong to; and the scroll wrapper was not focusable, so on a narrow
+                screen the columns that overflow could not be reached by anyone without a
+                mouse. The caption is hidden because the `<h2>` directly above says the same
+                words to a sighted reader.
 
-                  return (
-                    <tr key={day.value}>
-                      {/* `.table tbody th` in console.css already sets the weight a row's
-                          name wants; it used to be stated inline on every one of these. */}
-                      <th scope="row">{day.label}</th>
-                      <td>
-                        {/* A label for every control, even in a table. A column header is
-                            not a label: a screen reader reading the row announces "Opens",
-                            and then a second unlabelled control on the next row. */}
-                        <label className="sr-only" htmlFor={`opens-${day.value}`}>
-                          {day.label} opening time
-                        </label>
-                        <input
-                          className="input"
-                          type="time"
-                          id={`opens-${day.value}`}
-                          name={`opens-${day.value}`}
-                          defaultValue={closed ? '' : toTimeInput(row?.opens_at)}
-                        />
-                      </td>
-                      <td>
-                        <label className="sr-only" htmlFor={`closes-${day.value}`}>
-                          {day.label} closing time
-                        </label>
-                        <input
-                          className="input"
-                          type="time"
-                          id={`closes-${day.value}`}
-                          name={`closes-${day.value}`}
-                          defaultValue={closed ? '' : toTimeInput(row?.closes_at)}
-                        />
-                      </td>
-                      <td>
+                Each cell still builds its own row lookup: `stored` is a Map and a day with no
+                stored row is CLOSED, which is the same reading `closed` had before.
+              */}
+              <DataTable
+                caption="The clinic's opening time and closing time for each day of the week"
+                captionHidden
+                rows={WEEK}
+                rowKey={(day) => String(day.value)}
+                /* Unreachable: WEEK is a seven-element module constant, not a fetched list.
+                   `empty` is required by construction and there is no honest EmptyState for
+                   "the week has no days", so it says the only true thing. */
+                empty={<p className="muted">The week could not be built.</p>}
+                columns={[
+                  {
+                    key: 'day',
+                    header: 'Day',
+                    /* `.table tbody th` in console.css already sets the weight a row's name
+                       wants; it used to be stated inline on every one of these. */
+                    rowHeader: true,
+                    cell: (day) => day.label,
+                  },
+                  {
+                    key: 'opens',
+                    header: 'Opens',
+                    cell: (day) => {
+                      const row = stored.get(day.value)
+                      const closed = row === undefined || row.is_closed
+
+                      return (
+                        <>
+                          {/* A label for every control, even in a table. A column header is
+                              not a label: a screen reader reading the row announces "Opens",
+                              and then a second unlabelled control on the next row. */}
+                          <label className="sr-only" htmlFor={`opens-${day.value}`}>
+                            {day.label} opening time
+                          </label>
+                          <input
+                            className="input"
+                            type="time"
+                            id={`opens-${day.value}`}
+                            name={`opens-${day.value}`}
+                            defaultValue={closed ? '' : toTimeInput(row?.opens_at)}
+                          />
+                        </>
+                      )
+                    },
+                  },
+                  {
+                    key: 'closes',
+                    header: 'Closes',
+                    cell: (day) => {
+                      const row = stored.get(day.value)
+                      const closed = row === undefined || row.is_closed
+
+                      return (
+                        <>
+                          <label className="sr-only" htmlFor={`closes-${day.value}`}>
+                            {day.label} closing time
+                          </label>
+                          <input
+                            className="input"
+                            type="time"
+                            id={`closes-${day.value}`}
+                            name={`closes-${day.value}`}
+                            defaultValue={closed ? '' : toTimeInput(row?.closes_at)}
+                          />
+                        </>
+                      )
+                    },
+                  },
+                  {
+                    key: 'closed',
+                    header: 'Closed all day',
+                    cell: (day) => {
+                      const row = stored.get(day.value)
+                      const closed = row === undefined || row.is_closed
+
+                      return (
                         <label className="row" htmlFor={`closed-${day.value}`}>
                           <input
                             className="choice__input"
@@ -151,23 +196,23 @@ export async function WorkingHoursScreen(props: WorkingHoursScreenProps) {
                           />
                           <span className="sr-only">{day.label} closed all day</span>
                         </label>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
+                      )
+                    },
+                  },
+                ]}
+              />
 
-          <div className="row-wrap" style={{ marginTop: 'var(--space-6)' }}>
-            <Button type="submit" variant="primary">
-              Save the week
-            </Button>
-            <span className="fine">
-              A clinic that stops opening on Saturdays says so by marking Saturday closed.
-            </span>
-          </div>
-        </form>
+              <Inline gap="4">
+                <Button type="submit" variant="primary">
+                  Save the week
+                </Button>
+                <span className="fine">
+                  A clinic that stops opening on Saturdays says so by marking Saturday closed.
+                </span>
+              </Inline>
+            </Stack>
+          </form>
+        </Stack>
       </Card>
 
       <Card as="section">

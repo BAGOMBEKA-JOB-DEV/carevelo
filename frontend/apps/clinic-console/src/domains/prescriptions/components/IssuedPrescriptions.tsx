@@ -68,17 +68,28 @@ export function IssuedPrescriptions({
             </Badge>
           </Inline>
 
-          <ul className="stack" style={{ gap: 'var(--space-2)', listStyle: 'none' }}>
+          {/* `<Stack as="ul">` and not `<ul className="stack">` with the marker turned off by
+              hand. The hand-rolled version removed `list-style` and left the user agent's
+              40px `padding-left`, so every medicine on this card has been sitting indented
+              under a heading that is not — and removing the marker without restoring
+              `role="list"` costs the "list, 3 items" a screen reader says before reading a
+              prescription's contents in Safari. Stack does all three. */}
+          <Stack as="ul" gap="2">
             {(prescription.items ?? []).map((item) => (
-              <li key={item.id} className="row-wrap" style={{ gap: 'var(--space-3)' }}>
-                <span>
-                  {[item.medicine_name, item.strength, item.form].filter(Boolean).join(' ')} —{' '}
-                  {item.quantity} {item.unit ?? ''} — {item.directions}
-                </span>
-                {item.is_controlled ? <Badge tone="warn">Controlled</Badge> : null}
+              <li key={item.id}>
+                {/* The row goes INSIDE the `<li>`: Inline's element union stops at the
+                    elements that are layout, and an `<li>` carries the position a screen
+                    reader counts off before it is anything else. */}
+                <Inline gap="3">
+                  <span>
+                    {[item.medicine_name, item.strength, item.form].filter(Boolean).join(' ')} —{' '}
+                    {item.quantity} {item.unit ?? ''} — {item.directions}
+                  </span>
+                  {item.is_controlled ? <Badge tone="warn">Controlled</Badge> : null}
+                </Inline>
               </li>
             ))}
-          </ul>
+          </Stack>
 
           <p className="fine">
             Issued by {prescription.issued_by.name} ·{' '}
@@ -136,22 +147,32 @@ function CancelPrescription({
         <Icon name="x" /> Cancel this prescription
       </summary>
 
-      <form action={action} className="stack" style={{ gap: 'var(--space-4)', marginTop: 'var(--space-4)' }}>
-        <input type="hidden" name="prescription_id" value={id} />
+      {/*
+        SURVIVING INLINE STYLE, and it is one margin. `<summary>` has to be the FIRST child
+        of `<details>` for the disclosure to work at all, so the summary and the body it
+        opens are not two children of any container a `gap` could go on — the gap would have
+        to include the summary itself and would close up when the disclosure is shut. This
+        one declaration holds the form off the control that opened it; the column inside it
+        is a Stack.
+      */}
+      <form action={action} style={{ marginTop: 'var(--space-4)' }}>
+        <Stack gap="4">
+          <input type="hidden" name="prescription_id" value={id} />
 
-        <Field
-          name={`reason-${id}`}
-          label="Why is this being cancelled?"
-          hint="Say whether this is a clinical reversal or a mistake in what was written. The pharmacist, the patient and any later reader depend on being able to tell those apart. This stays on the record and is deliberately kept out of the audit log."
-        >
-          {(control) => <Textarea {...control} name="reason" required minLength={3} rows={2} />}
-        </Field>
+          <Field
+            name={`reason-${id}`}
+            label="Why is this being cancelled?"
+            hint="Say whether this is a clinical reversal or a mistake in what was written. The pharmacist, the patient and any later reader depend on being able to tell those apart. This stays on the record and is deliberately kept out of the audit log."
+          >
+            {(control) => <Textarea {...control} name="reason" required minLength={3} rows={2} />}
+          </Field>
 
-        <div>
-          <Button variant="danger" type="submit">
-            Cancel this prescription
-          </Button>
-        </div>
+          <div>
+            <Button variant="danger" type="submit">
+              Cancel this prescription
+            </Button>
+          </div>
+        </Stack>
       </form>
     </details>
   )

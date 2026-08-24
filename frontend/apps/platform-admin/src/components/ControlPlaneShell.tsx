@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Stack } from '@carevelo/ui'
+import { Stack, ThemeToggle } from '@carevelo/ui'
 import { SECTION_IDS, SECTIONS, type SectionId } from './sections'
 
 /**
@@ -34,6 +34,21 @@ import { SECTION_IDS, SECTIONS, type SectionId } from './sections'
  * `.grid`, twenty-five times across this app. One `gap` on the column is one decision, it
  * cannot be got wrong by inserting a sibling, and it cannot disagree with itself between
  * two screens that are meant to have the same rhythm.
+ *
+ * THE THEME TOGGLE IS THIS APP'S FIRST CLIENT COMPONENT, AND IT IS ALSO THE ONLY ONE, which
+ * makes the paragraph above no longer strictly true: this surface used to ship no client
+ * JavaScript at all. It ships this one button now, and nothing else changed. The dark
+ * palette in colors.css had never rendered here — the tokens existed, the bootstrap script
+ * did not, and there was no control to set the preference. All three arrive together,
+ * because any two of them without the third is a feature nobody can reach. The button itself
+ * is the shared `<ThemeToggle>`: its whole job is to write to browser storage, which is the
+ * one thing a server component cannot do, and it is the single 'use client' in packages/ui
+ * for exactly that reason.
+ *
+ * It sits in the topbar rather than the sidebar because the sidebar is `display: none` below
+ * 900px, and an operator paged at night is not guaranteed to be at a desk. It comes LAST in
+ * the header's markup, which is last in the tab order: the theme is the least urgent thing
+ * on this screen and should not sit between a keyboard user and a live break-glass grant.
  */
 export function ControlPlaneShell({
   title,
@@ -87,6 +102,7 @@ export function ControlPlaneShell({
           // eslint-disable-next-line @next/next/no-img-element
             <img className="topbar__logo" src={logoUrl} alt="" />
           ) : null}
+          <ThemeToggle />
         </header>
         <main className="content" id="main">
           <Stack gap="7">{children}</Stack>

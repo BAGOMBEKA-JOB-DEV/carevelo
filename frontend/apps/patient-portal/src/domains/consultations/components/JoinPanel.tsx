@@ -114,7 +114,7 @@ export async function JoinPanel({
           <div className="cellgrid cellgrid--3">
             <div className="stat">
               <span className="stat__label">{t('scheduledLabel')}</span>
-              <span className="stat__value" style={{ fontSize: 19 }}>
+              <span className="stat__value stat__value--sm">
                 <DateTime value={appointment.scheduled_start_at} format="datetime" />
               </span>
             </div>
@@ -124,7 +124,7 @@ export async function JoinPanel({
               {/* The reference is what the clinic and the patient say aloud on the phone,
                   which is how most support in this market happens. `.tnum` keeps it from
                   shifting width as digits change. */}
-              <span className="stat__value tnum" style={{ fontSize: 19 }}>
+              <span className="stat__value stat__value--sm tnum">
                 {appointment.reference}
               </span>
             </div>
@@ -133,7 +133,7 @@ export async function JoinPanel({
               <span className="stat__label">
                 {clinicianName ? t('clinicianLabel') : t('bookedAsLabel')}
               </span>
-              <span className="stat__value" style={{ fontSize: 19 }}>
+              <span className="stat__value stat__value--sm">
                 {clinicianName ?? (bookedMode ? t(MODE_KEY[bookedMode]) : '—')}
               </span>
               {clinicianName && bookedMode ? (

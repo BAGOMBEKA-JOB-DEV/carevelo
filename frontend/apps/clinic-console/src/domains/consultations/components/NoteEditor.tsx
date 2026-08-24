@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Button, DateTime, Notice, Stack, Textarea } from '@carevelo/ui'
+import { Button, DateTime, Grid, Inline, Notice, Stack, Textarea } from '@carevelo/ui'
 import { saveNoteSection } from '../api/actions'
 import {
   draftKey,
@@ -476,50 +476,52 @@ function ConflictPanel({
 }) {
   return (
     <Notice tone="warn" icon="help" title="This section was written in two places">
-      <p>
-        The clinic&rsquo;s record already holds a version of this section that this device did
-        not write — another tab, another device, or a colleague. Nothing has been overwritten
-        and nothing can be: notes are only ever added to. Read both and decide.
-      </p>
+      {/* `<Notice>` hands its children to a plain div with no gap, because most notices are
+          one paragraph. This one is a paragraph, a two-column comparison and a pair of
+          buttons, and each carried the same `marginTop` saying the space below the thing
+          above it. One column, one step, stated once. */}
+      <Stack gap="4">
+        <p>
+          The clinic&rsquo;s record already holds a version of this section that this device did
+          not write — another tab, another device, or a colleague. Nothing has been overwritten
+          and nothing can be: notes are only ever added to. Read both and decide.
+        </p>
 
-      <div className="grid g-2" style={{ marginTop: 'var(--space-4)' }}>
-        <div className="stack">
-          <span className="eyebrow">
-            On the clinic&rsquo;s record
-            {theirsAt === null ? null : (
-              <>
-                {' · '}
-                <DateTime value={theirsAt} format="datetime" />
-              </>
-            )}
-          </span>
-          <pre
-            className="card"
-            style={{ whiteSpace: 'pre-wrap', fontSize: 14, margin: 0 }}
-          >
-            {theirs === '' ? '(empty)' : theirs}
-          </pre>
-        </div>
+        <Grid cols={2}>
+          <Stack gap="2">
+            <span className="eyebrow">
+              On the clinic&rsquo;s record
+              {theirsAt === null ? null : (
+                <>
+                  {' · '}
+                  <DateTime value={theirsAt} format="datetime" />
+                </>
+              )}
+            </span>
+            {/* `.verbatim` in console.css is exactly these three declarations — `pre-wrap`,
+                the body face and a zeroed margin — written for a clinical note shown back to
+                the person who wrote it, and used by nothing until now. A note's line breaks
+                are part of what the clinician wrote; collapsing them changes the note, which
+                is why the comparison the reader is about to make has to preserve them on both
+                sides. `.card` still supplies the panel around it. */}
+            <pre className="card verbatim">{theirs === '' ? '(empty)' : theirs}</pre>
+          </Stack>
 
-        <div className="stack">
-          <span className="eyebrow">Typed on this device</span>
-          <pre
-            className="card"
-            style={{ whiteSpace: 'pre-wrap', fontSize: 14, margin: 0 }}
-          >
-            {mine === '' ? '(empty)' : mine}
-          </pre>
-        </div>
-      </div>
+          <Stack gap="2">
+            <span className="eyebrow">Typed on this device</span>
+            <pre className="card verbatim">{mine === '' ? '(empty)' : mine}</pre>
+          </Stack>
+        </Grid>
 
-      <div className="row-wrap" style={{ gap: 'var(--space-3)', marginTop: 'var(--space-4)' }}>
-        <Button variant="primary" type="button" onClick={onKeepMine}>
-          Add mine to the record as well
-        </Button>
-        <Button variant="quiet" type="button" onClick={onTakeTheirs}>
-          Use the version already recorded
-        </Button>
-      </div>
+        <Inline gap="3">
+          <Button variant="primary" type="button" onClick={onKeepMine}>
+            Add mine to the record as well
+          </Button>
+          <Button variant="quiet" type="button" onClick={onTakeTheirs}>
+            Use the version already recorded
+          </Button>
+        </Inline>
+      </Stack>
     </Notice>
   )
 }

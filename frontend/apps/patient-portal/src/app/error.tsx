@@ -116,7 +116,12 @@ function useDocumentLocale(): Locale {
 }
 
 /** Which set of words, and which ways out. Not a description of what went wrong. */
-export type ErrorSection = 'generic' | 'booking' | 'payment'
+export type ErrorSection =
+  | 'generic'
+  | 'booking'
+  | 'payment'
+  | 'consultation'
+  | 'registration'
 
 export type PortalErrorScreenProps = {
   section: ErrorSection
@@ -204,6 +209,36 @@ export function PortalErrorScreen({
               </Button>
               <Button variant="ghost" size="lg" href="/">
                 {copy.generic.home}
+              </Button>
+            </>
+          ) : null}
+
+          {section === 'consultation' ? (
+            <>
+              {/* Only the appointment list. NOT the consultation link itself: this screen
+                  cannot know which appointment failed, and a second way back into a room
+                  that has just thrown is a loop rather than a recovery. */}
+              <Button variant="quiet" size="lg" href="/appointments">
+                {copy.consultation.appointments}
+              </Button>
+              <Button variant="ghost" size="lg" href="/account">
+                {copy.generic.hub}
+              </Button>
+            </>
+          ) : null}
+
+          {section === 'registration' ? (
+            <>
+              {/* "Try registering again" goes back to the FORM rather than resubmitting
+                  anything — see register/error.tsx for why the copy beside it tells a
+                  patient to telephone before filling it in a second time. */}
+              <Button variant="quiet" size="lg" href="/register">
+                {copy.registration.startAgain}
+              </Button>
+              {/* Offered because the ordinary reason a registration fails on the second
+                  attempt is that the first one worked. */}
+              <Button variant="ghost" size="lg" href="/sign-in">
+                {copy.registration.signIn}
               </Button>
             </>
           ) : null}

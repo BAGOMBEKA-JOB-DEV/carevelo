@@ -1,5 +1,5 @@
 import { notFound, redirect } from 'next/navigation'
-import { Badge, Button, Card, Choice, Field, Input, Notice, Select } from '@carevelo/ui'
+import { Badge, Button, Card, Choice, Field, Input, Notice, Select, Stack } from '@carevelo/ui'
 import { attempt, writeFailure } from '../api/http'
 import { createClinicianProfile, getClinicianProfile, updateClinicianProfile } from '../api/clinicians'
 import { countActiveAdministrators, findStaff, updateStaff } from '../api/staff'
@@ -129,134 +129,152 @@ export async function StaffMemberScreen(props: StaffMemberScreenProps) {
       {saved === undefined ? null : <Notice tone="info">{saved}</Notice>}
 
       <Card as="section">
-        <div className="row between">
-          <div className="grow">
-            <span className="eyebrow">Colleague</span>
-            <h2 className="title-sm">{person.name}</h2>
+        {/*
+          One Stack for the card, and the `marginTop` the form was carrying is now its gap.
+          The heading row, the notice and the form were three blocks in normal flow with the
+          space between them set on one of the three — which is how the notice ended up flush
+          against the heading while the form below it stood 18px clear. The same rhythm for
+          every child of the card is one decision instead of three, and it is the shape
+          PaymentConnectionScreen already uses.
+        */}
+        <Stack gap="6">
+          <div className="row between">
+            <div className="grow">
+              <span className="eyebrow">Colleague</span>
+              <h2 className="title-sm">{person.name}</h2>
+            </div>
+            {person.is_active ? (
+              <Badge tone="good">Has access</Badge>
+            ) : (
+              <Badge tone="neutral">No access</Badge>
+            )}
           </div>
-          {person.is_active ? (
-            <Badge tone="good">Has access</Badge>
-          ) : (
-            <Badge tone="neutral">No access</Badge>
-          )}
-        </div>
 
-        {person.phone_verified_at === null ? (
-          <Notice tone="warn" title="They have not accepted their invitation yet">
-            Until they follow the SMS link and set a password they cannot sign in. If the
-            message never arrived, correct the number below and send a fresh invitation from
-            the staff list — a new invitation replaces the old one.
-          </Notice>
-        ) : null}
+          {person.phone_verified_at === null ? (
+            <Notice tone="warn" title="They have not accepted their invitation yet">
+              Until they follow the SMS link and set a password they cannot sign in. If the
+              message never arrived, correct the number below and send a fresh invitation from
+              the staff list — a new invitation replaces the old one.
+            </Notice>
+          ) : null}
 
-        <form
-          action={saveDetails.bind(null, { selfPath, id: person.id })}
-          className="stack"
-          style={{ gap: 'var(--space-6)', marginTop: 'var(--space-6)' }}
-        >
-          <Field name="name" label="Name">
-            {(control) => (
-              <Input {...control} type="text" maxLength={200} defaultValue={person.name} required />
-            )}
-          </Field>
+          <form action={saveDetails.bind(null, { selfPath, id: person.id })}>
+            <Stack gap="6">
+              <Field name="name" label="Name">
+                {(control) => (
+                  <Input {...control} type="text" maxLength={200} defaultValue={person.name} required />
+                )}
+              </Field>
 
-          <Field
-            name="phone"
-            label="Phone number"
-            hint="How they sign in, and where Carevelo's notifications reach them."
-          >
-            {(control) => (
-              <Input
-                {...control}
-                type="tel"
-                inputMode="tel"
-                autoComplete="off"
-                defaultValue={person.phone ?? ''}
-              />
-            )}
-          </Field>
+              <Field
+                name="phone"
+                label="Phone number"
+                hint="How they sign in, and where Carevelo's notifications reach them."
+              >
+                {(control) => (
+                  <Input
+                    {...control}
+                    type="tel"
+                    inputMode="tel"
+                    autoComplete="off"
+                    defaultValue={person.phone ?? ''}
+                  />
+                )}
+              </Field>
 
-          <Field name="email" label="Email address" hint="Optional. Many clinic staff have none.">
-            {(control) => (
-              <Input {...control} type="email" maxLength={255} defaultValue={person.email ?? ''} />
-            )}
-          </Field>
+              <Field name="email" label="Email address" hint="Optional. Many clinic staff have none.">
+                {(control) => (
+                  <Input {...control} type="email" maxLength={255} defaultValue={person.email ?? ''} />
+                )}
+              </Field>
 
-          {/*
-           * PASSWORDS ARE ABSENT AND CANNOT BE ADDED. `UpdateStaffRequest` declares the
-           * field `prohibited` with the reason on it: a person sets their own, and an
-           * administrator who could write another user's password could read every clinical
-           * record that user can reach — which defeats the role boundary entirely.
-           */}
-          <p className="fine">
-            There is no way to set a colleague&rsquo;s password from here, by design. If they
-            are locked out they set a new one themselves.
-          </p>
+              {/*
+               * PASSWORDS ARE ABSENT AND CANNOT BE ADDED. `UpdateStaffRequest` declares the
+               * field `prohibited` with the reason on it: a person sets their own, and an
+               * administrator who could write another user's password could read every clinical
+               * record that user can reach — which defeats the role boundary entirely.
+               */}
+              <p className="fine">
+                There is no way to set a colleague&rsquo;s password from here, by design. If they
+                are locked out they set a new one themselves.
+              </p>
 
-          <div>
-            <Button type="submit" variant="primary">
-              Save details
-            </Button>
-          </div>
-        </form>
+              <div>
+                <Button type="submit" variant="primary">
+                  Save details
+                </Button>
+              </div>
+            </Stack>
+          </form>
+        </Stack>
       </Card>
 
       <Card as="section">
-        <span className="eyebrow">Access</span>
-        <h2 className="title-sm">Role and sign-in</h2>
+        {/*
+          One Stack for the card, and the `marginTop` the form was carrying is now its gap.
+          The heading row, the notice and the form were three blocks in normal flow with the
+          space between them set on one of the three — which is how the notice ended up flush
+          against the heading while the form below it stood 18px clear. The same rhythm for
+          every child of the card is one decision instead of three, and it is the shape
+          PaymentConnectionScreen already uses.
+        */}
+        <Stack gap="6">
+          <Stack gap="none">
+            <span className="eyebrow">Access</span>
+            <h2 className="title-sm">Role and sign-in</h2>
+          </Stack>
 
-        {isLastAdministrator ? (
-          <Notice tone="info" title="This is the clinic's last administrator" icon="lock">
-            <p>
-              Their role and their access are locked while they are the only active
-              administrator here. Invite or promote another administrator first, and these
-              controls come back.
-            </p>
-            <p className="fine">
-              This clinic is the data controller for every patient record inside it. An
-              administrator who locks themselves out cannot answer a subject-access request
-              or a regulator, and undoing it needs Carevelo support with database access.
-            </p>
-          </Notice>
-        ) : (
-          <form
-            action={saveAccess.bind(null, { selfPath, id: person.id })}
-            className="stack"
-            style={{ gap: 'var(--space-6)', marginTop: 'var(--space-6)' }}
-          >
-            <Choice
-              name="role"
-              id={`role-${person.id}`}
-              legend="Role"
-              hint="Exactly one. Changing it takes effect the next time they load a page."
-              options={ROLE_ORDER.map((role) => ({ value: role, label: ROLE_LABELS[role] }))}
-              defaultValue={currentRole(person)}
-            />
+          {isLastAdministrator ? (
+            <Notice tone="info" title="This is the clinic's last administrator" icon="lock">
+              <p>
+                Their role and their access are locked while they are the only active
+                administrator here. Invite or promote another administrator first, and these
+                controls come back.
+              </p>
+              <p className="fine">
+                This clinic is the data controller for every patient record inside it. An
+                administrator who locks themselves out cannot answer a subject-access request
+                or a regulator, and undoing it needs Carevelo support with database access.
+              </p>
+            </Notice>
+          ) : (
+            <form action={saveAccess.bind(null, { selfPath, id: person.id })}>
+              <Stack gap="6">
+                <Choice
+                  name="role"
+                  id={`role-${person.id}`}
+                  legend="Role"
+                  hint="Exactly one. Changing it takes effect the next time they load a page."
+                  options={ROLE_ORDER.map((role) => ({ value: role, label: ROLE_LABELS[role] }))}
+                  defaultValue={currentRole(person)}
+                />
 
-            <label className="row" htmlFor={`active-${person.id}`}>
-              <input
-                className="choice__input"
-                type="checkbox"
-                id={`active-${person.id}`}
-                name="is_active"
-                defaultChecked={person.is_active}
-              />
-              <span className="choice__text">
-                <span>They can sign in</span>
-                <span className="choice__note">
-                  Clearing this ends their access. Nothing they have already recorded is
-                  removed — a clinician who leaves keeps their name on the notes they wrote.
-                </span>
-              </span>
-            </label>
+                <label className="row" htmlFor={`active-${person.id}`}>
+                  <input
+                    className="choice__input"
+                    type="checkbox"
+                    id={`active-${person.id}`}
+                    name="is_active"
+                    defaultChecked={person.is_active}
+                  />
+                  <span className="choice__text">
+                    <span>They can sign in</span>
+                    <span className="choice__note">
+                      Clearing this ends their access. Nothing they have already recorded is
+                      removed — a clinician who leaves keeps their name on the notes they wrote.
+                    </span>
+                  </span>
+                </label>
 
-            <div>
-              <Button type="submit" variant="primary">
-                Save access
-              </Button>
-            </div>
-          </form>
-        )}
+                <div>
+                  <Button type="submit" variant="primary">
+                    Save access
+                  </Button>
+                </div>
+              </Stack>
+            </form>
+          )}
+        </Stack>
       </Card>
 
       {!isClinician ? (
@@ -306,119 +324,127 @@ function ClinicianProfileCard({
 
   return (
     <Card as="section">
-      <div className="row between">
-        <div className="grow">
-          <span className="eyebrow">Registration</span>
-          <h2 className="title-sm">
-            {exists ? 'Registration details' : 'Not yet registered as a clinician'}
-          </h2>
+      {/*
+        One Stack for the card, and the `marginTop` the form was carrying is now its gap.
+        The heading row, the notice and the form were three blocks in normal flow with the
+        space between them set on one of the three — which is how the notice ended up flush
+        against the heading while the form below it stood 18px clear. The same rhythm for
+        every child of the card is one decision instead of three, and it is the shape
+        PaymentConnectionScreen already uses.
+      */}
+      <Stack gap="6">
+        <div className="row between">
+          <div className="grow">
+            <span className="eyebrow">Registration</span>
+            <h2 className="title-sm">
+              {exists ? 'Registration details' : 'Not yet registered as a clinician'}
+            </h2>
+          </div>
+          {profile?.may_prescribe ? (
+            <Badge tone="good">May prescribe</Badge>
+          ) : (
+            <Badge tone="warn">Cannot prescribe</Badge>
+          )}
         </div>
-        {profile?.may_prescribe ? (
-          <Badge tone="good">May prescribe</Badge>
-        ) : (
-          <Badge tone="warn">Cannot prescribe</Badge>
+
+        {exists ? null : (
+          <Notice tone="warn" title="This colleague offers no appointment times yet" icon="calendar">
+            Appointment times are generated per registered clinician. Until these details are
+            recorded, patients see nothing bookable with them however the opening hours and the
+            catalogue are set up.
+          </Notice>
         )}
-      </div>
 
-      {exists ? null : (
-        <Notice tone="warn" title="This colleague offers no appointment times yet" icon="calendar">
-          Appointment times are generated per registered clinician. Until these details are
-          recorded, patients see nothing bookable with them however the opening hours and the
-          catalogue are set up.
+        {profile?.has_expired_licence ? (
+          <Notice tone="warn" title="The practising licence on file has expired">
+            <p>
+              Carevelo records this and does not block anything on it — licence currency is the
+              clinic&rsquo;s regulatory responsibility, and blocking care on our possibly-stale
+              copy of a register we cannot read would be the worse error. The expiry has been
+              written to this clinic&rsquo;s audit trail, so the clinic can show it was told.
+            </p>
+          </Notice>
+        ) : null}
+
+        <Notice tone="info" title="Recorded, not verified" icon="shield">
+          {REGISTRATION_NOT_VERIFIED}
         </Notice>
-      )}
 
-      {profile?.has_expired_licence ? (
-        <Notice tone="warn" title="The practising licence on file has expired">
-          <p>
-            Carevelo records this and does not block anything on it — licence currency is the
-            clinic&rsquo;s regulatory responsibility, and blocking care on our possibly-stale
-            copy of a register we cannot read would be the worse error. The expiry has been
-            written to this clinic&rsquo;s audit trail, so the clinic can show it was told.
-          </p>
-        </Notice>
-      ) : null}
+        <form action={saveProfile.bind(null, { selfPath, id: userId, exists })}>
+          <Stack gap="6">
+            <Field name="registration_body" label="Register">
+              {(control) => (
+                <Select {...control} defaultValue={profile?.registration_body ?? 'umdpc'} required>
+                  {(Object.keys(REGISTRATION_BODY_LABELS) as RegistrationBody[]).map((body) => (
+                    <option key={body} value={body}>
+                      {REGISTRATION_BODY_LABELS[body]}
+                    </option>
+                  ))}
+                </Select>
+              )}
+            </Field>
 
-      <Notice tone="info" title="Recorded, not verified" icon="shield">
-        {REGISTRATION_NOT_VERIFIED}
-      </Notice>
+            <Field
+              name="registration_number"
+              label="Registration number"
+              hint="May be left empty. A clinician saved without one is bookable but cannot prescribe until it is recorded."
+            >
+              {(control) => (
+                <Input
+                  {...control}
+                  type="text"
+                  maxLength={100}
+                  spellCheck={false}
+                  defaultValue={profile?.registration_number ?? ''}
+                />
+              )}
+            </Field>
 
-      <form
-        action={saveProfile.bind(null, { selfPath, id: userId, exists })}
-        className="stack"
-        style={{ gap: 'var(--space-6)', marginTop: 'var(--space-6)' }}
-      >
-        <Field name="registration_body" label="Register">
-          {(control) => (
-            <Select {...control} defaultValue={profile?.registration_body ?? 'umdpc'} required>
-              {(Object.keys(REGISTRATION_BODY_LABELS) as RegistrationBody[]).map((body) => (
-                <option key={body} value={body}>
-                  {REGISTRATION_BODY_LABELS[body]}
-                </option>
-              ))}
-            </Select>
-          )}
-        </Field>
+            <Field name="specialty" label="Specialty" hint="Optional. Patients see this when choosing.">
+              {(control) => (
+                <Input {...control} type="text" maxLength={200} defaultValue={profile?.specialty ?? ''} />
+              )}
+            </Field>
 
-        <Field
-          name="registration_number"
-          label="Registration number"
-          hint="May be left empty. A clinician saved without one is bookable but cannot prescribe until it is recorded."
-        >
-          {(control) => (
-            <Input
-              {...control}
-              type="text"
-              maxLength={100}
-              spellCheck={false}
-              defaultValue={profile?.registration_number ?? ''}
-            />
-          )}
-        </Field>
+            <Field
+              name="practising_licence_expires_at"
+              label="Practising licence expires"
+              hint="Optional. An expired licence is flagged prominently and never blocks care."
+            >
+              {(control) => (
+                <Input
+                  {...control}
+                  type="date"
+                  defaultValue={toDateInput(profile?.practising_licence_expires_at)}
+                />
+              )}
+            </Field>
 
-        <Field name="specialty" label="Specialty" hint="Optional. Patients see this when choosing.">
-          {(control) => (
-            <Input {...control} type="text" maxLength={200} defaultValue={profile?.specialty ?? ''} />
-          )}
-        </Field>
+            <label className="row" htmlFor={`prescribe-${userId}`}>
+              <input
+                className="choice__input"
+                type="checkbox"
+                id={`prescribe-${userId}`}
+                name="can_prescribe"
+                defaultChecked={profile?.can_prescribe ?? false}
+              />
+              <span className="choice__text">
+                <span>They may issue prescriptions</span>
+                <span className="choice__note">
+                  Only possible with a registration number recorded above. Save with this off if
+                  the number is not to hand, and turn it on when it is.
+                </span>
+              </span>
+            </label>
 
-        <Field
-          name="practising_licence_expires_at"
-          label="Practising licence expires"
-          hint="Optional. An expired licence is flagged prominently and never blocks care."
-        >
-          {(control) => (
-            <Input
-              {...control}
-              type="date"
-              defaultValue={toDateInput(profile?.practising_licence_expires_at)}
-            />
-          )}
-        </Field>
-
-        <label className="row" htmlFor={`prescribe-${userId}`}>
-          <input
-            className="choice__input"
-            type="checkbox"
-            id={`prescribe-${userId}`}
-            name="can_prescribe"
-            defaultChecked={profile?.can_prescribe ?? false}
-          />
-          <span className="choice__text">
-            <span>They may issue prescriptions</span>
-            <span className="choice__note">
-              Only possible with a registration number recorded above. Save with this off if
-              the number is not to hand, and turn it on when it is.
-            </span>
-          </span>
-        </label>
-
-        <div>
-          <Button type="submit" variant="primary">
-            {exists ? 'Save registration details' : 'Record these details'}
-          </Button>
-        </div>
-      </form>
+            <div>
+              <Button type="submit" variant="primary">
+                {exists ? 'Save registration details' : 'Record these details'}
+              </Button>
+            </div>
+          </Stack>
+        </form>
+      </Stack>
     </Card>
   )
 }

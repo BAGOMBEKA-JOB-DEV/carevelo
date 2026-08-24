@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Badge, Button, DateTime, Field, Icon, Inline, Input, Textarea } from '@carevelo/ui'
+import { Badge, Button, DateTime, Field, Icon, Inline, Input, Stack, Textarea } from '@carevelo/ui'
 import { clinicTime } from '../model/day'
 import { asStatus, isEnterable, isUnpaidHold, STATUS_LABEL, STATUS_NOTE, STATUS_TONE } from '../model/status'
 import type { Appointment, Clinician, Patient, SchedulePaths, Service } from '../model/types'
@@ -67,93 +67,108 @@ export function AppointmentRow({
   const enterable = status !== null && isEnterable(status)
 
   return (
+    /*
+     * THE DASHED EDGE IS THE SURVIVOR HERE AND IT IS GENUINELY CONDITIONAL — it depends on
+     * the appointment's own state, which no class in the token layer knows about. It is the
+     * one visual difference between a hold and a booking, and it is deliberately structural
+     * rather than a colour: a dashed edge survives a colour-blind reader and a printed rota,
+     * and the badge beside it says the same thing in words. The gap that shared this object
+     * has moved to the Stack, so what is left states one thing.
+     */
     <article
-      className="card stack"
-      style={{
-        gap: 'var(--space-4)',
-        // The one visual difference between a hold and a booking, and it is deliberately
-        // structural rather than a colour: a dashed edge survives a colour-blind reader and a
-        // printed rota, and the badge beside it says the same thing in words.
-        ...(held ? { borderStyle: 'dashed' } : {}),
-      }}
+      className="card"
+      style={held ? { borderStyle: 'dashed' } : undefined}
       aria-label={`${clinicTime(appointment.scheduled_start_at)} — ${describe(patient)}`}
     >
-      <Inline gap="5" justify="between">
-        <Inline gap="5" wrap={false}>
-          {/* Tabular figures, because a column of times that shifts width as digits change is
-              hard to scan and this screen is nothing but times. */}
-          <span className="head-font tnum slot-time">
-            <DateTime value={appointment.scheduled_start_at} format="time" />
-          </span>
-          <span className="fine tnum">
-            to <DateTime value={appointment.scheduled_end_at} format="time" />
-          </span>
+      <Stack gap="4">
+        <Inline gap="5" justify="between">
+          <Inline gap="5" wrap={false}>
+            {/* Tabular figures, because a column of times that shifts width as digits change is
+                hard to scan and this screen is nothing but times. */}
+            <span className="head-font tnum slot-time">
+              <DateTime value={appointment.scheduled_start_at} format="time" />
+            </span>
+            <span className="fine tnum">
+              to <DateTime value={appointment.scheduled_end_at} format="time" />
+            </span>
+          </Inline>
+
+          <Inline gap="3">
+            {status === null ? (
+              // A status the contract does not know about. Saying nothing is better than
+              // asserting something wrong about a booking.
+              <Badge tone="neutral">Unknown state</Badge>
+            ) : (
+              <Badge tone={STATUS_TONE[status]}>{STATUS_LABEL[status]}</Badge>
+            )}
+            <Badge tone="neutral" icon="activity">
+              {MODE_LABEL[appointment.mode_booked] ?? appointment.mode_booked}
+            </Badge>
+          </Inline>
         </Inline>
+
+        <Stack gap="2">
+          <p className="record-name">{describe(patient)}</p>
+          {/* KEPT, AND WORTH LOOKING AT RATHER THAN COPYING. `--text-base-size` is 14.5px, so
+              this overrides the body size by half a pixel — which is not a decision anybody
+              made, it is a `14` typed where the scale was not to hand. There is no 14px class
+              to move it to: `.record-name` above it lives in console.css because this same
+              "the name of the record" idea was written five different ways, and the line under
+              a record name wants the same treatment there. console.css is not this task's file,
+              so the number stays visible instead of being quietly deleted. Named in the report. */}
+          <p className="muted" style={{ fontSize: 14 }}>
+            {service?.name ?? 'Service could not be resolved'}
+            {clinician ? ` · ${clinician.name}` : null}
+          </p>
+          <p className="fine mono">{appointment.reference}</p>
+        </Stack>
+
+        {status !== null && STATUS_NOTE[status] ? (
+          /* `.fine` is `--ink-faint`; this line wanted `--ink-muted`, which is exactly what
+             `.muted` is, and it is declared after `.fine` in typography.css so it wins on
+             order at equal specificity. A named colour rather than the same variable spelled
+             out by hand at a call site. */
+          <p className="fine muted">{STATUS_NOTE[status]}</p>
+        ) : null}
 
         <Inline gap="3">
-          {status === null ? (
-            // A status the contract does not know about. Saying nothing is better than
-            // asserting something wrong about a booking.
-            <Badge tone="neutral">Unknown state</Badge>
-          ) : (
-            <Badge tone={STATUS_TONE[status]}>{STATUS_LABEL[status]}</Badge>
-          )}
-          <Badge tone="neutral" icon="activity">
-            {MODE_LABEL[appointment.mode_booked] ?? appointment.mode_booked}
-          </Badge>
+          {/*
+            * THE ROOM IS OFFERED ONLY TO A CLINICIAN, AND ONLY WHEN THE STATUS ALLOWS IT.
+            * `AppointmentPolicy::join` admits the clinician and the patient and deliberately
+            * excludes the administrator — reading that a consultation happened is one act and
+            * sitting in on one is another, and no clinic asked for the second. Rendering the
+            * control for an administrator would be rendering a 403.
+            */}
+          {isClinician && enterable ? (
+            <Button variant="primary" href={paths.room(appointment.id)}>
+              <Icon name="activity" /> Open consultation
+            </Button>
+          ) : null}
+
+          {/*
+            * THE RECORD, AFTER THE ENCOUNTER IS OVER, AND THIS LINK IS NOT OPTIONAL.
+            *
+            * A prescription can only be issued on a consultation whose outcome is `completed`,
+            * and ending the consultation is what sets that — which also moves the APPOINTMENT to
+            * `completed`. So the moment prescribing becomes possible, the appointment stops being
+            * enterable. A clinician who closed the tab between the two would have no way back to
+            * the only screen that can issue the prescription. This is that way back.
+            */}
+          {isClinician && (status === 'completed' || status === 'abandoned') ? (
+            <Button variant="quiet" href={paths.room(appointment.id)}>
+              <Icon name="file" /> Open the record
+            </Button>
+          ) : null}
+
+          {isAdministrator && status !== null && (status === 'awaiting_payment' || status === 'payment_failed') ? (
+            <ConfirmOnAuthority appointment={appointment} action={confirmAction} />
+          ) : null}
+
+          {status !== null && (status === 'awaiting_payment' || status === 'confirmed' || status === 'payment_failed') ? (
+            <CancelBooking appointment={appointment} action={cancelAction} />
+          ) : null}
         </Inline>
-      </Inline>
-
-      <div className="stack">
-        <p className="record-name">{describe(patient)}</p>
-        <p className="muted" style={{ fontSize: 14 }}>
-          {service?.name ?? 'Service could not be resolved'}
-          {clinician ? ` · ${clinician.name}` : null}
-        </p>
-        <p className="fine mono">{appointment.reference}</p>
-      </div>
-
-      {status !== null && STATUS_NOTE[status] ? (
-        <p className="fine" style={{ color: 'var(--ink-muted)' }}>{STATUS_NOTE[status]}</p>
-      ) : null}
-
-      <Inline gap="3">
-        {/*
-          * THE ROOM IS OFFERED ONLY TO A CLINICIAN, AND ONLY WHEN THE STATUS ALLOWS IT.
-          * `AppointmentPolicy::join` admits the clinician and the patient and deliberately
-          * excludes the administrator — reading that a consultation happened is one act and
-          * sitting in on one is another, and no clinic asked for the second. Rendering the
-          * control for an administrator would be rendering a 403.
-          */}
-        {isClinician && enterable ? (
-          <Button variant="primary" href={paths.room(appointment.id)}>
-            <Icon name="activity" /> Open consultation
-          </Button>
-        ) : null}
-
-        {/*
-          * THE RECORD, AFTER THE ENCOUNTER IS OVER, AND THIS LINK IS NOT OPTIONAL.
-          *
-          * A prescription can only be issued on a consultation whose outcome is `completed`,
-          * and ending the consultation is what sets that — which also moves the APPOINTMENT to
-          * `completed`. So the moment prescribing becomes possible, the appointment stops being
-          * enterable. A clinician who closed the tab between the two would have no way back to
-          * the only screen that can issue the prescription. This is that way back.
-          */}
-        {isClinician && (status === 'completed' || status === 'abandoned') ? (
-          <Button variant="quiet" href={paths.room(appointment.id)}>
-            <Icon name="file" /> Open the record
-          </Button>
-        ) : null}
-
-        {isAdministrator && status !== null && (status === 'awaiting_payment' || status === 'payment_failed') ? (
-          <ConfirmOnAuthority appointment={appointment} action={confirmAction} />
-        ) : null}
-
-        {status !== null && (status === 'awaiting_payment' || status === 'confirmed' || status === 'payment_failed') ? (
-          <CancelBooking appointment={appointment} action={cancelAction} />
-        ) : null}
-      </Inline>
+      </Stack>
     </article>
   )
 }
@@ -212,32 +227,40 @@ function CancelBooking({
         <Icon name="x" /> Cancel this appointment
       </summary>
 
-      <form action={action} className="stack" style={{ gap: 'var(--space-4)', marginTop: 'var(--space-4)' }}>
-        <input type="hidden" name="appointment_id" value={appointment.id} />
+      {/* The margin is the space between a disclosure's summary and its content, and it
+          cannot become a gap: `<details>` shows and hides its own non-summary children, and
+          giving it `display: flex` is the one change that breaks that — Chrome renders the
+          content while the disclosure is CLOSED. So the offset stays a margin on the form and
+          the column inside it is a Stack. Same reasoning as NoteThread; one `.disclose`
+          content rule in console.css would retire all four. */}
+      <form action={action} style={{ marginTop: 'var(--space-4)' }}>
+        <Stack gap="4">
+          <input type="hidden" name="appointment_id" value={appointment.id} />
 
-        <Field
-          name={`reason-${appointment.id}`}
-          label="Why is this being cancelled?"
-          hint="Do not write anything clinical here. This is stored on the booking and read by whoever opens it next; keep it to the arrangement — 'patient rescheduled', 'clinician unavailable'."
-        >
-          {(control) => (
-            <Textarea
-              {...control}
-              name="reason"
-              required
-              minLength={3}
-              maxLength={255}
-              rows={2}
-              placeholder="Patient rescheduled"
-            />
-          )}
-        </Field>
+          <Field
+            name={`reason-${appointment.id}`}
+            label="Why is this being cancelled?"
+            hint="Do not write anything clinical here. This is stored on the booking and read by whoever opens it next; keep it to the arrangement — 'patient rescheduled', 'clinician unavailable'."
+          >
+            {(control) => (
+              <Textarea
+                {...control}
+                name="reason"
+                required
+                minLength={3}
+                maxLength={255}
+                rows={2}
+                placeholder="Patient rescheduled"
+              />
+            )}
+          </Field>
 
-        <div>
-          <Button variant="danger" type="submit">
-            Cancel and release the slot
-          </Button>
-        </div>
+          <div>
+            <Button variant="danger" type="submit">
+              Cancel and release the slot
+            </Button>
+          </div>
+        </Stack>
       </form>
     </details>
   )
@@ -263,37 +286,40 @@ function ConfirmOnAuthority({
         <Icon name="check" /> Confirm without payment
       </summary>
 
-      <form action={action} className="stack" style={{ gap: 'var(--space-4)', marginTop: 'var(--space-4)' }}>
-        <input type="hidden" name="appointment_id" value={appointment.id} />
+      {/* The same disclosure offset, kept for the same reason as the cancel form above. */}
+      <form action={action} style={{ marginTop: 'var(--space-4)' }}>
+        <Stack gap="4">
+          <input type="hidden" name="appointment_id" value={appointment.id} />
 
-        <p className="fine measure">
-          You are vouching that this patient will settle at the desk, or that the clinic has
-          seen a transfer Carevelo has not. The appointment becomes confirmed and the slot
-          stops being a hold. This is recorded against your name.
-        </p>
+          <p className="fine measure">
+            You are vouching that this patient will settle at the desk, or that the clinic has
+            seen a transfer Carevelo has not. The appointment becomes confirmed and the slot
+            stops being a hold. This is recorded against your name.
+          </p>
 
-        {/* Not a decorative acknowledgement. The API cannot tell an accidental press from a
-            deliberate one, and this is the only place the difference can be made. */}
-        <Field name={`vouch-${appointment.id}`} label="Type CONFIRM to continue">
-          {(control) => (
-            /* Case-insensitive on purpose: the server compares upper-cased, and a browser
-               refusing "confirm" while the server would have accepted it is a control that
-               disagrees with itself. */
-            <Input
-              {...control}
-              name="vouch"
-              required
-              autoComplete="off"
-              pattern="[Cc][Oo][Nn][Ff][Ii][Rr][Mm]"
-            />
-          )}
-        </Field>
+          {/* Not a decorative acknowledgement. The API cannot tell an accidental press from a
+              deliberate one, and this is the only place the difference can be made. */}
+          <Field name={`vouch-${appointment.id}`} label="Type CONFIRM to continue">
+            {(control) => (
+              /* Case-insensitive on purpose: the server compares upper-cased, and a browser
+                 refusing "confirm" while the server would have accepted it is a control that
+                 disagrees with itself. */
+              <Input
+                {...control}
+                name="vouch"
+                required
+                autoComplete="off"
+                pattern="[Cc][Oo][Nn][Ff][Ii][Rr][Mm]"
+              />
+            )}
+          </Field>
 
-        <div>
-          <Button variant="primary" type="submit">
-            Confirm on the clinic&rsquo;s authority
-          </Button>
-        </div>
+          <div>
+            <Button variant="primary" type="submit">
+              Confirm on the clinic&rsquo;s authority
+            </Button>
+          </div>
+        </Stack>
       </form>
     </details>
   )

@@ -2,7 +2,7 @@
 
 import type { ReactElement } from 'react'
 import { useActionState } from 'react'
-import { Button, Icon, Notice } from '@carevelo/ui'
+import { Button, Card, Icon, Notice, Stack } from '@carevelo/ui'
 
 /**
  * The one 'use client' in this domain, and the reason is a security requirement rather than a
@@ -98,30 +98,44 @@ export function IssueAccountForm({
           </p>
         </Notice>
 
-        <div className="card stack">
-          <span className="field__label">Signs in with</span>
-          <p className="tnum credential">
-            {state.email}
-          </p>
-
-          <span className="field__label" style={{ marginTop: 'var(--space-5)' }}>
-            Initial password
-          </span>
+        <Card>
           {/*
-            Large, monospaced and unbroken. This string is read ALOUD to somebody across a
-            counter, so the two failures that matter are a misread character and a line wrap in
-            the middle of a word. `--mono` disambiguates the glyphs a proportional face runs
-            together; `word-break: break-all` on the address above is right for an email and
-            deliberately absent here.
-          */}
-          <p className="mono password-once">{state.password}</p>
+            The two label/value pairs are now GROUPS rather than four siblings held apart by
+            margins on two of them. That is what the margins were describing — 6px inside a
+            pair, more between pairs — and saying it as nesting means a pair cannot be split
+            by an edit that inserts a line, which is exactly how the address and its label
+            would end up further apart than the label and the password beneath them.
 
-          <p className="muted" style={{ marginTop: 'var(--space-4)' }}>
-            Tell them they must change it the first time they sign in — until they do, their
-            account can do nothing else. That is deliberate: while you know this password you
-            could sign in as them, and the audit trail would name them rather than you.
-          </p>
-        </div>
+            The step between the groups is now 16px where the sum of the old class gap and
+            the old margin came to 22px, and between the last group and the closing sentence
+            16px where it came to 18px. Neither figure was on the scale, because neither was
+            chosen: they were a default plus an override.
+          */}
+          <Stack gap="5">
+            <Stack gap="2">
+              <span className="field__label">Signs in with</span>
+              <p className="tnum credential">{state.email}</p>
+            </Stack>
+
+            <Stack gap="2">
+              <span className="field__label">Initial password</span>
+              {/*
+                Large, monospaced and unbroken. This string is read ALOUD to somebody across a
+                counter, so the two failures that matter are a misread character and a line wrap in
+                the middle of a word. `--mono` disambiguates the glyphs a proportional face runs
+                together; `word-break: break-all` on the address above is right for an email and
+                deliberately absent here.
+              */}
+              <p className="mono password-once">{state.password}</p>
+            </Stack>
+
+            <p className="muted">
+              Tell them they must change it the first time they sign in — until they do, their
+              account can do nothing else. That is deliberate: while you know this password you
+              could sign in as them, and the audit trail would name them rather than you.
+            </p>
+          </Stack>
+        </Card>
 
         <div className="row-wrap">
           <Button href={recordHref} variant="primary">
@@ -144,45 +158,46 @@ export function IssueAccountForm({
         </Notice>
       ) : null}
 
-      <div className="card stack">
-        <span className="field__label">The patient will sign in with</span>
-        <p className="tnum credential">
-          {email}
-        </p>
-        <p className="muted">
-          Taken from the record, and not editable here. If it is wrong, correct the record —
-          one spelling of a patient’s address, in one place.
-        </p>
+      <Card>
+        {/* Same shape as the issued card above: the address, its label and the sentence
+            about correcting it are one group, and the attestation is held off them by the
+            column's gap rather than by a margin on the label. */}
+        <Stack gap="5">
+          <Stack gap="2">
+            <span className="field__label">The patient will sign in with</span>
+            <p className="tnum credential">{email}</p>
+            <p className="muted">
+              Taken from the record, and not editable here. If it is wrong, correct the record —
+              one spelling of a patient’s address, in one place.
+            </p>
+          </Stack>
 
-        {/*
-          A plain checkbox rather than <Choice>: this is a single condition that must be true
-          before the button means anything, not one option among several. `required` makes it a
-          condition rather than a suggestion and works with no JavaScript.
+          {/*
+            A plain checkbox rather than <Choice>: this is a single condition that must be true
+            before the button means anything, not one option among several. `required` makes it a
+            condition rather than a suggestion and works with no JavaScript.
 
-          SAID PLAINLY: this tick is stored nowhere. What IS recorded is the audit event naming
-          you as the person who issued the account. The tick is here to stop a reflexive click
-          on the one action in this product that produces somebody else's credential.
-        */}
-        <label
-          className="row"
-          htmlFor="identity-attested"
-          style={{ marginTop: 'var(--space-5)' }}
-        >
-          <input
-            className="choice__input"
-            id="identity-attested"
-            name="attested"
-            type="checkbox"
-            value="yes"
-            required
-          />
-          <span className="choice__text">
-            <span>
-              {patientName} is in front of me and I have checked their identity document.
+            SAID PLAINLY: this tick is stored nowhere. What IS recorded is the audit event naming
+            you as the person who issued the account. The tick is here to stop a reflexive click
+            on the one action in this product that produces somebody else's credential.
+          */}
+          <label className="row" htmlFor="identity-attested">
+            <input
+              className="choice__input"
+              id="identity-attested"
+              name="attested"
+              type="checkbox"
+              value="yes"
+              required
+            />
+            <span className="choice__text">
+              <span>
+                {patientName} is in front of me and I have checked their identity document.
+              </span>
             </span>
-          </span>
-        </label>
-      </div>
+          </label>
+        </Stack>
+      </Card>
 
       <div className="row-wrap">
         <Button type="submit" variant="primary" disabled={pending}>

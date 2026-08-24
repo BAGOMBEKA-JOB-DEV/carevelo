@@ -102,70 +102,74 @@ export function BrandingEditor({
 
   return (
     <div className="grid g-2">
-      <form action={action} className="stack" style={{ gap: 'var(--space-6)' }}>
-        <Field
-          name="trading_name"
-          label="Trading name"
-          hint="What patients see, on the portal, on receipts and at the top of a prescription."
-        >
-          {(control) => (
-            <Input
-              {...control}
-              type="text"
-              maxLength={120}
-              defaultValue={tradingName}
-              onChange={(event) => setLiveName(event.currentTarget.value)}
-            />
-          )}
-        </Field>
+      {/* A `<form>` is not a Stack element — the union stops at the elements that are
+          layout — so the column the fields sit in goes inside it. */}
+      <form action={action}>
+        <Stack gap="6">
+          <Field
+            name="trading_name"
+            label="Trading name"
+            hint="What patients see, on the portal, on receipts and at the top of a prescription."
+          >
+            {(control) => (
+              <Input
+                {...control}
+                type="text"
+                maxLength={120}
+                defaultValue={tradingName}
+                onChange={(event) => setLiveName(event.currentTarget.value)}
+              />
+            )}
+          </Field>
 
-        <Field
-          name="primary_colour"
-          label="Primary colour"
-          hint="Six hexadecimal digits, for example #1B7F5A. Leave it empty to use no colour of your own."
-          error={primaryError}
-        >
-          {(control) => (
-            <Input
-              {...control}
-              type="text"
-              inputMode="text"
-              spellCheck={false}
-              autoCapitalize="none"
-              pattern={HEX_PATTERN}
-              placeholder="#1B7F5A"
-              defaultValue={primary ?? ''}
-              onChange={(event) => setLivePrimary(event.currentTarget.value)}
-            />
-          )}
-        </Field>
+          <Field
+            name="primary_colour"
+            label="Primary colour"
+            hint="Six hexadecimal digits, for example #1B7F5A. Leave it empty to use no colour of your own."
+            error={primaryError}
+          >
+            {(control) => (
+              <Input
+                {...control}
+                type="text"
+                inputMode="text"
+                spellCheck={false}
+                autoCapitalize="none"
+                pattern={HEX_PATTERN}
+                placeholder="#1B7F5A"
+                defaultValue={primary ?? ''}
+                onChange={(event) => setLivePrimary(event.currentTarget.value)}
+              />
+            )}
+          </Field>
 
-        <Field
-          name="secondary_colour"
-          label="Secondary colour"
-          hint="Used for the quieter of the two patient-facing actions."
-          error={secondaryError}
-        >
-          {(control) => (
-            <Input
-              {...control}
-              type="text"
-              inputMode="text"
-              spellCheck={false}
-              autoCapitalize="none"
-              pattern={HEX_PATTERN}
-              placeholder="#0F5FA8"
-              defaultValue={secondary ?? ''}
-              onChange={(event) => setLiveSecondary(event.currentTarget.value)}
-            />
-          )}
-        </Field>
+          <Field
+            name="secondary_colour"
+            label="Secondary colour"
+            hint="Used for the quieter of the two patient-facing actions."
+            error={secondaryError}
+          >
+            {(control) => (
+              <Input
+                {...control}
+                type="text"
+                inputMode="text"
+                spellCheck={false}
+                autoCapitalize="none"
+                pattern={HEX_PATTERN}
+                placeholder="#0F5FA8"
+                defaultValue={secondary ?? ''}
+                onChange={(event) => setLiveSecondary(event.currentTarget.value)}
+              />
+            )}
+          </Field>
 
-        <div>
-          <Button type="submit" variant="primary">
-            Save branding
-          </Button>
-        </div>
+          <div>
+            <Button type="submit" variant="primary">
+              Save branding
+            </Button>
+          </div>
+        </Stack>
       </form>
 
       <Stack gap="4">

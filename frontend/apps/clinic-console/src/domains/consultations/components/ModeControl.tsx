@@ -1,4 +1,4 @@
-import { Button, Icon, Notice } from '@carevelo/ui'
+import { Button, Card, Icon, Inline, Notice, Stack } from '@carevelo/ui'
 import {
   asMode,
   MODE_DEMAND,
@@ -54,33 +54,43 @@ export function ModeControl({
   const used = asMode(consultation.mode_used)
 
   return (
-    <section className="card stack" style={{ gap: 'var(--space-4) ' }} aria-labelledby="mode-heading">
-      <h2 id="mode-heading" className="title-sm">
-        How this consultation is being held
-      </h2>
+    <Card as="section" aria-labelledby="mode-heading">
+      <Stack gap="4">
+        <h2 id="mode-heading" className="title-sm">
+          How this consultation is being held
+        </h2>
 
-      <ModeAnnouncement bookedMode={bookedMode} used={used} />
+        <ModeAnnouncement bookedMode={bookedMode} used={used} />
 
-      <form action={action} className="row-wrap" style={{ gap: 'var(--space-3)' }}>
-        {REMOTE_MODES.map((mode) => (
-          <Button
-            key={mode}
-            type="submit"
-            name="mode"
-            value={mode}
-            variant={mode === used ? 'primary' : 'quiet'}
-            aria-pressed={mode === used}
-          >
-            <Icon name={MODE_ICON[mode]} /> {MODE_LABEL[mode]}
-          </Button>
-        ))}
-      </form>
+        {/* The row of buttons is an `<Inline>` INSIDE the form rather than the form itself
+            being the flex row: Stack and Inline take semantic grouping elements and a `<form>`
+            is not one — its element is chosen by what it submits, never by how its controls
+            are arranged. The form stays a plain block and the row states its 8px, which is
+            tighter than `.row-wrap`'s own 12px because these three are one control in three
+            positions rather than three separate things to press. */}
+        <form action={action}>
+          <Inline gap="3">
+            {REMOTE_MODES.map((mode) => (
+              <Button
+                key={mode}
+                type="submit"
+                name="mode"
+                value={mode}
+                variant={mode === used ? 'primary' : 'quiet'}
+                aria-pressed={mode === used}
+              >
+                <Icon name={MODE_ICON[mode]} /> {MODE_LABEL[mode]}
+              </Button>
+            ))}
+          </Inline>
+        </form>
 
-      <p className="fine">
-        Changing this records what is really happening and tells the patient on their own
-        screen. It does not switch anything over for you — nothing here controls a connection.
-      </p>
-    </section>
+        <p className="fine">
+          Changing this records what is really happening and tells the patient on their own
+          screen. It does not switch anything over for you — nothing here controls a connection.
+        </p>
+      </Stack>
+    </Card>
   )
 }
 

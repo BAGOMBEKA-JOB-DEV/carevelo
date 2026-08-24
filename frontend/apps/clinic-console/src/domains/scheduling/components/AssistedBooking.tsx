@@ -301,63 +301,70 @@ export async function AssistedBooking({
           * three forms would make a receptionist submit three times to change a booking from
           * Tuesday to Wednesday with a different doctor.
           */}
-        <form method="get" action={paths.book} className="card grid g-3" style={{ gap: 'var(--space-5)' }}>
-          <input type="hidden" name="patient" value={patientId} />
-          {query ? <input type="hidden" name="q" value={query} /> : null}
+        {/* The grid is a `<Grid>` inside the form rather than the form wearing the grid
+            classes, for the same reason every other form on these screens gives up its
+            display: what element a form renders as is decided by what it submits. `gap="5"`
+            because that is the 16px the style said — Grid's own default is `.grid`'s 18px,
+            so this one has to say it. */}
+        <form method="get" action={paths.book} className="card">
+          <Grid cols={3} gap="5">
+            <input type="hidden" name="patient" value={patientId} />
+            {query ? <input type="hidden" name="q" value={query} /> : null}
 
-          <Field name="service" label="Service">
-            {(control) => (
-              <Select {...control} defaultValue={serviceId ?? ''} required>
-                <option value="">Choose a service…</option>
-                {(services.ok ? services.value : [])
-                  .filter((offering) => offering.is_active)
-                  .map((offering) => (
-                    <option key={offering.id} value={offering.id}>
-                      {offering.name} · {offering.duration_minutes} min
+            <Field name="service" label="Service">
+              {(control) => (
+                <Select {...control} defaultValue={serviceId ?? ''} required>
+                  <option value="">Choose a service…</option>
+                  {(services.ok ? services.value : [])
+                    .filter((offering) => offering.is_active)
+                    .map((offering) => (
+                      <option key={offering.id} value={offering.id}>
+                        {offering.name} · {offering.duration_minutes} min
+                      </option>
+                    ))}
+                </Select>
+              )}
+            </Field>
+
+            <Field
+              name="clinician"
+              label="Clinician"
+              hint="Leave as anyone if the caller has no preference — it usually finds an earlier time."
+            >
+              {(control) => (
+                <Select {...control} defaultValue={clinicianId ?? ''}>
+                  <option value="">Anyone</option>
+                  {(clinicians.ok ? clinicians.value : []).map((person: Clinician) => (
+                    <option key={person.id} value={person.id}>
+                      {person.name}
                     </option>
                   ))}
-              </Select>
-            )}
-          </Field>
+                </Select>
+              )}
+            </Field>
 
-          <Field
-            name="clinician"
-            label="Clinician"
-            hint="Leave as anyone if the caller has no preference — it usually finds an earlier time."
-          >
-            {(control) => (
-              <Select {...control} defaultValue={clinicianId ?? ''}>
-                <option value="">Anyone</option>
-                {(clinicians.ok ? clinicians.value : []).map((person: Clinician) => (
-                  <option key={person.id} value={person.id}>
-                    {person.name}
-                  </option>
-                ))}
-              </Select>
-            )}
-          </Field>
+            <Field name="day" label="Day">
+              {(control) => (
+                <Select {...control} defaultValue={chosenDay}>
+                  {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13].map((offset) => {
+                    const value = shiftDay(today(), offset)
 
-          <Field name="day" label="Day">
-            {(control) => (
-              <Select {...control} defaultValue={chosenDay}>
-                {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13].map((offset) => {
-                  const value = shiftDay(today(), offset)
+                    return (
+                      <option key={value} value={value}>
+                        {readableDay(value)}
+                      </option>
+                    )
+                  })}
+                </Select>
+              )}
+            </Field>
 
-                  return (
-                    <option key={value} value={value}>
-                      {readableDay(value)}
-                    </option>
-                  )
-                })}
-              </Select>
-            )}
-          </Field>
-
-          <div>
-            <Button variant="primary" type="submit">
-              <Icon name="clock" /> Show times
-            </Button>
-          </div>
+            <div>
+              <Button variant="primary" type="submit">
+                <Icon name="clock" /> Show times
+              </Button>
+            </div>
+          </Grid>
         </form>
 
         {service === null ? (
@@ -383,57 +390,60 @@ export async function AssistedBooking({
         ) : null}
 
         {service !== null && shown.length > 0 ? (
-          <form action={book} className="card stack" style={{ gap: 'var(--space-6)' }}>
-            <div className="stack">
-              <h2 className="title">{service.name}</h2>
-              <p className="muted">
-                {service.duration_minutes} minutes ·{' '}
-                <Money value={{ amount_minor: service.price.amount_minor, currency: service.price.currency }} />
-              </p>
-            </div>
+          <form action={book} className="card">
+            <Stack gap="6">
+              {/* A bare `.stack` before this — 6px in the reset — so `gap="2"`. */}
+              <Stack gap="2">
+                <h2 className="title">{service.name}</h2>
+                <p className="muted">
+                  {service.duration_minutes} minutes ·{' '}
+                  <Money value={{ amount_minor: service.price.amount_minor, currency: service.price.currency }} />
+                </p>
+              </Stack>
 
-            <SlotPicker
-              slots={shown}
-              total={slots.length}
-              clinicians={clinicians.ok ? clinicians.value : []}
-            />
+              <SlotPicker
+                slots={shown}
+                total={slots.length}
+                clinicians={clinicians.ok ? clinicians.value : []}
+              />
 
-            <Choice
-              name="mode"
-              legend="How will this consultation be held?"
-              options={modeOptions}
-              required
-              defaultValue={modes[0]}
-              hint="Ask the caller. Voice and chat are proper choices for someone who knows their connection will not carry video — booking video and hoping is how a consultation is wasted."
-            />
+              <Choice
+                name="mode"
+                legend="How will this consultation be held?"
+                options={modeOptions}
+                required
+                defaultValue={modes[0]}
+                hint="Ask the caller. Voice and chat are proper choices for someone who knows their connection will not carry video — booking video and hoping is how a consultation is wasted."
+              />
 
-            <Choice
-              name="payment_expectation"
-              legend="How will the patient pay?"
-              required
-              defaultValue="pay_at_clinic"
-              options={[
-                {
-                  value: 'pay_at_clinic',
-                  label: 'At the clinic',
-                  note: 'The appointment is confirmed immediately. Cash is attested at the desk on the day.',
-                },
-                {
-                  value: 'prepaid',
-                  label: 'By mobile money, before the appointment',
-                  note:
-                    'The slot is HELD, not booked, and released automatically if payment does '
-                    + 'not arrive. A caller who is not at their handset now will usually lose it.',
-                },
-              ]}
-              hint="Carevelo never holds the clinic’s money. Either way the payment is between the patient and the clinic; this only records what to expect."
-            />
+              <Choice
+                name="payment_expectation"
+                legend="How will the patient pay?"
+                required
+                defaultValue="pay_at_clinic"
+                options={[
+                  {
+                    value: 'pay_at_clinic',
+                    label: 'At the clinic',
+                    note: 'The appointment is confirmed immediately. Cash is attested at the desk on the day.',
+                  },
+                  {
+                    value: 'prepaid',
+                    label: 'By mobile money, before the appointment',
+                    note:
+                      'The slot is HELD, not booked, and released automatically if payment does '
+                      + 'not arrive. A caller who is not at their handset now will usually lose it.',
+                  },
+                ]}
+                hint="Carevelo never holds the clinic’s money. Either way the payment is between the patient and the clinic; this only records what to expect."
+              />
 
-            <div>
-              <Button variant="primary" size="lg" type="submit">
-                <Icon name="check" /> Book this appointment
-              </Button>
-            </div>
+              <div>
+                <Button variant="primary" size="lg" type="submit">
+                  <Icon name="check" /> Book this appointment
+                </Button>
+              </div>
+            </Stack>
           </form>
         ) : null}
       </Stack>
@@ -472,6 +482,17 @@ function SlotPicker({
   total: number
   clinicians: readonly Clinician[]
 }) {
+  /*
+   * KEPT, AND IT IS THE ONE PLACE A PRIMITIVE WOULD FIT AND CANNOT BE REACHED.
+   *
+   * Stack renders its element directly and does not wrap its children, so `as="fieldset"`
+   * would be exactly right here — the `<legend>` would still be the fieldset's FIRST CHILD,
+   * which is the whole requirement for it to name the group, and wrapping the children in
+   * anything is what would break that. `StackElement` simply has no `fieldset` in its union,
+   * and that union lives in packages/ui, which is not this task's to write. Named in the
+   * report: the day the union gains it, this becomes `<Stack as="fieldset" gap="4">` and the
+   * style goes with no other edit.
+   */
   return (
     <fieldset className="stack" style={{ gap: 'var(--space-4)' }}>
       <legend className="field__label">Times</legend>
@@ -482,11 +503,10 @@ function SlotPicker({
           const clinician = clinicians.find((person) => person.id === slot.clinician_id)
 
           return (
-            <label
-              key={value}
-              className="choice__option"
-              style={{ minHeight: 'var(--touch-min)' }}
-            >
+            /* `.choice__option` in the token layer already sets `min-height: var(--touch-min)`,
+               so the style was that floor declared a second time. One declaration, in the
+               place that owns the shape. */
+            <label key={value} className="choice__option">
               <input className="choice__input" type="radio" name="slot" value={value} required />
               <span className="choice__text">
                 <span className="tnum">

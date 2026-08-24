@@ -147,14 +147,14 @@ export async function ConsultationRoom({
           <div className="cellgrid cellgrid--3">
             <div className="stat">
               <span className="stat__label">{t('scheduledLabel')}</span>
-              <span className="stat__value" style={{ fontSize: 19 }}>
+              <span className="stat__value stat__value--sm">
                 <DateTime value={appointment.scheduled_start_at} format="datetime" />
               </span>
             </div>
 
             <div className="stat">
               <span className="stat__label">{t('referenceLabel')}</span>
-              <span className="stat__value tnum" style={{ fontSize: 19 }}>
+              <span className="stat__value stat__value--sm tnum">
                 {appointment.reference}
               </span>
             </div>
@@ -162,7 +162,7 @@ export async function ConsultationRoom({
             {clinicianName ? (
               <div className="stat">
                 <span className="stat__label">{t('clinicianLabel')}</span>
-                <span className="stat__value" style={{ fontSize: 19 }}>
+                <span className="stat__value stat__value--sm">
                   {clinicianName}
                 </span>
               </div>

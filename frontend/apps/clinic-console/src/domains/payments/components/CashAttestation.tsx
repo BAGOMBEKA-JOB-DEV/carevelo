@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { Button, Money, Notice, formatMoney } from '@carevelo/ui'
+import { Button, Inline, Money, Notice, formatMoney } from '@carevelo/ui'
 import { attestCash } from '../api/paymentIntents'
 import type { MoneyAmount } from '../api/types'
 
@@ -69,19 +69,32 @@ export function CashAttestation({ intentId, amount, reference, selfPath }: CashA
         </p>
       </Notice>
 
-      <label className="row" style={{ alignItems: 'flex-start', gap: 'var(--space-3)' }}>
-        <input type="checkbox" name="attested" value="yes" required />
-        <span>
-          I received{' '}
-          {amount === null ? (
-            <strong>the amount on this record</strong>
-          ) : (
-            <strong>
-              <Money value={amount} />
-            </strong>
-          )}{' '}
-          in cash at the clinic for payment <span className="mono">{reference}</span>.
-        </span>
+      {/* The flex row is a `<span>` INSIDE the label rather than the label itself, because
+          Inline's `as` list is a set of semantic grouping elements and `label` is not one of
+          them — a label's job is association with a control, and a primitive that offered it
+          as a layout container would invite one wrapping several. Clicking anywhere in the
+          span still toggles the box: it is inside the label.
+
+          `align="start"` because the sentence wraps to three lines at the counter's window
+          width and a checkbox centred against three lines sits beside the wrong one.
+          `wrap={false}` because the box and its sentence are the atomic pair Inline's
+          docblock describes — allowed to wrap, the sentence drops underneath the checkbox
+          and the two stop reading as one statement. */}
+      <label>
+        <Inline as="span" gap="3" align="start" wrap={false}>
+          <input type="checkbox" name="attested" value="yes" required />
+          <span>
+            I received{' '}
+            {amount === null ? (
+              <strong>the amount on this record</strong>
+            ) : (
+              <strong>
+                <Money value={amount} />
+              </strong>
+            )}{' '}
+            in cash at the clinic for payment <span className="mono">{reference}</span>.
+          </span>
+        </Inline>
       </label>
 
       <div>

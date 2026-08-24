@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react'
 import { redirect } from 'next/navigation'
-import { Button, Notice, PageHeader } from '@carevelo/ui'
+import { Button, Card, Grid, Inline, Notice, PageHeader, Stack } from '@carevelo/ui'
 import { updatePatient } from '../api/patients'
 import type { Patient, ProfileInput, Sex } from '../api/types'
 import { isFinalised } from '../model/status'
@@ -220,53 +220,79 @@ export function PatientDetailsScreen({
           recordHref: paths.record(patient.id),
         })}
         >
-          <div className="grid g-2">
-            <section className="card stack" aria-labelledby="identity-heading">
-              <h2 className="title-sm" id="identity-heading">
-                The patient
-              </h2>
-              <div className="grid" style={{ gap: 'var(--space-5)', marginTop: 'var(--space-4)' }}>
-                <IdentityFields values={values} fault={fault} />
-              </div>
-            </section>
+          {/*
+            Three columns of decisions that were each written as a margin on the element being
+            pushed: the two-card row, the guardian card and the button row. As margins they had
+            to be remembered on every sibling and re-checked whenever one was inserted; as two
+            nested Stacks they are two numbers, and the nesting is exactly the grouping the old
+            values described — 18px between the cards, 24px before the buttons.
+          */}
+          <Stack gap="7">
+            <Stack gap="6">
+              <Grid cols={2}>
+                <Card as="section" aria-labelledby="identity-heading">
+              {/*
+                `gap="2"` is what `.card stack` gave the heading and its paragraph; the outer
+                gap is that class gap and the hand-set `marginTop` added together, which lands
+                on the scale at 18px. The field column was a single-column `.grid` with a
+                hand-set gap, which is a flex column with a gap by another name.
+              */}
+                  <Stack gap="6">
+                    <h2 className="title-sm" id="identity-heading">
+                      The patient
+                    </h2>
 
-            <section className="card stack" aria-labelledby="detail-heading">
-              <h2 className="title-sm" id="detail-heading">
-                Optional details
-              </h2>
-              <p className="muted">Clear a box to take that detail off the record.</p>
-              <div className="grid" style={{ gap: 'var(--space-5)', marginTop: 'var(--space-4)' }}>
-                <DetailFields values={values} fault={fault} />
-              </div>
-            </section>
-          </div>
+                    <Stack gap="5">
+                      <IdentityFields values={values} fault={fault} />
+                    </Stack>
+                  </Stack>
+                </Card>
 
-          <section
-            className="card stack"
-            aria-labelledby="guardian-heading"
-            style={{ marginTop: 'var(--space-6)' }}
-          >
-            <h2 className="title-sm" id="guardian-heading">
-              Guardian
-            </h2>
-            <p className="muted">
-              Required while the patient is under 18. The API checks this against the RESULTING
-              record rather than against what you sent, so a guardian’s details cannot be
-              removed one field at a time.
-            </p>
-            <div className="grid g-2" style={{ marginTop: 'var(--space-4)' }}>
-              <GuardianContactFields values={values} fault={fault} />
-            </div>
-          </section>
+                <Card as="section" aria-labelledby="detail-heading">
+                  <Stack gap="6">
+                    <Stack gap="2">
+                      <h2 className="title-sm" id="detail-heading">
+                        Optional details
+                      </h2>
+                      <p className="muted">Clear a box to take that detail off the record.</p>
+                    </Stack>
 
-          <div className="row-wrap" style={{ marginTop: 'var(--space-7)' }}>
-            <Button type="submit" variant="primary">
-              Save corrections
-            </Button>
-            <Button href={paths.record(patient.id)} variant="quiet">
-              Cancel
-            </Button>
-          </div>
+                    <Stack gap="5">
+                      <DetailFields values={values} fault={fault} />
+                    </Stack>
+                  </Stack>
+                </Card>
+              </Grid>
+
+              <Card as="section" aria-labelledby="guardian-heading">
+                <Stack gap="6">
+                  <Stack gap="2">
+                    <h2 className="title-sm" id="guardian-heading">
+                      Guardian
+                    </h2>
+                    <p className="muted">
+                      Required while the patient is under 18. The API checks this against the RESULTING
+                      record rather than against what you sent, so a guardian’s details cannot be
+                      removed one field at a time.
+                    </p>
+                  </Stack>
+
+                  <Grid cols={2}>
+                    <GuardianContactFields values={values} fault={fault} />
+                  </Grid>
+                </Stack>
+              </Card>
+            </Stack>
+
+            <Inline gap="4">
+              <Button type="submit" variant="primary">
+                Save corrections
+              </Button>
+              <Button href={paths.record(patient.id)} variant="quiet">
+                Cancel
+              </Button>
+            </Inline>
+          </Stack>
         </form>
       </div>
     </>

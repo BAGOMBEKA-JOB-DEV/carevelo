@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { Notice, Stack } from '@carevelo/ui'
+import { Card, Notice, Stack } from '@carevelo/ui'
 import { cancelPrescription, documentLink, listPrescriptions, readPrescriber } from '../api/prescriptions'
 import { prescribingBlock, type PrescribingPaths } from '../model/types'
 import { IssuedPrescriptions } from './IssuedPrescriptions'
@@ -154,45 +154,50 @@ export async function PrescribingPanel({
   }
 
   return (
-    <section className="card stack" style={{ gap: 'var(--space-5)' }} aria-labelledby="prescribe-heading">
-      <div className="stack">
-        <h2 id="prescribe-heading" className="title-sm">
-          Prescribe
-        </h2>
-        <p className="fine">
-          A prescription is a clinical act by you, under your own registration. Once issued it
-          cannot be edited — only cancelled, with a reason, and replaced.
-        </p>
-      </div>
+    <Card as="section" aria-labelledby="prescribe-heading">
+      {/* `<Card as="section">` plus a Stack rather than `className="card stack"` with the
+          gap written out: the class pair and the inline gap were the same two decisions
+          these two components make, and only one of them was checkable. */}
+      <Stack gap="5">
+        <div className="stack">
+          <h2 id="prescribe-heading" className="title-sm">
+            Prescribe
+          </h2>
+          <p className="fine">
+            A prescription is a clinical act by you, under your own registration. Once issued it
+            cannot be edited — only cancelled, with a reason, and replaced.
+          </p>
+        </div>
 
-      {block === null ? (
-        <PrescribingForm
-          consultationId={consultationId}
-          prescriber={prescriber}
-          patientName={patientName}
-        />
-      ) : (
-        <Blocked block={block} />
-      )}
+        {block === null ? (
+          <PrescribingForm
+            consultationId={consultationId}
+            prescriber={prescriber}
+            patientName={patientName}
+          />
+        ) : (
+          <Blocked block={block} />
+        )}
 
-      {prescriber.kind === 'unreadable' && block === null ? (
-        <Notice tone="info" icon="shield" title="Your registration details cannot be shown here" announce={false}>
-          The endpoint that carries a registration number is open to administrators only,
-          because it is also the endpoint that grants the right to prescribe. The document will
-          carry what the clinic recorded for you; this screen cannot read it back to confirm it
-          before you sign.
-        </Notice>
-      ) : null}
+        {prescriber.kind === 'unreadable' && block === null ? (
+          <Notice tone="info" icon="shield" title="Your registration details cannot be shown here" announce={false}>
+            The endpoint that carries a registration number is open to administrators only,
+            because it is also the endpoint that grants the right to prescribe. The document will
+            carry what the clinic recorded for you; this screen cannot read it back to confirm it
+            before you sign.
+          </Notice>
+        ) : null}
 
-      <Stack gap="4">
-        <h3 className="eyebrow">Recent prescriptions</h3>
-        <IssuedPrescriptions
-          prescriptions={prescriptions}
-          cancelAction={cancel}
-          documentAction={openDocument}
-        />
+        <Stack gap="4">
+          <h3 className="eyebrow">Recent prescriptions</h3>
+          <IssuedPrescriptions
+            prescriptions={prescriptions}
+            cancelAction={cancel}
+            documentAction={openDocument}
+          />
+        </Stack>
       </Stack>
-    </section>
+    </Card>
   )
 }
 

@@ -1,5 +1,5 @@
 import type { ReactElement, ReactNode } from 'react'
-import { Button, Icon, Notice, PageHeader } from '@carevelo/ui'
+import { Button, Icon, Notice, PageHeader, Stack } from '@carevelo/ui'
 import { issueAccount } from '../api/account'
 import type { Patient } from '../api/types'
 import { isFinalised, statusDisplay } from '../model/status'
@@ -167,15 +167,19 @@ export function IssueAccountScreen({ paths, patient }: IssueAccountScreenProps):
   if (patient.merged_into_patient_id !== null) {
     return (
       <Refusal heading={heading} title="This registration was a duplicate">
-        <p>
-          Its history moved to another record, and an account belongs on the record that
-          survived. Open that one and issue it from there.
-        </p>
-        <p style={{ marginTop: 'var(--space-4)' }}>
-          <Button href={paths.record(patient.merged_into_patient_id)}>
-            Open the record that survived
-          </Button>
-        </p>
+        {/* A Notice's children land in a plain block, so every paragraph after the first was
+            carrying its own `marginTop`. One Stack states it once for the whole refusal. */}
+        <Stack gap="4">
+          <p>
+            Its history moved to another record, and an account belongs on the record that
+            survived. Open that one and issue it from there.
+          </p>
+          <p>
+            <Button href={paths.record(patient.merged_into_patient_id)}>
+              Open the record that survived
+            </Button>
+          </p>
+        </Stack>
       </Refusal>
     )
   }
@@ -191,16 +195,18 @@ export function IssueAccountScreen({ paths, patient }: IssueAccountScreenProps):
   if (patient.has_account) {
     return (
       <Refusal heading={heading} title="This patient already has an account" tone="info">
-        <p>
-          They sign in with the address the clinic already holds. Nothing more is needed and
-          nothing can be issued a second time.
-        </p>
-        <p style={{ marginTop: 'var(--space-4)' }}>
-          If they have lost the password it cannot be given to them again — not here, not by an
-          administrator, and not by Carevelo. It was shown once when the account was created and
-          is stored only as a hash. A patient in that position needs a different account against
-          a different address.
-        </p>
+        <Stack gap="4">
+          <p>
+            They sign in with the address the clinic already holds. Nothing more is needed and
+            nothing can be issued a second time.
+          </p>
+          <p>
+            If they have lost the password it cannot be given to them again — not here, not by an
+            administrator, and not by Carevelo. It was shown once when the account was created and
+            is stored only as a hash. A patient in that position needs a different account against
+            a different address.
+          </p>
+        </Stack>
       </Refusal>
     )
   }
@@ -208,23 +214,25 @@ export function IssueAccountScreen({ paths, patient }: IssueAccountScreenProps):
   if (patient.email === null || patient.email.trim() === '') {
     return (
       <Refusal heading={heading} title="This record has no email address">
-        <p>
-          A patient signs in with an email address, so one has to be on the record before an
-          account can exist. {patientName} is registered and can be booked, consulted and
-          dispensed to exactly as normal without one — an account is a convenience, never a
-          condition of care. Add the address when they have one and come back.
-        </p>
-        <p style={{ marginTop: 'var(--space-4)' }}>
-          <strong>Do not invent an address to get past this.</strong> An account created against
-          an address the patient does not control is a login nobody can ever sign into, and it
-          permanently occupies that address at this clinic — the next attempt, with their real
-          address or not, is refused.
-        </p>
-        <p style={{ marginTop: 'var(--space-4)' }}>
-          <Button href={paths.details(patient.id)}>
-            <Icon name="mail" /> Add an email address
-          </Button>
-        </p>
+        <Stack gap="4">
+          <p>
+            A patient signs in with an email address, so one has to be on the record before an
+            account can exist. {patientName} is registered and can be booked, consulted and
+            dispensed to exactly as normal without one — an account is a convenience, never a
+            condition of care. Add the address when they have one and come back.
+          </p>
+          <p>
+            <strong>Do not invent an address to get past this.</strong> An account created against
+            an address the patient does not control is a login nobody can ever sign into, and it
+            permanently occupies that address at this clinic — the next attempt, with their real
+            address or not, is refused.
+          </p>
+          <p>
+            <Button href={paths.details(patient.id)}>
+              <Icon name="mail" /> Add an email address
+            </Button>
+          </p>
+        </Stack>
       </Refusal>
     )
   }
@@ -235,15 +243,17 @@ export function IssueAccountScreen({ paths, patient }: IssueAccountScreenProps):
 
       <div className="grid">
         <Notice tone="warn" icon="shield" title="Before you create this">
-          <p>
-            An account lets whoever holds it read {patientName}’s medical record. The only check
-            standing behind that is you, at this desk, with them and their identity document in
-            front of you — there is no other verification anywhere in the product.
-          </p>
-          <p style={{ marginTop: 'var(--space-4)' }}>
-            The system generates the password and shows it to you once. You read it to the
-            patient; it is never emailed, never texted, and cannot be looked up afterwards.
-          </p>
+          <Stack gap="4">
+            <p>
+              An account lets whoever holds it read {patientName}’s medical record. The only check
+              standing behind that is you, at this desk, with them and their identity document in
+              front of you — there is no other verification anywhere in the product.
+            </p>
+            <p>
+              The system generates the password and shows it to you once. You read it to the
+              patient; it is never emailed, never texted, and cannot be looked up afterwards.
+            </p>
+          </Stack>
         </Notice>
 
         <IssueAccountForm

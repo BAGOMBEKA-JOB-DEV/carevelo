@@ -2,9 +2,17 @@ import type { ReactNode } from 'react'
 import { headers } from 'next/headers'
 import type { Metadata } from 'next'
 import '@carevelo/ui/tokens.css'
-/* AFTER the token layer, because it corrects two values in it. See admin.css: two rules,
-   both scoped to `.layout`, one of them a stopgap for a contrast failure that belongs in
-   packages/ui — which this change does not own. The arithmetic is written out there. */
+/* AFTER the token layer, because it corrects values in it. Every rule is scoped to
+   `.layout`, and most of them are stopgaps for contrast failures that belong in packages/ui
+   — which this change does not own. The arithmetic is written out there.
+
+   IT HAS TO BE A ROOT-LAYOUT IMPORT RATHER THAN A PER-SCREEN ONE, which is easy to get
+   wrong now that the file carries contrast corrections expressed as custom properties
+   redefined per theme. A stylesheet imported by some routes and not others is present or
+   absent depending on which page you landed on first, which would make a colour that passes
+   WCAG AA on a cold load fail on a warm one. It also carries the white-on-primary button fix
+   that dark mode makes mandatory, so anything rendering a button needs it — which is every
+   route. */
 import './admin.css'
 
 /**
@@ -50,14 +58,41 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
  * Next's own CSP guide states the rule: "When you use nonces in your CSP, all pages must be
  * dynamically rendered." There is no next.config.ts knob for it.
  *
- * So this call stays even though the value is only used to prove the point. Delete it and the
- * whole app silently stops running JavaScript.
+ * The value is no longer merely proof of the point — the theme bootstrap below needs it —
+ * but the rule above still holds independently of that script, so this call stays even if
+ * the script ever goes. Delete it and the whole app silently stops running JavaScript.
  */
-  await headers()
+  const nonce = (await headers()).get('x-nonce') ?? undefined
 
   return (
-    <html lang="en">
-      <body>{children}</body>
+    /*
+     * suppressHydrationWarning on this element alone. theme-init.js sets data-theme while
+     * the parser is stopped — before the first paint, which is the point of it — and React
+     * would otherwise see an attribute the server never rendered and treat the root as a
+     * mismatch, discarding and re-rendering the whole tree to resolve it. Nothing inside
+     * <html> is exempted, so a genuine mismatch anywhere in the app still reports.
+     */
+    <html lang="en" suppressHydrationWarning>
+      <body>
+        {/*
+         * The theme, applied before the first paint. FIRST child of <body> and deliberately
+         * render-blocking: the whole job is to set data-theme while the parser is stopped,
+         * so an operator who chose dark never sees a white page painted and then corrected.
+         * On this surface that would happen on EVERY navigation, because the nav is plain
+         * <a> elements and each click is a full document load.
+         *
+         * NOT next/script. `beforeInteractive` loads during hydration — after the paint this
+         * exists to beat. A plain external tag carrying the request's nonce runs while the
+         * parser is stopped and needs no 'unsafe-inline'. The lint rule is right in general
+         * and wrong here: async/defer would reintroduce the flash this prevents.
+         *
+         * The nonce is not optional decoration. proxy.ts uses 'strict-dynamic', which
+         * discards 'self', so a same-origin script with no nonce is refused like any other.
+         */}
+        {/* eslint-disable-next-line @next/next/no-sync-scripts */}
+        <script src="/theme-init.js" nonce={nonce} />
+        {children}
+      </body>
     </html>
   )
 }

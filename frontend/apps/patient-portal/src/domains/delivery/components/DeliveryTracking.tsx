@@ -115,7 +115,7 @@ export async function DeliveryTracking({
       ) : null}
 
       <section aria-labelledby="delivery-milestones" className="stack" style={{ gap: 'var(--space-4)' }}>
-        <h2 id="delivery-milestones" className="stat__value" style={{ fontSize: 21 }}>
+        <h2 id="delivery-milestones" className="stat__value stat__value--md">
           {t('milestonesHeading')}
         </h2>
 

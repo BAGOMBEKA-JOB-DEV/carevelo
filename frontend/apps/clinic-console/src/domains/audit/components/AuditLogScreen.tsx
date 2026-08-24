@@ -1,4 +1,16 @@
-import { Button, Card, DateTime, EmptyState, Notice, PageHeader } from '@carevelo/ui'
+import {
+  Button,
+  DataTable,
+  DateTime,
+  EmptyState,
+  Field,
+  Inline,
+  Input,
+  Notice,
+  PageHeader,
+  Stack,
+  Toolbar,
+} from '@carevelo/ui'
 import type { Attempt } from '../api/http'
 import { actionLabel, type AuditEvent, type AuditFilters, type AuditPage } from '../api/types'
 
@@ -75,15 +87,23 @@ export function AuditLogScreen({ page, filters, selfPath }: AuditLogScreenProps)
         </p>
       </Notice>
 
-      <Card as="section">
-        <h2 className="title">Narrow it down</h2>
-        <p className="muted" style={{ marginTop: 'var(--space-2)' }}>
-          You cannot search inside the details of an event. That is on purpose — a searchable
-          details field would turn this log into an index over whatever was once put in it.
-        </p>
+      {/* THE FILTERS COME OUT OF THEIR CARD. `.console-bar` in console.css is the one shape
+          above every list in this console — the registry's and the reconciliation screen's
+          already wear it, and this was the third invention of the same idea, a `.card` with
+          24px of padding competing for weight with the table it filters. The heading and its
+          paragraph stay: the paragraph is the only place the product says why there is no
+          full-text search, which is the first thing an investigator goes looking for. */}
+      <Stack gap="4">
+        <Stack gap="2">
+          <h2 className="title">Narrow it down</h2>
+          <p className="muted">
+            You cannot search inside the details of an event. That is on purpose — a searchable
+            details field would turn this log into an index over whatever was once put in it.
+          </p>
+        </Stack>
 
         <Filters filters={filters} selfPath={selfPath} />
-      </Card>
+      </Stack>
 
       {page.ok ? (
         <Results page={page.value} filters={filters} selfPath={selfPath} />
@@ -98,88 +118,88 @@ function Filters({ filters, selfPath }: { filters: AuditFilters; selfPath: strin
   return (
     /* A native GET form with no cursor field, so changing a filter starts from the first
        page. Carrying a cursor across a filter change would page into a result set the cursor
-       was never cut from. */
-    <form method="get" action={selfPath} className="row-wrap" style={{ marginTop: 'var(--space-5)' }}>
-      <div className="field">
-        <label className="field__label" htmlFor="audit-action">
-          Action
-        </label>
-        <input
-          className="input mono"
-          id="audit-action"
-          name="action"
-          defaultValue={filters.action ?? ''}
-          maxLength={64}
-          autoComplete="off"
-          spellCheck={false}
-        />
-        <span className="field__hint">
-          Exactly as it appears in the table, e.g. payment_intent.cash_attested
-        </span>
-      </div>
+       was never cut from.
 
-      <div className="field">
-        <label className="field__label" htmlFor="audit-actor">
-          Who
-        </label>
-        <input
-          className="input mono"
-          id="audit-actor"
-          name="actor_id"
-          defaultValue={filters.actorId ?? ''}
-          autoComplete="off"
-          spellCheck={false}
-        />
-        <span className="field__hint">A staff account identifier.</span>
-      </div>
+       Six hand-assembled `.field`/`.input`/`.field__hint` blocks became six `<Field>`s. Field
+       owns the `htmlFor`/`id` pair AND the `aria-describedby` that ties a hint to its control
+       — the hand-written version had the labels wired and the two hints wired to nothing, so
+       "Exactly as it appears in the table" was on screen and absent from the announcement for
+       the one person most likely to need telling what shape the value takes. */
+    <Toolbar
+      as="form"
+      method="get"
+      action={selfPath}
+      label="Narrow down the audit log"
+      className="console-bar"
+      actions={
+        <Button type="submit" variant="quiet">
+          Filter
+        </Button>
+      }
+    >
+      <Field
+        name="action"
+        id="audit-action"
+        label="Action"
+        hint="Exactly as it appears in the table, e.g. payment_intent.cash_attested"
+      >
+        {(control) => (
+          <Input
+            {...control}
+            className="mono"
+            defaultValue={filters.action ?? ''}
+            maxLength={64}
+            autoComplete="off"
+            spellCheck={false}
+          />
+        )}
+      </Field>
 
-      <div className="field">
-        <label className="field__label" htmlFor="audit-subject-type">
-          Kind of record
-        </label>
-        <input
-          className="input mono"
-          id="audit-subject-type"
-          name="subject_type"
-          defaultValue={filters.subjectType ?? ''}
-          maxLength={64}
-          autoComplete="off"
-          spellCheck={false}
-        />
-      </div>
+      <Field name="actor_id" id="audit-actor" label="Who" hint="A staff account identifier.">
+        {(control) => (
+          <Input
+            {...control}
+            className="mono"
+            defaultValue={filters.actorId ?? ''}
+            autoComplete="off"
+            spellCheck={false}
+          />
+        )}
+      </Field>
 
-      <div className="field">
-        <label className="field__label" htmlFor="audit-subject-id">
-          Which record
-        </label>
-        <input
-          className="input mono"
-          id="audit-subject-id"
-          name="subject_id"
-          defaultValue={filters.subjectId ?? ''}
-          autoComplete="off"
-          spellCheck={false}
-        />
-      </div>
+      <Field name="subject_type" id="audit-subject-type" label="Kind of record">
+        {(control) => (
+          <Input
+            {...control}
+            className="mono"
+            defaultValue={filters.subjectType ?? ''}
+            maxLength={64}
+            autoComplete="off"
+            spellCheck={false}
+          />
+        )}
+      </Field>
 
-      <div className="field">
-        <label className="field__label" htmlFor="audit-from">
-          From
-        </label>
-        <input className="input" type="date" id="audit-from" name="from" defaultValue={filters.from ?? ''} />
-      </div>
+      <Field name="subject_id" id="audit-subject-id" label="Which record">
+        {(control) => (
+          <Input
+            {...control}
+            className="mono"
+            defaultValue={filters.subjectId ?? ''}
+            autoComplete="off"
+            spellCheck={false}
+          />
+        )}
+      </Field>
 
-      <div className="field">
-        <label className="field__label" htmlFor="audit-to">
-          To
-        </label>
-        <input className="input" type="date" id="audit-to" name="to" defaultValue={filters.to ?? ''} />
-      </div>
+      <Field name="from" id="audit-from" label="From">
+        {(control) => <Input {...control} type="date" defaultValue={filters.from ?? ''} />}
+      </Field>
 
-      <Button type="submit" variant="quiet">
-        Filter
-      </Button>
-    </form>
+      <Field name="to" id="audit-to" label="To">
+        {(control) => <Input {...control} type="date" defaultValue={filters.to ?? ''} />}
+      </Field>
+    </Toolbar>
   )
 }
 
@@ -192,86 +212,116 @@ function Results({
   filters: AuditFilters
   selfPath: string
 }) {
-  if (page.events.length === 0) {
-    return (
-      <Card as="section">
-        <EmptyState title="No events match">
-          Nothing in this clinic&rsquo;s trail matches those filters. Clear them to see
-          everything, newest first.
-        </EmptyState>
-      </Card>
-    )
-  }
-
   return (
-    <Card as="section">
-      <div className="table-scroll">
-        <table className="table">
-          <caption className="fine" style={{ captionSide: 'bottom', textAlign: 'left' }}>
-            Newest first. An event says that something happened to a record — what the record
-            said is only on the record itself.
-          </caption>
-          <thead>
-            <tr>
-              <th scope="col">When</th>
-              <th scope="col">What happened</th>
-              <th scope="col">Who</th>
-              <th scope="col">Which record</th>
-              <th scope="col">Details</th>
-            </tr>
-          </thead>
-          <tbody>
-            {page.events.map((event) => (
-              <Row key={event.id} event={event} />
-            ))}
-          </tbody>
-        </table>
+    <Stack gap="5">
+      {/*
+       * `.card .panel-table` is the wrapper and `.queue` is on the scroll region inside it —
+       * console.css rules 6 and 8. The card supplies the border and the corner, `.panel-table`
+       * removes the 24px of padding that framed a table which already has its own cell
+       * padding, and `.queue` bounds the height so the column headings have something to
+       * stick to. An investigator reads forty rows of this looking for one; with the headings
+       * gone, "Who" and "Which record" are two columns of identifiers that cannot be told
+       * apart, which is the exact moment a trail stops being readable.
+       *
+       * THE EMPTY STATE IS THE TABLE'S OWN SLOT NOW rather than a separate card that replaced
+       * the table. The headings and the caption stay put, so the page does not change shape
+       * when a filter empties it — and the caption's sentence about what an event does and
+       * does not contain still reaches the person who filtered everything away.
+       *
+       * The caption also moves from the foot of the table to its head, which is where the
+       * element belongs: DataTable makes it the accessible NAME of the scroll region, so a
+       * screen-reader user hears what these rows are before the columns rather than after
+       * forty of them. `captionSide: 'bottom'` and `textAlign: 'left'` both go — the second
+       * is `.layout .table caption` in console.css already.
+       */}
+      <div className="card panel-table">
+        <DataTable
+          className="queue"
+          caption="Newest first. An event says that something happened to a record — what the record said is only on the record itself."
+          rows={page.events}
+          rowKey={(event) => event.id}
+          empty={
+            <EmptyState title="No events match" icon="shield">
+              Nothing in this clinic&rsquo;s trail matches those filters. Clear them to see
+              everything, newest first.
+            </EmptyState>
+          }
+          columns={[
+            {
+              key: 'when',
+              header: 'When',
+              cell: (event) => <DateTime value={event.occurredAt} format="datetime" />,
+            },
+            {
+              /* The action NAMES the row: it is the thing that happened, and every other
+                 column is a qualifier on it. A screen reader saying "payment_intent.cash_
+                 attested, Who, Sarah Nakato" is the sentence an investigator is reading;
+                 the same name read against a timestamp is not. */
+              key: 'action',
+              header: 'What happened',
+              rowHeader: true,
+              cell: (event) => <ActionCell event={event} />,
+            },
+            {
+              key: 'actor',
+              header: 'Who',
+              cell: (event) => <ActorCell event={event} />,
+            },
+            {
+              key: 'subject',
+              header: 'Which record',
+              cell: (event) =>
+                event.subjectType === null ? (
+                  <span className="muted">—</span>
+                ) : (
+                  <>
+                    <div>{event.subjectType}</div>
+                    {event.subjectId === null ? null : (
+                      <div className="fine mono">{event.subjectId}</div>
+                    )}
+                  </>
+                ),
+            },
+            {
+              key: 'details',
+              header: 'Details',
+              cell: (event) => <Metadata metadata={event.metadata} requestId={event.requestId} />,
+            },
+          ]}
+        />
       </div>
 
       <Pagination page={page} filters={filters} selfPath={selfPath} />
-    </Card>
+    </Stack>
   )
 }
 
-function Row({ event }: { event: AuditEvent }) {
+function ActionCell({ event }: { event: AuditEvent }) {
   const label = actionLabel(event.action)
 
   return (
-    <tr>
-      <td>
-        <DateTime value={event.occurredAt} format="datetime" />
-      </td>
-      <td>
-        {/* The raw key is always shown, whether or not this build has a sentence for it: it
-            is the only thing an investigator can filter on. */}
-        <div className="mono">{event.action}</div>
-        {label === null ? null : <div className="fine">{label}</div>}
-      </td>
-      <td>
-        {event.actorRole === null && event.actorId === null ? (
-          <span className="muted">The system</span>
-        ) : (
-          <>
-            {event.actorRole === null ? null : <div>{event.actorRole}</div>}
-            {event.actorId === null ? null : <div className="fine mono">{event.actorId}</div>}
-          </>
-        )}
-        {event.ipAddress === null ? null : <div className="fine mono">{event.ipAddress}</div>}
-      </td>
-      <td>
-        {event.subjectType === null ? (
-          <span className="muted">—</span>
-        ) : (
-          <>
-            <div>{event.subjectType}</div>
-            {event.subjectId === null ? null : <div className="fine mono">{event.subjectId}</div>}
-          </>
-        )}
-      </td>
-      <td>
-        <Metadata metadata={event.metadata} requestId={event.requestId} />
-      </td>
-    </tr>
+    <>
+      {/* The raw key is always shown, whether or not this build has a sentence for it: it
+          is the only thing an investigator can filter on. */}
+      <div className="mono">{event.action}</div>
+      {label === null ? null : <div className="fine">{label}</div>}
+    </>
+  )
+}
+
+function ActorCell({ event }: { event: AuditEvent }) {
+  return (
+    <>
+      {event.actorRole === null && event.actorId === null ? (
+        <span className="muted">The system</span>
+      ) : (
+        <>
+          {event.actorRole === null ? null : <div>{event.actorRole}</div>}
+          {event.actorId === null ? null : <div className="fine mono">{event.actorId}</div>}
+        </>
+      )}
+      {event.ipAddress === null ? null : <div className="fine mono">{event.ipAddress}</div>}
+    </>
   )
 }
 
@@ -344,6 +394,14 @@ function describe(value: unknown): string {
  * The trail grows while somebody pages through it — including from this very read, since
  * every load writes its own `audit_log.read` event — so an offset would duplicate and skip
  * rows in a record whose entire value is that it is complete.
+ *
+ * NOT `<Pagination>` FROM THE SHARED LAYER, for the same reason the message log kept its own:
+ * that component is cursor-only and fits the mechanism exactly, but its controls are labelled
+ * "Previous" and "Next" and cannot be relabelled. On a trail ordered newest-first those words
+ * are ambiguous in the worst available way — "previous" is either the page you came from or
+ * the events that came before these — and an investigator reading a log has to be certain
+ * which direction they moved. "Newer" and "Older" say it without the reader working out the
+ * sort order first. If Pagination ever takes its labels as props, this becomes a call site.
  */
 function Pagination({
   page,
@@ -359,17 +417,19 @@ function Pagination({
   }
 
   return (
-    <nav className="row-wrap" style={{ marginTop: 'var(--space-5)' }} aria-label="More events">
-      {page.prevCursor === null ? null : (
-        <a className="lnk" href={hrefFor(selfPath, filters, page.prevCursor)}>
-          Newer
-        </a>
-      )}
-      {page.nextCursor === null ? null : (
-        <a className="lnk" href={hrefFor(selfPath, filters, page.nextCursor)}>
-          Older
-        </a>
-      )}
+    <nav aria-label="More events">
+      <Inline gap="4">
+        {page.prevCursor === null ? null : (
+          <a className="lnk" href={hrefFor(selfPath, filters, page.prevCursor)}>
+            Newer
+          </a>
+        )}
+        {page.nextCursor === null ? null : (
+          <a className="lnk" href={hrefFor(selfPath, filters, page.nextCursor)}>
+            Older
+          </a>
+        )}
+      </Inline>
     </nav>
   )
 }

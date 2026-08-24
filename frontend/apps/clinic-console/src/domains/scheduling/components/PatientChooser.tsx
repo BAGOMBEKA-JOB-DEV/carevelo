@@ -62,7 +62,8 @@ export function PatientChooser({
 
         {/* A GET form. Submitting navigates, so the result is a URL a colleague can be sent,
             and it works before any JavaScript has arrived. */}
-        <form method="get" action={paths.book} className="row-wrap" style={{ gap: 'var(--space-4)' }}>
+        {/* The style said `gap: var(--space-4)`, which is what `.row-wrap` already sets. */}
+        <form method="get" action={paths.book} className="row-wrap">
           {Object.entries(carry).map(([key, value]) =>
             value === undefined || value === '' ? null : (
               <input key={key} type="hidden" name={key} value={value} />
@@ -112,10 +113,17 @@ export function PatientChooser({
 
       <div className="grid g-2">
         {matches.slice(0, 40).map((patient) => (
+          /* `gap: var(--space-2)` was `.stack`'s own 6px said twice, and has gone. The
+             minimum height stays: this whole card is one tap target for a receptionist
+             choosing a caller from a list of forty, and `--touch-min` is the floor that
+             makes it hittable. `.card`'s padding happens to clear it today, which is
+             exactly the kind of accident that stops being true the first time somebody
+             tries `padding="tight"` here. A floor that is currently satisfied is still
+             the thing that keeps it satisfied. */
           <a
             key={patient.id}
             className="card stack"
-            style={{ gap: 'var(--space-2)', minHeight: 'var(--touch-min)' }}
+            style={{ minHeight: 'var(--touch-min)' }}
             href={href(paths.book, { ...carry, patient: patient.id })}
           >
             <span className="record-name">

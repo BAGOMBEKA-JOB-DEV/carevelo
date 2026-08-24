@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Card, DateTime, Money, Notice, PageHeader } from '@carevelo/ui'
+import { Card, DateTime, Money, Notice, PageHeader, Stack } from '@carevelo/ui'
 import type { PaymentIntent, Receipt } from '../api/types'
 import { isCash, isSucceeded, isUnresolved, methodLabel, moneyFrom, statusOf } from '../api/types'
 import { CashAttestation } from './CashAttestation'
@@ -105,64 +105,80 @@ export function PaymentRecordScreen({
       {problemNotice(problem, message)}
 
       <Card as="section">
-        <h2 className="title">What we recorded</h2>
-        <dl className="grid g-2" style={{ marginTop: 'var(--space-5)' }}>
-          <Detail label="Our reference">
-            <span className="mono">{intent.reference}</span>
-          </Detail>
-          <Detail
-            label="Aggregator reference"
-            hint="Look this up in your own aggregator dashboard."
-          >
-            {intent.aggregator_reference === null ? (
-              <span className="muted">None yet</span>
-            ) : (
-              <span className="mono">{intent.aggregator_reference}</span>
-            )}
-          </Detail>
-          <Detail label="Amount requested">
-            {amount === null ? <span className="muted">Not readable</span> : <Money value={amount} />}
-          </Detail>
-          <Detail label="How it was paid">{methodLabel(intent.method)}</Detail>
-          <Detail label="Started">
-            {intent.initiated_at === null ? (
-              <span className="muted">Not recorded</span>
-            ) : (
-              <DateTime value={intent.initiated_at} format="datetime" />
-            )}
-          </Detail>
-          <Detail label="Resolved">
-            {intent.resolved_at === null ? (
-              <span className="muted">Still open</span>
-            ) : (
-              <DateTime value={intent.resolved_at} format="datetime" />
-            )}
-          </Detail>
-        </dl>
+        {/* One column for the card. `<dl>` is not one of Grid's elements and must not be:
+            a definition list only pairs its terms with its descriptions while `<dl>` is the
+            real parent of the `<div>`s that hold them, so the grid classes stay on the `<dl>`
+            itself. What moved is the spacing — the `marginTop` was the space below the
+            heading, which is the column's business. */}
+        <Stack gap="5">
+          <h2 className="title">What we recorded</h2>
+          <dl className="grid g-2">
+            <Detail label="Our reference">
+              <span className="mono">{intent.reference}</span>
+            </Detail>
+            <Detail
+              label="Aggregator reference"
+              hint="Look this up in your own aggregator dashboard."
+            >
+              {intent.aggregator_reference === null ? (
+                <span className="muted">None yet</span>
+              ) : (
+                <span className="mono">{intent.aggregator_reference}</span>
+              )}
+            </Detail>
+            <Detail label="Amount requested">
+              {amount === null ? <span className="muted">Not readable</span> : <Money value={amount} />}
+            </Detail>
+            <Detail label="How it was paid">{methodLabel(intent.method)}</Detail>
+            <Detail label="Started">
+              {intent.initiated_at === null ? (
+                <span className="muted">Not recorded</span>
+              ) : (
+                <DateTime value={intent.initiated_at} format="datetime" />
+              )}
+            </Detail>
+            <Detail label="Resolved">
+              {intent.resolved_at === null ? (
+                <span className="muted">Still open</span>
+              ) : (
+                <DateTime value={intent.resolved_at} format="datetime" />
+              )}
+            </Detail>
+          </dl>
 
-        {intent.failure_message === null ? null : (
-          <div style={{ marginTop: 'var(--space-5)' }}>
-            {/* Verbatim from the aggregator. See the header. */}
+          {intent.failure_message === null ? null : (
+            /* Verbatim from the aggregator. See the header. */
             <Notice tone="bad" title="What the aggregator said">
               <p>{intent.failure_message}</p>
             </Notice>
-          </div>
-        )}
+          )}
+        </Stack>
       </Card>
 
       {canAttest ? (
         <Card as="section">
-          <h2 className="title">Cash received at the clinic</h2>
-          <p className="muted" style={{ marginBottom: 'var(--space-5)' }}>
-            Use this when the patient has handed over notes at the counter. No money moves
-            through Carevelo; this records that you took it.
-          </p>
-          <CashAttestation
-            intentId={intent.id}
-            amount={amount}
-            reference={intent.reference}
-            selfPath={selfPath}
-          />
+          {/* THE HEADING AND ITS LEDE MOVE 6px APART, AND THAT IS THE ONE DELIBERATE CHANGE
+              ON THIS SCREEN. The paragraph carried `marginBottom` only, so it stated the
+              space below itself and nobody ever stated the space above it — the reset zeroes
+              heading and paragraph margins, so the lede sat flush against the `<h2>`. Every
+              other heading-and-lede pair in this console is 6px apart. This is a margin
+              nobody chose becoming a gap somebody did. */}
+          <Stack gap="5">
+            <Stack gap="2">
+              <h2 className="title">Cash received at the clinic</h2>
+              <p className="muted">
+                Use this when the patient has handed over notes at the counter. No money moves
+                through Carevelo; this records that you took it.
+              </p>
+            </Stack>
+
+            <CashAttestation
+              intentId={intent.id}
+              amount={amount}
+              reference={intent.reference}
+              selfPath={selfPath}
+            />
+          </Stack>
         </Card>
       ) : null}
 
@@ -221,30 +237,36 @@ function ReceiptCard({ receipt }: { receipt: Receipt | null }) {
 
   return (
     <Card as="section">
-      <h2 className="title">Receipt</h2>
-      <p className="muted" style={{ marginBottom: 'var(--space-5)' }}>
-        Issued by {receipt.payee.legal_name}. The patient paid your clinic; Carevelo is not
-        named on it, because Carevelo did not receive the money.
-      </p>
-      <dl className="grid g-2">
-        <Detail label="Payee">{receipt.payee.name}</Detail>
-        <Detail label="Reference">
-          <span className="mono">{receipt.reference}</span>
-        </Detail>
-        <Detail label="Amount">
-          {amount === null ? <span className="muted">Not readable</span> : <Money value={amount} />}
-        </Detail>
-        <Detail label="Paid">
-          {receipt.paid_at === null ? (
-            <span className="muted">Not recorded</span>
-          ) : (
-            <DateTime value={receipt.paid_at} format="datetime" />
-          )}
-        </Detail>
-      </dl>
-      <p className="fine" style={{ marginTop: 'var(--space-5)' }}>
-        {receipt.note}
-      </p>
+      {/* Same column, and the same 6px between the heading and its lede — see the
+          attestation card above for why that pair had no space at all before. */}
+      <Stack gap="5">
+        <Stack gap="2">
+          <h2 className="title">Receipt</h2>
+          <p className="muted">
+            Issued by {receipt.payee.legal_name}. The patient paid your clinic; Carevelo is not
+            named on it, because Carevelo did not receive the money.
+          </p>
+        </Stack>
+
+        <dl className="grid g-2">
+          <Detail label="Payee">{receipt.payee.name}</Detail>
+          <Detail label="Reference">
+            <span className="mono">{receipt.reference}</span>
+          </Detail>
+          <Detail label="Amount">
+            {amount === null ? <span className="muted">Not readable</span> : <Money value={amount} />}
+          </Detail>
+          <Detail label="Paid">
+            {receipt.paid_at === null ? (
+              <span className="muted">Not recorded</span>
+            ) : (
+              <DateTime value={receipt.paid_at} format="datetime" />
+            )}
+          </Detail>
+        </dl>
+
+        <p className="fine">{receipt.note}</p>
+      </Stack>
     </Card>
   )
 }
@@ -335,6 +357,14 @@ function Detail({
       <dd>
         {children}
         {hint === undefined ? null : (
+          /* KEPT, AND IT IS A DISPLAY DECISION RATHER THAN A SPACING ONE. `.stat__note` is
+             an inline span everywhere else it is used — under a figure in a `.stat`, where
+             the flex column already puts it on its own line. Here it sits inside a `<dd>`
+             beside the value, so it needs to be a block or it runs on after the aggregator
+             reference as if it were part of it. There is no layout primitive for "make this
+             one inline element a block", and a `.stat__note--block` rule in the shared token
+             layer would be a class four apps download to serve one `<dd>` in this console.
+             PageHeader makes the identical trade for its own `.eyebrow`, and says so. */
           <span className="stat__note" style={{ display: 'block' }}>
             {hint}
           </span>

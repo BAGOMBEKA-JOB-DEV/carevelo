@@ -328,7 +328,7 @@ export async function BookingScreen({
               phone. The two or three modifier classes that retire these belong in
               tokens/components.css, beside the rules they modify and shared with the
               console's matching overrides — see the note in src/app/account/page.tsx. */}
-          <h2 id="booking-service" style={{ fontSize: 19, fontWeight: 650 }}>
+          <h2 id="booking-service" className="card-title">
             {service.name}
           </h2>
 
@@ -339,14 +339,14 @@ export async function BookingScreen({
           <Inline gap="7">
             <span className="stat">
               <span className="stat__label">{t('booking.priceLabel')}</span>
-              <span className="stat__value" style={{ fontSize: 22 }}>
+              <span className="stat__value stat__value--md">
                 <Money value={service.price} />
               </span>
             </span>
 
             <span className="stat">
               <span className="stat__label">{t('booking.durationLabel')}</span>
-              <span className="stat__value" style={{ fontSize: 22 }}>
+              <span className="stat__value stat__value--md">
                 {t('catalogue.duration', { minutes: service.duration_minutes })}
               </span>
             </span>

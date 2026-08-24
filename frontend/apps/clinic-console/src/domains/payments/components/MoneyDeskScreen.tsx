@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { Button, Card, Notice, PageHeader } from '@carevelo/ui'
+import { Button, Card, Field, Grid, Input, Notice, PageHeader, Stack } from '@carevelo/ui'
 import { NonCustodialNotice } from './NonCustodialNotice'
 import { RevenuePlaceholder } from './RevenuePlaceholder'
 
@@ -55,48 +55,54 @@ export function MoneyDeskScreen({
       <NonCustodialNotice />
 
       <Card as="section">
-        <h2 className="title">Open a payment record</h2>
-        <p className="muted" style={{ marginTop: 'var(--space-2)' }}>
-          Staff usually arrive here from the appointment or the dispense order the payment
-          was raised against, or from a line in reconciliation. If you are holding a payment
-          record identifier, paste it here.
-        </p>
+        {/* One column for the card. The `marginBlock` on the notice was already saying the
+            same 12px above and below that this gap says once, and it had to be written as
+            `marginBlock` precisely because a margin cannot know what follows it. */}
+        <Stack gap="4">
+          <Stack gap="2">
+            <h2 className="title">Open a payment record</h2>
+            <p className="muted">
+              Staff usually arrive here from the appointment or the dispense order the payment
+              was raised against, or from a line in reconciliation. If you are holding a payment
+              record identifier, paste it here.
+            </p>
+          </Stack>
 
-        {problem === 'malformed' ? (
-          <div style={{ marginBlock: 'var(--space-4)' }}>
+          {problem === 'malformed' ? (
             <Notice tone="warn" title="That does not look like a payment record identifier" announce>
               <p>
                 It should be 26 letters and digits with no spaces. The shorter reference on a
                 patient&rsquo;s message is not the same thing and cannot be looked up here.
               </p>
             </Notice>
-          </div>
-        ) : null}
+          ) : null}
 
-        <form action={openRecord.bind(null, selfPath)} className="row-wrap" style={{ marginTop: 'var(--space-4)' }}>
-          <div className="field grow">
-            <label className="field__label" htmlFor="record-id">
-              Payment record identifier
-            </label>
-            <input
-              className="input mono"
-              id="record-id"
-              name="id"
-              required
-              autoComplete="off"
-              spellCheck={false}
-              inputMode="text"
-            />
-          </div>
-          <Button type="submit" variant="primary">
-            Open
-          </Button>
-        </form>
+          {/* `<Field>` rather than a `<label>` and an `<input>` typed out beside each other:
+              Field owns the `htmlFor`/`id` pair, which is the wiring that silently rots the
+              first time a field is copied to another screen and renamed on one side only. */}
+          <form action={openRecord.bind(null, selfPath)} className="row-wrap">
+            <Field name="id" id="record-id" label="Payment record identifier" className="grow">
+              {(control) => (
+                <Input
+                  {...control}
+                  className="mono"
+                  required
+                  autoComplete="off"
+                  spellCheck={false}
+                  inputMode="text"
+                />
+              )}
+            </Field>
+            <Button type="submit" variant="primary">
+              Open
+            </Button>
+          </form>
+        </Stack>
       </Card>
 
       <RevenuePlaceholder />
 
-      <div className="grid g-3">
+      <Grid cols={3}>
         <Card>
           <h3 className="title-sm">
             <a href="/payments/reconciliation">Reconciliation</a>
@@ -123,7 +129,7 @@ export function MoneyDeskScreen({
             Who did what, when, to which record. Read-only for everyone, including Carevelo.
           </p>
         </Card>
-      </div>
+      </Grid>
     </div>
   )
 }

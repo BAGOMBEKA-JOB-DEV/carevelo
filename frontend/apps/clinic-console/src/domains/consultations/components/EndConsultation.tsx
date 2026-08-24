@@ -1,4 +1,4 @@
-import { Button, Choice, Icon, Notice, type ChoiceOption } from '@carevelo/ui'
+import { Button, Card, Choice, Icon, Notice, Stack, type ChoiceOption } from '@carevelo/ui'
 import { OUTCOME_LABEL, OUTCOME_NOTE, type ConsultationOutcome } from '../model/types'
 
 /**
@@ -53,46 +53,53 @@ export function EndConsultation({
   }))
 
   return (
-    <section className="card stack" style={{ gap: 'var(--space-5)' }} aria-labelledby="end-heading">
-      <h2 id="end-heading" className="title-sm">
-        End this consultation
-      </h2>
+    <Card as="section" aria-labelledby="end-heading">
+      <Stack gap="5">
+        <h2 id="end-heading" className="title-sm">
+          End this consultation
+        </h2>
 
-      {!notesSaved ? (
-        /*
-         * A WARNING AND NOT A BLOCK. A clinician who held the consultation entirely by
-         * telephone and is about to write the note afterwards is doing something legitimate,
-         * and a product that refused to let them close the encounter would be a product they
-         * work around. Notes can still be added after ending — the API allows it deliberately.
-         */
-        <Notice tone="warn" icon="file" title="Nothing has been written to the record yet">
-          You can still end the consultation and write the note afterwards; it will be added as
-          a later entry. But an encounter with no note at all is a record that cannot answer a
-          question about this patient six months from now.
-        </Notice>
-      ) : null}
+        {!notesSaved ? (
+          /*
+           * A WARNING AND NOT A BLOCK. A clinician who held the consultation entirely by
+           * telephone and is about to write the note afterwards is doing something legitimate,
+           * and a product that refused to let them close the encounter would be a product they
+           * work around. Notes can still be added after ending — the API allows it deliberately.
+           */
+          <Notice tone="warn" icon="file" title="Nothing has been written to the record yet">
+            You can still end the consultation and write the note afterwards; it will be added as
+            a later entry. But an encounter with no note at all is a record that cannot answer a
+            question about this patient six months from now.
+          </Notice>
+        ) : null}
 
-      <form action={action} className="stack" style={{ gap: 'var(--space-5)' }}>
-        <Choice
-          name="outcome"
-          legend="How did this consultation end?"
-          options={options}
-          required
-          hint="This is recorded on the encounter and cannot be changed afterwards. Read the note under each one — two of them stop a prescription being issued at all."
-        />
+        {/* The column is a Stack inside the form, not the form wearing `.stack`: the element
+            a form renders as is decided by what it submits. Same 16px, said on the thing that
+            owns the space. */}
+        <form action={action}>
+          <Stack gap="5">
+            <Choice
+              name="outcome"
+              legend="How did this consultation end?"
+              options={options}
+              required
+              hint="This is recorded on the encounter and cannot be changed afterwards. Read the note under each one — two of them stop a prescription being issued at all."
+            />
 
-        <div>
-          <Button variant="primary" size="lg" type="submit">
-            <Icon name="check" /> End the consultation
-          </Button>
-        </div>
+            <div>
+              <Button variant="primary" size="lg" type="submit">
+                <Icon name="check" /> End the consultation
+              </Button>
+            </div>
 
-        <p className="fine">
-          Ending closes the appointment and this record. You will still be able to read the
-          notes and add an addendum to any of them.
-        </p>
-      </form>
-    </section>
+            <p className="fine">
+              Ending closes the appointment and this record. You will still be able to read the
+              notes and add an addendum to any of them.
+            </p>
+          </Stack>
+        </form>
+      </Stack>
+    </Card>
   )
 }
 

@@ -79,10 +79,92 @@
 .card-tight { padding: var(--space-5); }
 .card-brand { background: var(--brand-surface); border-color: transparent; }
 
+/* ---- The heading that names the record a card is about ----
+
+   Three screens open a card with an `<h2>` that names one thing — the service in a
+   booking, the service in the catalogue, the service on an appointment row — and all
+   three had written `style={{ fontSize: 19, fontWeight: 650 }}` (18 in one of them) to
+   get there. It is a real gap rather than three people being careless: the type scale
+   jumps from `.title-sm` at 17.5px in the DISPLAY face to `.title` at 21px in the body
+   face, and what a record card wants is between them and in the body face, because a
+   service name is data and the display face is for chrome.
+
+   650 rather than 600 or 700, kept from the call sites: it is the weight that reads as a
+   heading beside `.badge` and `.stat__label` without going as heavy as `.page-head h1`.
+   The 18px site becomes 19px, which is the point of having a step at all — a heading one
+   pixel smaller than its twin on the next screen is not a decision anybody made. */
+.card-title { font-size: 19px; font-weight: 650; letter-spacing: -0.01em; }
+
 .stat { display: flex; flex-direction: column; gap: var(--space-1); }
 .stat__label { font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint); }
 .stat__value { font-family: var(--head); font-size: 28px; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 .stat__note { font-size: 12.5px; color: var(--ink-muted); }
+
+/* ---- Stat value, sized down ----
+
+   `.stat__value` is 28px because a stat value is normally a COUNT: "1,240", "6", a
+   shilling total. Three or four glyphs, and the size is what makes them the thing your
+   eye lands on. Then the same block got used for a NAME — the clinic's trading name, a
+   service, a clinician, a prescribed medicine — and 28px of display face wraps a
+   trading name to three lines inside a `.cell` on a 360px phone.
+
+   Fourteen call sites had answered that by hand with `style={{ fontSize: N }}`, at 19px,
+   21px and 22px. The 21 and the 22 were the same decision taken twice a fortnight apart,
+   which is the whole failure mode: a size chosen at a call site cannot be revisited
+   anywhere, so it drifts, and after a year the product has fifteen of them and no scale.
+
+   TWO STEPS, AND BOTH ARE SIZES THIS PRODUCT ALREADY USES IN THE DISPLAY FACE. 19px is
+   `.cell__n`; 21px is the auth surface's section heading. So neither modifier introduces
+   a number, it names one — which is what lets `--md` absorb the stray 22px without
+   inventing a third step to preserve a 1px difference nobody chose.
+
+   There is deliberately no `--lg`: nothing has asked for one, and a modifier added on a
+   guess is a modifier the next person has to work out the meaning of. Everything else —
+   the display face, the weight, the tracking and the tabular figures — is inherited from
+   `.stat__value`, because a smaller stat value is still a stat value and must not
+   silently become a different typeface partway down a page. */
+.stat__value--sm { font-size: 19px; }
+.stat__value--md { font-size: 21px; }
+
+/* ============================================================
+   DISCLOSURES
+
+   A native `<details>`, which is how this product folds anything away: it opens with no
+   JavaScript, the browser's own in-page search finds text inside a closed one, and it
+   survives a stalled bundle on a 2G connection. Four screens open one — the registration
+   form's optional fields, the consent screen's second language, the consent history's
+   evidence, an appointment's cancel form — and all four had written the geometry out by
+   hand, twice as a shared `SUMMARY` constant copied between two files and twice inline.
+   AppointmentRow.tsx's comment named `.disclosure` as the fix by name; this is it.
+
+   A `<summary>` IS A CONTROL, and that is the whole argument for these rules. It is
+   clicked, it is tabbed to, it toggles state — so it answers to the same 44px floor as
+   `.btn` does, for the same patient on the same cracked screen in the same bad light.
+   The user agent renders it as a text run of whatever the line-height happens to be, and
+   a 13px cancel link is a ~31px target. `min-height` with `align-items: center` gives it
+   the band without moving the text off its own baseline.
+
+   `.disclosure` on the `<details>` itself, rather than a wrapper: `<summary>` must be the
+   first child of `<details>`, so nothing may come between them, and a column laid out on
+   the `<details>` is the only place a gap can exist that includes the summary. That is
+   why the `marginTop` on the first element after a summary could never become a Stack
+   gap — a `<Stack>` renders a div, and a div cannot hold a summary.
+   ============================================================ */
+.disclosure { display: flex; flex-direction: column; gap: var(--space-3); }
+
+.disclosure__summary {
+  display: flex; align-items: center;
+  min-height: var(--touch-min);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+/* The quieter one, for a disclosure that is not the point of the card it sits in — the
+   cancel form under an appointment, the evidence under a consent record. Smaller and in
+   the secondary ink so it does not compete with the row's own heading; the touch band
+   above is NOT reduced with it, because a target that is easy to ignore still has to be
+   easy to hit deliberately. */
+.disclosure__summary--quiet { font-size: 13px; color: var(--ink-2); }
 
 /* ============================================================
    BADGES

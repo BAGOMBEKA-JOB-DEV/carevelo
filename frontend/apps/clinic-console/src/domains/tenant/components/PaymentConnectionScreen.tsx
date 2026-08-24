@@ -165,71 +165,85 @@ export async function PaymentConnectionScreen(props: PaymentConnectionScreenProp
       </Card>
 
       <Card as="section">
-        <div className="row between">
-          <div className="grow">
-            <span className="eyebrow">Connection</span>
-            <h2 className="title-sm">{aggregatorStatusLabel(account.status)}</h2>
+        {/* One column for the card, and the two hand-set `marginTop`s become its gap. */}
+        <Stack gap="5">
+          <div className="row between">
+            <div className="grow">
+              <span className="eyebrow">Connection</span>
+              <h2 className="title-sm">{aggregatorStatusLabel(account.status)}</h2>
+            </div>
+            <Badge tone={aggregatorTone(account)}>
+              {account.accepts_online_payment ? 'Taking payments online' : 'Pay at the clinic'}
+            </Badge>
           </div>
-          <Badge tone={aggregatorTone(account)}>
-            {account.accepts_online_payment ? 'Taking payments online' : 'Pay at the clinic'}
-          </Badge>
-        </div>
 
-        {connected ? (
-          <dl className="grid g-3" style={{ marginTop: 'var(--space-5)' }}>
-            <div className="stat">
-              <dt className="stat__label">Aggregator</dt>
-              <dd className="stat__note">{account.provider}</dd>
-            </div>
-            <div className="stat">
-              <dt className="stat__label">Environment</dt>
-              <dd className="stat__note">{account.environment}</dd>
-            </div>
-            <div className="stat">
-              <dt className="stat__label">Last verified</dt>
-              <dd className="stat__note">
-                {account.last_verified_at === null ? (
-                  'Never'
-                ) : (
-                  <DateTime value={account.last_verified_at} format="datetime" />
-                )}
-              </dd>
-            </div>
-          </dl>
-        ) : null}
+          {connected ? (
+            /*
+              The `marginTop` is gone into the Stack above; the classes stay. `<dl>` does not
+              become a `<Grid>` because Grid's element union stops at the elements that are
+              layout, and a description list is a promise to a screen reader about what its
+              children are: term, definition, term, definition. `.grid g-3` is the same
+              three-column collapse `<Grid cols={3}>` would render, and the token layer
+              already owns it — there is nothing left here to move.
+            */
+            <dl className="grid g-3">
+              <div className="stat">
+                <dt className="stat__label">Aggregator</dt>
+                <dd className="stat__note">{account.provider}</dd>
+              </div>
+              <div className="stat">
+                <dt className="stat__label">Environment</dt>
+                <dd className="stat__note">{account.environment}</dd>
+              </div>
+              <div className="stat">
+                <dt className="stat__label">Last verified</dt>
+                <dd className="stat__note">
+                  {account.last_verified_at === null ? (
+                    'Never'
+                  ) : (
+                    <DateTime value={account.last_verified_at} format="datetime" />
+                  )}
+                </dd>
+              </div>
+            </dl>
+          ) : null}
 
-        {/*
-         * The API's own fallback sentence, verbatim. It is on every response for exactly
-         * this reason: without it a console renders a missing payment account as a blocking
-         * error, and a clinic stops booking patients over a feature it has chosen not to
-         * use.
-         */}
-        <Notice tone="info" icon="shield">
-          <p>{account.fallback}</p>
-          {connected ? null : (
-            <p className="fine">
-              Plenty of clinics run this way permanently. If you would rather take mobile
-              money online, you need an account of your own with Flutterwave or Pesapal
-              first — Carevelo cannot open one for you, and would not be allowed to.
-            </p>
-          )}
-        </Notice>
+          {/*
+           * The API's own fallback sentence, verbatim. It is on every response for exactly
+           * this reason: without it a console renders a missing payment account as a blocking
+           * error, and a clinic stops booking patients over a feature it has chosen not to
+           * use.
+           */}
+          <Notice tone="info" icon="shield">
+            <p>{account.fallback}</p>
+            {connected ? null : (
+              <p className="fine">
+                Plenty of clinics run this way permanently. If you would rather take mobile
+                money online, you need an account of your own with Flutterwave or Pesapal
+                first — Carevelo cannot open one for you, and would not be allowed to.
+              </p>
+            )}
+          </Notice>
 
-        {connected ? (
-          <form
-            action={runVerification.bind(null, { selfPath: paths.payments })}
-            style={{ marginTop: 'var(--space-5)' }}
-          >
-            <Button type="submit" variant="primary">
-              Check these credentials now
-            </Button>
-            <p className="fine" style={{ marginTop: 'var(--space-2)' }}>
-              This asks your aggregator about a reference that does not exist. It moves no
-              money and charges nobody — testing a key with a real collection would mean
-              charging somebody to prove a configuration.
-            </p>
-          </form>
-        ) : null}
+          {connected ? (
+            <form action={runVerification.bind(null, { selfPath: paths.payments })}>
+              {/* The button keeps a block wrapper so it stays its own width rather than
+                  stretching to the column, which is what a Stack child does by default. */}
+              <Stack gap="2">
+                <div>
+                  <Button type="submit" variant="primary">
+                    Check these credentials now
+                  </Button>
+                </div>
+                <p className="fine">
+                  This asks your aggregator about a reference that does not exist. It moves no
+                  money and charges nobody — testing a key with a real collection would mean
+                  charging somebody to prove a configuration.
+                </p>
+              </Stack>
+            </form>
+          ) : null}
+        </Stack>
       </Card>
 
       <Card as="section">

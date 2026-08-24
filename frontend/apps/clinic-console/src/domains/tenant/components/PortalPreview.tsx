@@ -1,4 +1,5 @@
 import type { CSSProperties } from 'react'
+import { Inline, Stack } from '@carevelo/ui'
 import { swatch } from '../model/colour'
 
 /**
@@ -34,11 +35,34 @@ import { swatch } from '../model/colour'
  * the preview exists for: the pale yellow that needs black text where the old colour
  * needed white.
  *
- * The tokens are applied as a React `style` OBJECT. React sets these through the CSSOM, so
- * no tenant value is ever concatenated into a `<style>` block or handed to
+ * The tokens are applied as a React `style` OBJECT, and that is the ONE style property on
+ * this component that must never become a class. React sets these through the CSSOM, so no
+ * tenant value is ever concatenated into a `<style>` block or handed to
  * `dangerouslySetInnerHTML` — there is no string for a hostile value to break out of.
  * Combined with `swatch()` re-validating every hex and the API refusing to store a non-hex
- * value at all, that is three independent reasons a colour cannot become a script.
+ * value at all, that is three independent reasons a colour cannot become a script. A CSS
+ * class cannot hold a per-tenant value at all, which is exactly why the values that VARY
+ * stay here and the rules that merely READ them moved out.
+ *
+ * ------------------------------------------------------------------------------
+ * WHERE THE PAINTING ACTUALLY LIVES NOW.
+ *
+ * The layout used to be written out here as a dozen inline styles — a header row, a body,
+ * an offer card, two pretend buttons. Those are not per-tenant values; they are a picture
+ * of the portal, and console.css section 15 was written to hold it. Two consequences worth
+ * stating, because they are the reason this is better rather than merely tidier:
+ *
+ *   1. The header and the logo now wear `.site__header` and `.site__logo` — the REAL
+ *      classes the REAL portal header wears, from the shared layout layer. A preview built
+ *      from its own private copy of those rules drifts away from the thing it is a preview
+ *      of the first time the portal header changes, and nobody finds out, because the only
+ *      person who would notice is a clinic administrator who has never seen the portal.
+ *   2. `.btn-brand` already paints `--brand-primary` with `--brand-primary-fg` on it. This
+ *      file was restating both inline, which is a second place for that pairing to be got
+ *      wrong. There is now one.
+ *
+ * Nothing about the --brand-* rule changes: those classes read the tokens set on this
+ * subtree by the object above, and they reach nothing outside it.
  */
 
 export type PortalPreviewProps = {
@@ -84,24 +108,18 @@ export function PortalPreview({
 
   return (
     <div
-      className="card"
+      className="card preview"
       // The preview is decorative in the accessibility tree's sense: everything inside it
       // is repeated as real, readable text in the form beside it, and a screen-reader user
       // gains nothing from tabbing through a picture of a button they cannot press.
       role="img"
       aria-label={`Preview of the patient portal for ${clinicName}`}
-      style={{ ...(tokens as CSSProperties), padding: 0, overflow: 'hidden' }}
+      // THE SURVIVOR, AND THE ONLY ONE THAT MATTERS. This is the clinic's palette, and it
+      // has to be an object rather than a class or a string: see the note at the top of the
+      // file. Everything the tokens are READ by is a class; the tokens themselves cannot be.
+      style={tokens as CSSProperties}
     >
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 'var(--space-4)',
-          padding: 'var(--space-5) var(--space-6)',
-          background: 'var(--brand-primary)',
-          color: 'var(--brand-primary-fg)',
-        }}
-      >
+      <div className="site__header">
         {logoUrl ? (
           /*
            * A plain <img>, deliberately — the same call ConsoleShell makes and for the
@@ -111,54 +129,46 @@ export function PortalPreview({
            * tenant-partitioned storage. There is nothing left for the optimiser to do.
            */
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={logoUrl} alt="" style={{ maxHeight: 32, width: 'auto' }} />
+          <img src={logoUrl} alt="" className="site__logo" />
         ) : null}
-        <span style={{ fontFamily: 'var(--head)', fontWeight: 700, fontSize: 17 }}>
-          {clinicName}
-        </span>
+        <span className="site__name">{clinicName}</span>
       </div>
 
-      <div style={{ padding: 'var(--space-6)', background: 'var(--surface)' }}>
-        <p className="fine" style={{ marginBottom: 'var(--space-3)' }}>
-          Book a consultation
-        </p>
+      <div className="preview__body">
+        {/* The nesting is the two spacings that were here as margins: 8px under the little
+            label that names the section, 16px between the offer and the buttons under it. */}
+        <Stack gap="5">
+          <Stack gap="3">
+            <p className="fine">Book a consultation</p>
 
-        <div
-          style={{
-            background: 'var(--brand-surface)',
-            border: '1px solid var(--hairline-soft)',
-            borderRadius: 'var(--r-md)',
-            padding: 'var(--space-5)',
-          }}
-        >
-          <p style={{ fontWeight: 600 }}>General consultation</p>
-          {/* A price with no figure in it. This is a picture of a layout, and inventing a
-              number here would be inventing a price for a clinic that has not set one. */}
-          <p className="fine">30 minutes · at the clinic or by voice call</p>
-        </div>
+            <div className="preview__offer">
+              {/*
+                SURVIVING INLINE STYLE. A service name inside the preview is set one step
+                heavier than body text and there is no class on the type scale at 600 —
+                `.title` is 21px/600 and far too large for a line inside a mock card. It is
+                not `<strong>` either: this subtree is inside `role="img"`, so the emphasis
+                would be announced to nobody while costing a visible jump to weight 700.
+                It belongs in console.css beside `.preview__offer`, and console.css is not
+                this task's to write — see the report.
+              */}
+              <p style={{ fontWeight: 600 }}>General consultation</p>
+              {/* A price with no figure in it. This is a picture of a layout, and inventing a
+                  number here would be inventing a price for a clinic that has not set one. */}
+              <p className="fine">30 minutes · at the clinic or by voice call</p>
+            </div>
+          </Stack>
 
-        <div className="row-wrap" style={{ marginTop: 'var(--space-5)' }}>
-          <span
-            className="btn btn-brand"
-            style={{
-              background: 'var(--brand-primary)',
-              color: 'var(--brand-primary-fg)',
-              pointerEvents: 'none',
-            }}
-          >
-            Choose a time
-          </span>
-          <span
-            className="btn"
-            style={{
-              background: 'var(--brand-secondary)',
-              color: 'var(--brand-secondary-fg)',
-              pointerEvents: 'none',
-            }}
-          >
-            My appointments
-          </span>
-        </div>
+          <Inline gap="4">
+            {/* `.btn-brand` already pairs --brand-primary with the foreground the server
+                computed for it, so neither is restated here. `.preview__control` is what
+                stops the cursor and the hover state promising a button that cannot be
+                pressed — these are inside an element with `role="img"`. */}
+            <span className="btn btn-brand preview__control">Choose a time</span>
+            <span className="btn preview__control preview__control--secondary">
+              My appointments
+            </span>
+          </Inline>
+        </Stack>
       </div>
     </div>
   )

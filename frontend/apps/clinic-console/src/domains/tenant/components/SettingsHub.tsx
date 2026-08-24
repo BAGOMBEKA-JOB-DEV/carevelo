@@ -1,4 +1,4 @@
-import { Card, Icon, Inline, Notice } from '@carevelo/ui'
+import { Card, Icon, Inline, Notice, Stack } from '@carevelo/ui'
 import { attempt, tenantHost } from '../api/http'
 import { getClinic } from '../api/clinic'
 import type { TenantPaths } from '../model/types'
@@ -48,33 +48,46 @@ export async function SettingsHub({ paths }: SettingsHubProps) {
         <AccessNotice failure={result} context="this clinic's details" />
       ) : (
         <Card as="section">
-          <span className="eyebrow">This clinic</span>
-          <h2 className="title-sm">{clinicName(result.value)}</h2>
+          <Stack gap="5">
+            <Stack gap="none">
+              <span className="eyebrow">This clinic</span>
+              <h2 className="title-sm">{clinicName(result.value)}</h2>
+            </Stack>
 
-          <dl className="stack" style={{ gap: 'var(--space-4)', marginTop: 'var(--space-5)' }}>
-            <div>
-              <dt className="stat__label">Address</dt>
-              <dd className="mono">{host}</dd>
-            </div>
-            <div>
-              <dt className="stat__label">Time zone</dt>
-              <dd className="stat__note">
-                {result.value.timezone} — every time in Carevelo, on every screen and every
-                receipt, is this one.
-              </dd>
-            </div>
-            <div>
-              <dt className="stat__label">Currency</dt>
-              <dd className="stat__note">
-                {result.value.currency}. Prices are set by this clinic; Carevelo publishes no
-                price list and takes no share of a consultation fee.
-              </dd>
-            </div>
-          </dl>
+            {/*
+              SURVIVING INLINE STYLE, and it is the gap on a `<dl>`. Stack's element union
+              deliberately stops at the elements that are layout, and a description list is
+              not one of them: `<dl>` promises a screen reader that what follows is
+              term-and-definition pairs, and the only legal children are `<dt>`, `<dd>` and
+              the `<div>`s grouping them — so a Stack cannot go on it and cannot go inside it
+              either. The class and the step are still the token layer's; only the mechanism
+              is missing here.
+            */}
+            <dl className="stack" style={{ gap: 'var(--space-4)' }}>
+              <div>
+                <dt className="stat__label">Address</dt>
+                <dd className="mono">{host}</dd>
+              </div>
+              <div>
+                <dt className="stat__label">Time zone</dt>
+                <dd className="stat__note">
+                  {result.value.timezone} — every time in Carevelo, on every screen and every
+                  receipt, is this one.
+                </dd>
+              </div>
+              <div>
+                <dt className="stat__label">Currency</dt>
+                <dd className="stat__note">
+                  {result.value.currency}. Prices are set by this clinic; Carevelo publishes no
+                  price list and takes no share of a consultation fee.
+                </dd>
+              </div>
+            </dl>
 
-          <Notice tone="info" icon="lock" title="The address cannot be changed">
-            {SUBDOMAIN_IS_FIXED}
-          </Notice>
+            <Notice tone="info" icon="lock" title="The address cannot be changed">
+              {SUBDOMAIN_IS_FIXED}
+            </Notice>
+          </Stack>
         </Card>
       )}
 
@@ -84,15 +97,24 @@ export async function SettingsHub({ paths }: SettingsHubProps) {
             key={section.key}
             className="card"
             href={section.href(paths)}
+            /*
+              SURVIVING INLINE STYLE, and it is one declaration with nowhere else to live.
+              `.card` sets a surface, a border and 24px of padding and says nothing about
+              display, because everything else that wears it is already a block. An `<a>` is
+              not: left inline it would break its own padding and border across line boxes at
+              the first wrap. The fix belongs beside `.card` in the token layer as the tile
+              variant this grid of five links actually is, and the token layer is not this
+              task's to write — see the report.
+            */
             style={{ display: 'block' }}
           >
-            <Inline as="span" gap="3" wrap={false}>
-              <Icon name={section.icon} />
-              <strong>{section.title}</strong>
-            </Inline>
-            <p className="muted" style={{ marginTop: 'var(--space-3)' }}>
-              {section.body}
-            </p>
+            <Stack gap="3">
+              <Inline as="span" gap="3" wrap={false}>
+                <Icon name={section.icon} />
+                <strong>{section.title}</strong>
+              </Inline>
+              <p className="muted">{section.body}</p>
+            </Stack>
           </a>
         ))}
       </div>

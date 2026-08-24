@@ -96,7 +96,7 @@ export async function ServiceCatalogue({
                       `.title-sm` is 17.5px/700 in the display face. One of the two or three
                       heading modifiers that belong in tokens/components.css, which is not
                       this sweep's file — see the note in src/app/account/page.tsx. */}
-                  <h2 style={{ fontSize: 19, fontWeight: 650 }}>{service.name}</h2>
+                  <h2 className="card-title">{service.name}</h2>
 
                   {service.description ? (
                     /* `.muted` and no size: the 14.5px that used to be written here IS
@@ -121,9 +121,10 @@ export async function ServiceCatalogue({
                 </Stack>
 
                 <Stack gap="4" align="end">
-                  {/* SURVIVING INLINE STYLE — a price, not a count, and `.stat__value`'s
-                      28px puts "UGX 30,000" onto two lines beside the button on a phone. */}
-                  <span className="stat__value" style={{ fontSize: 22 }}>
+                  {/* A price, not a count: `.stat__value`'s own 28px puts "UGX 30,000"
+                      onto two lines beside the button on a phone, and `.stat__value--md`
+                      is the 21px step that fits. */}
+                  <span className="stat__value stat__value--md">
                     <Money value={service.price} />
                   </span>
 

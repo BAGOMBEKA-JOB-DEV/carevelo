@@ -1,4 +1,4 @@
-import { Badge, Notice } from '@carevelo/ui'
+import { Badge, Notice, Stack } from '@carevelo/ui'
 import type { RoomCredentials } from '../api/room'
 import { MODE_LABEL, type ConsultationMode } from '../model/types'
 
@@ -52,21 +52,26 @@ export function MediaPane({
   if (!credentials.configured) {
     return (
       <Notice tone="warn" icon="phone" title="Video is not switched on for this clinic yet">
-        <p>
-          Carevelo has not been connected to a video provider, so there is no picture to show
-          you. This is not a fault on this device and nothing is loading in the background.
-        </p>
-        <p style={{ marginTop: 'var(--space-3)' }}>
-          Hold the consultation the way the clinic already does — {' '}
-          {mode === null ? 'by telephone' : MODE_LABEL[mode].toLowerCase()}
-          {clinicPhone ? ` on ${clinicPhone}` : null} — and record it here as you go. The note,
-          the prescription and the record all work.
-        </p>
-        <p className="fine" style={{ marginTop: 'var(--space-3)' }}>
-          Room {credentials.room} · you are joined as {credentials.participant}. That pair is
-          all a provider would ever be told: a room name and a role, never a name and never a
-          reason for the visit.
-        </p>
+        {/* `<Notice>` puts its children in a plain div with no gap, because most notices are
+            one paragraph. This one is three, and each carried its own `marginTop` saying the
+            space below the paragraph above it. One column, said once. */}
+        <Stack gap="3">
+          <p>
+            Carevelo has not been connected to a video provider, so there is no picture to show
+            you. This is not a fault on this device and nothing is loading in the background.
+          </p>
+          <p>
+            Hold the consultation the way the clinic already does — {' '}
+            {mode === null ? 'by telephone' : MODE_LABEL[mode].toLowerCase()}
+            {clinicPhone ? ` on ${clinicPhone}` : null} — and record it here as you go. The note,
+            the prescription and the record all work.
+          </p>
+          <p className="fine">
+            Room {credentials.room} · you are joined as {credentials.participant}. That pair is
+            all a provider would ever be told: a room name and a role, never a name and never a
+            reason for the visit.
+          </p>
+        </Stack>
       </Notice>
     )
   }
@@ -83,14 +88,16 @@ export function MediaPane({
    */
   return (
     <Notice tone="bad" icon="help" title="This console cannot open the video provider">
-      <p>
-        The clinic&rsquo;s server brokered a session with <Badge tone="info">{credentials.provider}</Badge>
-        {' '}and this build has no client for it. Tell whoever deployed this console: the
-        provider was configured after this version was built.
-      </p>
-      <p style={{ marginTop: 'var(--space-3)' }}>
-        Hold the consultation another way rather than waiting for a picture that is not coming.
-      </p>
+      <Stack gap="3">
+        <p>
+          The clinic&rsquo;s server brokered a session with <Badge tone="info">{credentials.provider}</Badge>
+          {' '}and this build has no client for it. Tell whoever deployed this console: the
+          provider was configured after this version was built.
+        </p>
+        <p>
+          Hold the consultation another way rather than waiting for a picture that is not coming.
+        </p>
+      </Stack>
     </Notice>
   )
 }

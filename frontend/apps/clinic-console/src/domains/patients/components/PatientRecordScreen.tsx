@@ -1,5 +1,16 @@
 import type { ReactElement, ReactNode } from 'react'
-import { Badge, Button, DateTime, Icon, Notice, PageHeader } from '@carevelo/ui'
+import {
+  Badge,
+  Button,
+  Card,
+  DateTime,
+  Grid,
+  Icon,
+  Inline,
+  Notice,
+  PageHeader,
+  Stack,
+} from '@carevelo/ui'
 import { attempt } from '../api/http'
 import { consentHistory, latestDecisions } from '../api/consents'
 import type { Patient } from '../api/types'
@@ -115,15 +126,19 @@ export async function PatientRecordScreen({
 
         {mergedAway ? (
           <Notice tone="warn" icon="users" announce title="This registration was a duplicate">
-            <p>
-              Its history moved to another record, and everything from here onwards happens
-              there. This row is kept so an old link still leads somewhere truthful.
-            </p>
-            <p style={{ marginTop: 'var(--space-4)' }}>
-              <Button href={paths.record(patient.merged_into_patient_id ?? '')}>
-                Open the record that survived
-              </Button>
-            </p>
+            {/* A Notice's children land in a plain block, so the second paragraph was pushing
+                itself away from the first. The column says it once. */}
+            <Stack gap="4">
+              <p>
+                Its history moved to another record, and everything from here onwards happens
+                there. This row is kept so an old link still leads somewhere truthful.
+              </p>
+              <p>
+                <Button href={paths.record(patient.merged_into_patient_id ?? '')}>
+                  Open the record that survived
+                </Button>
+              </p>
+            </Stack>
           </Notice>
         ) : (
           <Notice tone={finalised ? 'neutral' : status.tone === 'good' ? 'info' : 'warn'} icon="shield" title={status.label}>
@@ -131,151 +146,186 @@ export async function PatientRecordScreen({
           </Notice>
         )}
 
-        <div className="grid g-2">
-          <section className="card stack" aria-labelledby="details-heading">
-            <div className="row between">
-              <h2 className="title-sm grow" id="details-heading">
-                Details
-              </h2>
-              {actionable ? (
-                <Button href={paths.details(patient.id)} variant="quiet">
-                  Correct these
-                </Button>
-              ) : null}
-            </div>
-
-            <dl className="grid" style={{ gap: 'var(--space-4)', marginTop: 'var(--space-4)' }}>
-              <Detail label="Phone">
-                <span className="tnum">{patient.phone}</span>
-                {/* See the note at the top of this file: only TRUE is worth saying. */}
-                {patient.phone_verified ? (
-                  <>
-                    {' '}
-                    <Badge tone="good">Confirmed from this handset</Badge>
-                  </>
+        <Grid cols={2}>
+          <Card as="section" aria-labelledby="details-heading">
+            {/* The gap IS the old margin: `.card stack`'s 6px plus the hand-set 12px lands on
+                the scale at 18px, which is the step the rest of these cards already use. */}
+            <Stack gap="6">
+              <div className="row between">
+                <h2 className="title-sm grow" id="details-heading">
+                  Details
+                </h2>
+                {actionable ? (
+                  <Button href={paths.details(patient.id)} variant="quiet">
+                    Correct these
+                  </Button>
                 ) : null}
-              </Detail>
-              <Detail label="Email">{patient.email ?? <Absent>None on file</Absent>}</Detail>
-              <Detail label="Date of birth">
-                {patient.date_of_birth === null ? (
-                  <Absent>Not recorded</Absent>
-                ) : (
-                  <DateTime value={patient.date_of_birth} format="date" />
-                )}
-              </Detail>
-              <Detail label="Sex">{sexLabel(patient.sex)}</Detail>
-              <Detail label="National ID">
-                {patient.national_id_number ?? <Absent>Not recorded, and never required</Absent>}
-              </Detail>
-              <Detail label="Address">
-                {patient.address ?? <Absent>Not recorded</Absent>}
-                {patient.district === null ? null : <> · {patient.district}</>}
-              </Detail>
-              <Detail label="Guardian">
-                {patient.guardian.name === null ? (
-                  <Absent>None on file</Absent>
-                ) : (
-                  <>
-                    {patient.guardian.name}
-                    {patient.guardian.relationship === null
-                      ? null
-                      : ` (${patient.guardian.relationship})`}
-                    {patient.guardian.phone === null ? null : (
-                      <>
-                        {' · '}
-                        <span className="tnum">{patient.guardian.phone}</span>
-                      </>
-                    )}
-                  </>
-                )}
-              </Detail>
-            </dl>
-          </section>
+              </div>
 
-          <section className="card stack" aria-labelledby="consent-heading">
-            <div className="row between">
-              <h2 className="title-sm grow" id="consent-heading">
-                Consent
-              </h2>
-              {actionable ? (
-                <Button href={paths.consent(patient.id)} variant="primary">
-                  Capture consent
-                </Button>
-              ) : null}
-            </div>
+              {/*
+                SURVIVING INLINE STYLE, and it is one gap on a `<dl>`. Neither Stack's element
+                union nor Grid's includes a description list, deliberately: `<dl>` promises a
+                screen reader that its children are term-and-definition pairs, and the only
+                legal children are `<dt>`, `<dd>` and the `<div>`s grouping them — so a
+                primitive can go neither on it nor inside it without breaking that. `.grid`'s
+                own gap is 18px and these pairs want 12, so the step is stated beside the class.
+                It is still the token's value and never a pixel.
+              */}
+              <dl className="grid" style={{ gap: 'var(--space-4)' }}>
+                <Detail label="Phone">
+                  <span className="tnum">{patient.phone}</span>
+                  {/* See the note at the top of this file: only TRUE is worth saying. */}
+                  {patient.phone_verified ? (
+                    <>
+                      {' '}
+                      <Badge tone="good">Confirmed from this handset</Badge>
+                    </>
+                  ) : null}
+                </Detail>
+                <Detail label="Email">{patient.email ?? <Absent>None on file</Absent>}</Detail>
+                <Detail label="Date of birth">
+                  {patient.date_of_birth === null ? (
+                    <Absent>Not recorded</Absent>
+                  ) : (
+                    <DateTime value={patient.date_of_birth} format="date" />
+                  )}
+                </Detail>
+                <Detail label="Sex">{sexLabel(patient.sex)}</Detail>
+                <Detail label="National ID">
+                  {patient.national_id_number ?? <Absent>Not recorded, and never required</Absent>}
+                </Detail>
+                <Detail label="Address">
+                  {patient.address ?? <Absent>Not recorded</Absent>}
+                  {patient.district === null ? null : <> · {patient.district}</>}
+                </Detail>
+                <Detail label="Guardian">
+                  {patient.guardian.name === null ? (
+                    <Absent>None on file</Absent>
+                  ) : (
+                    <>
+                      {patient.guardian.name}
+                      {patient.guardian.relationship === null
+                        ? null
+                        : ` (${patient.guardian.relationship})`}
+                      {patient.guardian.phone === null ? null : (
+                        <>
+                          {' · '}
+                          <span className="tnum">{patient.guardian.phone}</span>
+                        </>
+                      )}
+                    </>
+                  )}
+                  </Detail>
+              </dl>
+            </Stack>
+          </Card>
 
-            <p className="muted" style={{ marginTop: 'var(--space-3)' }}>
-              The patient decides; you record what they decided. A minor’s guardian decides on
-              their behalf.
-            </p>
+          <Card as="section" aria-labelledby="consent-heading">
+            {/*
+              The heading row and the sentence under it are a group; what follows is held off
+              them by the column. The one figure that moved is that pair: `.card stack`'s 6px
+              plus a hand-set 8px came to 14px, which is not a step on the scale because it
+              was never chosen — it was a default plus an override. It is 12px now.
+            */}
+            <Stack gap="6">
+              <Stack gap="4">
+                <div className="row between">
+                  <h2 className="title-sm grow" id="consent-heading">
+                    Consent
+                  </h2>
+                  {actionable ? (
+                    <Button href={paths.consent(patient.id)} variant="primary">
+                      Capture consent
+                    </Button>
+                  ) : null}
+                </div>
 
-            {!history.ok ? (
-              <div style={{ marginTop: 'var(--space-4)' }}>
+                <p className="muted">
+                  The patient decides; you record what they decided. A minor’s guardian decides on
+                  their behalf.
+                </p>
+              </Stack>
+
+              {!history.ok ? (
                 <Notice tone="warn">
                   {history.message
                     ?? 'The consent history could not be loaded. Nothing here has changed — open the consent screen to see the record itself.'}
                 </Notice>
-              </div>
-            ) : (
-              <dl className="grid" style={{ gap: 'var(--space-4)', marginTop: 'var(--space-4)' }}>
-                {(['data_processing', 'telemedicine', 'delivery_disclosure'] as const).map((type) => {
-                  const record = latest[type]
-                  const display = consentDisplay(type)
+              ) : (
+                /*
+                  SURVIVING INLINE STYLE, and it is one gap on a `<dl>`. Neither Stack's element
+                  union nor Grid's includes a description list, deliberately: `<dl>` promises a
+                  screen reader that its children are term-and-definition pairs, and the only
+                  legal children are `<dt>`, `<dd>` and the `<div>`s grouping them — so a
+                  primitive can go neither on it nor inside it without breaking that. `.grid`'s
+                  own gap is 18px and these pairs want 12, so the step is stated beside the class.
+                  It is still the token's value and never a pixel.
+                */
+                <dl className="grid" style={{ gap: 'var(--space-4)' }}>
+                  {(['data_processing', 'telemedicine', 'delivery_disclosure'] as const).map((type) => {
+                    const record = latest[type]
+                    const display = consentDisplay(type)
 
-                  return (
-                    <Detail key={type} label={display.label}>
-                      {record === undefined ? (
-                        <Absent>Never asked</Absent>
-                      ) : (
-                        <>
-                          <Badge tone={actionDisplay(record.action).tone}>
-                            {actionDisplay(record.action).label}
-                          </Badge>
-                          {record.occurred_at === null ? null : (
-                            <>
-                              {' '}
-                              <DateTime value={record.occurred_at} format="date" />
-                            </>
-                          )}
-                          {record.granted_by === 'guardian' ? (
-                            <>
-                              {' · by '}
-                              {record.guardian_name ?? 'a guardian'}
-                              {record.guardian_relationship === null
-                                ? null
-                                : ` (${record.guardian_relationship})`}
-                            </>
-                          ) : null}
-                        </>
-                      )}
-                    </Detail>
-                  )
-                })}
-              </dl>
-            )}
-          </section>
-        </div>
+                    return (
+                      <Detail key={type} label={display.label}>
+                        {record === undefined ? (
+                          <Absent>Never asked</Absent>
+                        ) : (
+                          <>
+                            <Badge tone={actionDisplay(record.action).tone}>
+                              {actionDisplay(record.action).label}
+                            </Badge>
+                            {record.occurred_at === null ? null : (
+                              <>
+                                {' '}
+                                <DateTime value={record.occurred_at} format="date" />
+                              </>
+                            )}
+                            {record.granted_by === 'guardian' ? (
+                              <>
+                                {' · by '}
+                                {record.guardian_name ?? 'a guardian'}
+                                {record.guardian_relationship === null
+                                  ? null
+                                  : ` (${record.guardian_relationship})`}
+                              </>
+                            ) : null}
+                          </>
+                        )}
+                      </Detail>
+                    )
+                  })}
+                </dl>
+              )}
+            </Stack>
+          </Card>
+        </Grid>
 
         <AccountCard patient={patient} paths={paths} actionable={actionable} />
 
         {actionable ? (
-          <section className="card stack" aria-labelledby="merge-heading">
-            <h2 className="title-sm" id="merge-heading">
-              Two records for one person
-            </h2>
-            <p className="muted">
-              If this patient was registered twice, fold the duplicate into this record. The
-              duplicate’s appointments, consultations, prescriptions, dispense orders and
-              consent history move here; the duplicate itself is kept, pointing at this record,
-              so an old link still works. It is audited, it happens within this clinic only, and
-              there is no way back.
-            </p>
-            <div className="row-wrap" style={{ marginTop: 'var(--space-4)' }}>
-              <Button href={paths.merge(patient.id)} variant="quiet">
-                <Icon name="users" /> Merge a duplicate into this record
-              </Button>
-            </div>
-          </section>
+          <Card as="section" aria-labelledby="merge-heading">
+            <Stack gap="6">
+              <Stack gap="2">
+                <h2 className="title-sm" id="merge-heading">
+                  Two records for one person
+                </h2>
+                <p className="muted">
+                  If this patient was registered twice, fold the duplicate into this record. The
+                  duplicate’s appointments, consultations, prescriptions, dispense orders and
+                  consent history move here; the duplicate itself is kept, pointing at this record,
+                  so an old link still works. It is audited, it happens within this clinic only, and
+                  there is no way back.
+                </p>
+              </Stack>
+
+              <Inline gap="4">
+                <Button href={paths.merge(patient.id)} variant="quiet">
+                  <Icon name="users" /> Merge a duplicate into this record
+                </Button>
+              </Inline>
+            </Stack>
+          </Card>
         ) : null}
       </div>
     </>
@@ -301,66 +351,85 @@ function AccountCard({
   actionable: boolean
 }): ReactElement {
   return (
-    <section className="card stack" aria-labelledby="account-heading">
-      <h2 className="title-sm" id="account-heading">
-        Portal account
-      </h2>
+    <Card as="section" aria-labelledby="account-heading">
+      {/*
+        Each branch owns its own column, and that is deliberate rather than tidy. The three
+        `marginTop`s that were here sat on the ACTION ROW of three of the four branches, so
+        the space between the prose and the button was stated three times and the space
+        between the heading and the prose was stated nowhere — which is how a fragment can be
+        edited into a fourth branch with the button flush against the sentence and nothing
+        failing. The card's own gap is the heading rhythm; a branch that ends in a button
+        wraps its prose in a group and lets the 18px be the column's, once.
 
-      {patient.has_account ? (
-        /*
-         * `has_account` is derived and carries neither the account's address nor its
-         * identifier — front desk needs to know whether to offer to create one, and nothing
-         * more. There is no endpoint that answers anything else about it, deliberately: "does
-         * this person have an account here" is a question worth not being able to ask directly.
-         */
-        <>
+        The alternative — hoisting the action row out and testing the same conditions a
+        second time to decide which button to render — would put the refusal logic in two
+        places that have to agree, and the refusals are the part of this card that matters.
+      */}
+      <Stack gap="2">
+        <h2 className="title-sm" id="account-heading">
+          Portal account
+        </h2>
+
+        {patient.has_account ? (
+          /*
+           * `has_account` is derived and carries neither the account's address nor its
+           * identifier — front desk needs to know whether to offer to create one, and nothing
+           * more. There is no endpoint that answers anything else about it, deliberately: "does
+           * this person have an account here" is a question worth not being able to ask directly.
+           */
+          <Stack gap="2">
+            <p className="muted">
+              This patient already has an account and signs in with the address the clinic
+              already holds.
+            </p>
+            <Notice tone="info" icon="lock" className="stack">
+              If they have lost the password it cannot be given to them again — not here, not by
+              an administrator, and not by Carevelo. The password was shown once when the account
+              was created and is stored only as a hash.
+            </Notice>
+          </Stack>
+        ) : !actionable ? (
           <p className="muted">
-            This patient already has an account and signs in with the address the clinic
-            already holds.
+            An account cannot be issued on this record. {statusDisplay(patient.status).meaning}
           </p>
-          <Notice tone="info" icon="lock" className="stack">
-            If they have lost the password it cannot be given to them again — not here, not by
-            an administrator, and not by Carevelo. The password was shown once when the account
-            was created and is stored only as a hash.
-          </Notice>
-        </>
-      ) : !actionable ? (
-        <p className="muted">
-          An account cannot be issued on this record. {statusDisplay(patient.status).meaning}
-        </p>
-      ) : patient.email === null ? (
-        <>
-          <p className="muted">
-            A patient signs in with an email address, so this record needs one before an account
-            can exist. A patient without an address is registered and treated exactly as normal
-            — care is never blocked on this. Add the address when they have one.
-          </p>
-          <Notice tone="warn" icon="mail" className="stack">
-            Do not invent an address to get past this. An account created against an address the
-            patient does not control is a login nobody can ever sign into, and it permanently
-            occupies that address at this clinic.
-          </Notice>
-          <div className="row-wrap" style={{ marginTop: 'var(--space-4)' }}>
-            <Button href={paths.details(patient.id)} variant="quiet">
-              <Icon name="mail" /> Add an email address
-            </Button>
-          </div>
-        </>
-      ) : (
-        <>
-          <p className="muted">
-            Issued across the desk, with the person and their identity document in front of you.
-            The system generates the password and shows it once — you read it to the patient,
-            and they must change it the first time they sign in.
-          </p>
-          <div className="row-wrap" style={{ marginTop: 'var(--space-4)' }}>
-            <Button href={paths.account(patient.id)} variant="quiet">
-              <Icon name="lock" /> Issue a portal account
-            </Button>
-          </div>
-        </>
-      )}
-    </section>
+        ) : patient.email === null ? (
+          <Stack gap="6">
+            <Stack gap="2">
+              <p className="muted">
+                A patient signs in with an email address, so this record needs one before an account
+                can exist. A patient without an address is registered and treated exactly as normal
+                — care is never blocked on this. Add the address when they have one.
+              </p>
+              <Notice tone="warn" icon="mail" className="stack">
+                Do not invent an address to get past this. An account created against an address the
+                patient does not control is a login nobody can ever sign into, and it permanently
+                occupies that address at this clinic.
+              </Notice>
+            </Stack>
+
+            <Inline gap="4">
+              <Button href={paths.details(patient.id)} variant="quiet">
+                <Icon name="mail" /> Add an email address
+              </Button>
+            </Inline>
+          </Stack>
+        ) : (
+          <Stack gap="6">
+            <p className="muted">
+              Issued across the desk, with the person and their identity document in front of you.
+              The system generates the password and shows it once — you read it to the patient,
+              and they must change it the first time they sign in.
+            </p>
+
+            <Inline gap="4">
+              <Button href={paths.account(patient.id)} variant="quiet">
+                <Icon name="lock" /> Issue a portal account
+              </Button>
+            </Inline>
+          </Stack>
+        )}
+      </Stack>
+    </Card>
   )
 }
 
@@ -384,15 +453,19 @@ function Confirmation({
     case 'registered':
       return (
         <Notice tone="info" icon="check" announce title="Registered">
-          <p>
-            The record exists and holds no clinical information yet. While the patient is with
-            you, capture their consent — nothing else can proceed until they have agreed.
-          </p>
-          <p style={{ marginTop: 'var(--space-4)' }}>
-            <Button href={paths.consent(patient.id)} variant="primary">
-              Capture consent now
-            </Button>
-          </p>
+          {/* A Notice's children land in a plain block, so the call to action was pushing
+              itself away from the sentence above it. The column says it once. */}
+          <Stack gap="4">
+            <p>
+              The record exists and holds no clinical information yet. While the patient is with
+              you, capture their consent — nothing else can proceed until they have agreed.
+            </p>
+            <p>
+              <Button href={paths.consent(patient.id)} variant="primary">
+                Capture consent now
+              </Button>
+            </p>
+          </Stack>
         </Notice>
       )
     case 'updated':

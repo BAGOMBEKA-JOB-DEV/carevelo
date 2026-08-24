@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react'
 import { getTranslations } from 'next-intl/server'
-import { Button, Card, Notice } from '@carevelo/ui'
+import { Button, Card, Notice, Stack } from '@carevelo/ui'
 import type { Tenant } from '@/lib/tenant'
 import { updatePatient } from '../api/patients'
 import type { Patient, ProfileInput, Sex } from '../api/types'
@@ -156,7 +156,16 @@ export async function ProfileForm({
 
   return (
     <PageBody>
-      <div className="grid" style={{ gap: 'var(--space-7)', maxWidth: 640 }}>
+      {/* SURVIVING INLINE STYLE, and only the measure survives — the 24px rhythm is the
+          column's now. 640px is a FORM's measure rather than the page's: `.site-wrap` is
+          1280px, which is right for a landing page and wrong for a stack of labelled
+          inputs, because a label at one end of a 1280px line and its box at the other is
+          a form nobody can scan. The token layer has no class for it and this app has two
+          call sites — here and RegistrationForm — so a `.form-col` in tokens/components.css
+          is the fix, and naming a shared measure is a decision for the layer's owner
+          rather than for a sweep. Reported. */}
+      <div style={{ maxWidth: 640 }}>
+        <Stack gap="7">
         <div className="site-sec-head">
           <span className="site-eyebrow">{t('profile.eyebrow')}</span>
           <h1 className="site-h1">{t('profile.title')}</h1>
@@ -177,31 +186,50 @@ export async function ProfileForm({
         {error ? <Notice tone="bad">{error}</Notice> : null}
 
         <Card as="section" aria-labelledby="profile-heading">
-          <h2 className="title" id="profile-heading">
-            {t('profile.detailsHeading')}
-          </h2>
+          {/* Three distances down this card, and they were three `marginTop`s that had to
+              agree with each other by hand: 18px from the heading to the first field, 24px
+              between the two field groups, 30px before the submit. Two of them are the
+              same decision — "put a gap between the blocks of this form" — so they are one
+              gap on one column now, and only the third is still stated separately. */}
+          <Stack gap="6">
+            <h2 className="title" id="profile-heading">
+              {t('profile.detailsHeading')}
+            </h2>
 
-          <form action={submitProfile.bind(null, { patientId: patient.id, returnHref })}>
-            <div className="stack" style={{ gap: 'var(--space-5)', marginTop: 'var(--space-6)' }}>
-              <IdentityFields values={values} fault={fault} />
-              <DetailFields values={values} fault={fault} />
-            </div>
+            <form action={submitProfile.bind(null, { patientId: patient.id, returnHref })}>
+              <Stack gap="7">
+                <Stack gap="5">
+                  <IdentityFields values={values} fault={fault} />
+                  <DetailFields values={values} fault={fault} />
+                </Stack>
 
-            <div className="stack" style={{ gap: 'var(--space-5)', marginTop: 'var(--space-7)' }}>
-              <h3 className="title-sm">{t('profile.guardianHeading')}</h3>
-              <p className="subtitle" style={{ fontSize: 13 }}>
-                {t('profile.guardianNote')}
-              </p>
+                <Stack gap="5">
+                  <h3 className="title-sm">{t('profile.guardianHeading')}</h3>
+                  {/* SURVIVING INLINE STYLE. 13px is the note under a sub-heading, and
+                      the type scale has no step between `.subtitle` (16px) and `.fine`
+                      (12px). Four screens in this app write the same 13px out by hand;
+                      `.subtitle--sm` beside `.subtitle` in tokens/typography.css retires
+                      all four, and that file is not this sweep's to write. */}
+                  <p className="subtitle" style={{ fontSize: 13 }}>
+                    {t('profile.guardianNote')}
+                  </p>
 
-              <GuardianContactFields values={values} fault={fault} />
-            </div>
+                  <GuardianContactFields values={values} fault={fault} />
+                </Stack>
+              </Stack>
 
-            <div style={{ marginTop: 'var(--space-8)' }}>
-              <Button variant="brand" size="lg" block type="submit">
-                {t('profile.save')}
-              </Button>
-            </div>
-          </form>
+              {/* SURVIVING INLINE STYLE. 30px, not the 24px above: this is the distance
+                  between the last field and the button that submits it, and it is wider on
+                  purpose — a full-width brand button directly under a text box is the one
+                  a thumb reaches by accident. It is a step apart from the form's own
+                  rhythm, so it cannot be that rhythm's gap. */}
+              <div style={{ marginTop: 'var(--space-8)' }}>
+                <Button variant="brand" size="lg" block type="submit">
+                  {t('profile.save')}
+                </Button>
+              </div>
+            </form>
+          </Stack>
         </Card>
 
         {/*
@@ -212,6 +240,7 @@ export async function ProfileForm({
         <Notice tone="neutral" icon="file" title={t('profile.clinicalTitle')}>
           {t('profile.clinicalBody', { clinic })}
         </Notice>
+        </Stack>
       </div>
     </PageBody>
   )

@@ -1,5 +1,18 @@
 import { redirect } from 'next/navigation'
-import { Badge, Button, Card, Choice, EmptyState, Field, Input, Money, Notice, Textarea } from '@carevelo/ui'
+import {
+  Badge,
+  Button,
+  Card,
+  Choice,
+  EmptyState,
+  Field,
+  Inline,
+  Input,
+  Money,
+  Notice,
+  Stack,
+  Textarea,
+} from '@carevelo/ui'
 import { attempt, writeFailure } from '../api/http'
 import {
   createService,
@@ -121,134 +134,154 @@ export async function ServicesScreen(props: ServicesScreenProps) {
             clinic does most often; the rest can follow.
           </EmptyState>
         ) : (
-          <ul className="stack" style={{ gap: 'var(--space-5)' }}>
+          /* `<Stack as="ul">` and not `<ul className="stack">`. The hand-rolled version never
+             reset the list, so this catalogue has been rendering with the user agent's bullets
+             and a 40px indent down the left of every service card. Stack strips both and puts
+             `role="list"` back on — Safari drops the list semantics along with the marker, and
+             "list, 6 items" before the first name is how an administrator hears how much
+             catalogue there is. */
+          <Stack as="ul" gap="5">
             {offered.map((service) => (
               <ServiceRow key={service.id} service={service} paths={paths} />
             ))}
-          </ul>
+          </Stack>
         )}
       </Card>
 
       <Card as="section">
-        <span className="eyebrow">Add</span>
-        <h2 className="title-sm">A new service</h2>
+        {/* Same nesting as the withdrawn card below: `gap="none"` preserves the zero space
+            the eyebrow and heading had in normal flow, and the outer gap is exactly the
+            `marginTop` the form was carrying. A `<form>` is not a Stack element — the union
+            deliberately stops at the elements that are layout — so the Stack goes inside it. */}
+        <Stack gap="6">
+          <Stack gap="none">
+            <span className="eyebrow">Add</span>
+            <h2 className="title-sm">A new service</h2>
+          </Stack>
 
-        <form
-          action={addService.bind(null, { selfPath: paths.services })}
-          className="stack"
-          style={{ gap: 'var(--space-6)', marginTop: 'var(--space-6)' }}
-        >
-          <Field
-            name="name"
-            label="Name"
-            hint="What a patient will see in the list. Start typing for some common ones."
-          >
-            {(control) => (
-              <>
-                <Input {...control} type="text" list="service-names" maxLength={120} required />
-                {/* Suggestions, not defaults. The box is empty until somebody types. */}
-                <datalist id="service-names">
-                  {SUGGESTED_NAMES.map((name) => (
-                    <option key={name} value={name} />
-                  ))}
-                </datalist>
-              </>
-            )}
-          </Field>
+          <form action={addService.bind(null, { selfPath: paths.services })}>
+            <Stack gap="6">
+              <Field
+                name="name"
+                label="Name"
+                hint="What a patient will see in the list. Start typing for some common ones."
+              >
+                {(control) => (
+                  <>
+                    <Input {...control} type="text" list="service-names" maxLength={120} required />
+                    {/* Suggestions, not defaults. The box is empty until somebody types. */}
+                    <datalist id="service-names">
+                      {SUGGESTED_NAMES.map((name) => (
+                        <option key={name} value={name} />
+                      ))}
+                    </datalist>
+                  </>
+                )}
+              </Field>
 
-          <Field
-            name="description"
-            label="Description"
-            hint="Optional. One line telling a patient whether this is the right appointment for them."
-          >
-            {(control) => <Textarea {...control} rows={2} maxLength={2000} />}
-          </Field>
+              <Field
+                name="description"
+                label="Description"
+                hint="Optional. One line telling a patient whether this is the right appointment for them."
+              >
+                {(control) => <Textarea {...control} rows={2} maxLength={2000} />}
+              </Field>
 
-          <div className="grid g-2">
-            <Field
-              name="duration_minutes"
-              label="Length in minutes"
-              hint="Between 5 and 480. This is what decides how many slots fit in a day."
-            >
-              {(control) => (
-                <Input
-                  {...control}
-                  type="number"
-                  inputMode="numeric"
-                  min={5}
-                  max={480}
-                  step={5}
-                  required
-                />
-              )}
-            </Field>
+              <div className="grid g-2">
+                <Field
+                  name="duration_minutes"
+                  label="Length in minutes"
+                  hint="Between 5 and 480. This is what decides how many slots fit in a day."
+                >
+                  {(control) => (
+                    <Input
+                      {...control}
+                      type="number"
+                      inputMode="numeric"
+                      min={5}
+                      max={480}
+                      step={5}
+                      required
+                    />
+                  )}
+                </Field>
 
-            <Field
-              name="price"
-              label="Price in Ugandan shillings"
-              hint="Whole shillings. This clinic's own figure — Carevelo publishes no price list and takes nothing from it."
-            >
-              {/*
-               * DELIBERATELY BLANK, and there is no `defaultValue` to remove later. §H1.4.
-               * `type="text"` with a numeric inputMode rather than `type="number"`: a
-               * number spinner on a price invites a nudge from 20,000 to 20,001, and a
-               * scroll wheel over a focused number input changes it silently.
-               */}
-              {(control) => (
-                <Input
-                  {...control}
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="off"
-                  placeholder="20000"
-                  required
-                />
-              )}
-            </Field>
-          </div>
+                <Field
+                  name="price"
+                  label="Price in Ugandan shillings"
+                  hint="Whole shillings. This clinic's own figure — Carevelo publishes no price list and takes nothing from it."
+                >
+                  {/*
+                   * DELIBERATELY BLANK, and there is no `defaultValue` to remove later. §H1.4.
+                   * `type="text"` with a numeric inputMode rather than `type="number"`: a
+                   * number spinner on a price invites a nudge from 20,000 to 20,001, and a
+                   * scroll wheel over a focused number input changes it silently.
+                   */}
+                  {(control) => (
+                    <Input
+                      {...control}
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="off"
+                      placeholder="20000"
+                      required
+                    />
+                  )}
+                </Field>
+              </div>
 
-          <Choice
-            name="modes"
-            id="new-service-modes"
-            legend="How this service can be delivered"
-            hint="Which of these are safe for this service is a clinical judgement, and it is yours. Voice and chat are proper choices here, not fallbacks."
-            multiple
-            options={modeOptions()}
-            defaultValue={['in_person']}
-          />
+              <Choice
+                name="modes"
+                id="new-service-modes"
+                legend="How this service can be delivered"
+                hint="Which of these are safe for this service is a clinical judgement, and it is yours. Voice and chat are proper choices here, not fallbacks."
+                multiple
+                options={modeOptions()}
+                defaultValue={['in_person']}
+              />
 
-          <div>
-            <Button type="submit" variant="primary">
-              Add this service
-            </Button>
-          </div>
-        </form>
+              <div>
+                <Button type="submit" variant="primary">
+                  Add this service
+                </Button>
+              </div>
+            </Stack>
+          </form>
+        </Stack>
       </Card>
 
       {withdrawn.length === 0 ? null : (
         <Card as="section">
-          <span className="eyebrow">Withdrawn</span>
-          <h2 className="title-sm">No longer offered</h2>
-          <p className="muted">
-            These are not bookable and patients cannot see them. They stay here because old
-            appointments, consultations and prescriptions point at them — a clinic asked for
-            last year&rsquo;s records needs the service to still have a name.
-          </p>
+          {/* The eyebrow, the heading and the paragraph were three blocks in normal flow with
+              no space between them, and the list was pushed down by a hand-set margin. That is
+              a nested Stack: `gap="none"` keeps the heading block exactly as tight as it was,
+              and the outer gap is the one the margin used to be. */}
+          <Stack gap="5">
+            <Stack gap="none">
+              <span className="eyebrow">Withdrawn</span>
+              <h2 className="title-sm">No longer offered</h2>
+              <p className="muted">
+                These are not bookable and patients cannot see them. They stay here because old
+                appointments, consultations and prescriptions point at them — a clinic asked for
+                last year&rsquo;s records needs the service to still have a name.
+              </p>
+            </Stack>
 
-          <ul className="stack" style={{ gap: 'var(--space-4)', marginTop: 'var(--space-5)' }}>
-            {withdrawn.map((service) => (
-              <li key={service.id} className="row between">
-                <span className="grow">
-                  {service.name} · <Money value={service.price} />
-                </span>
-                <form action={reoffer.bind(null, { selfPath: paths.services, id: service.id })}>
-                  <Button type="submit" variant="quiet">
-                    Offer again
-                  </Button>
-                </form>
-              </li>
-            ))}
-          </ul>
+            <Stack as="ul" gap="4">
+              {withdrawn.map((service) => (
+                <li key={service.id} className="row between">
+                  <span className="grow">
+                    {service.name} · <Money value={service.price} />
+                  </span>
+                  <form action={reoffer.bind(null, { selfPath: paths.services, id: service.id })}>
+                    <Button type="submit" variant="quiet">
+                      Offer again
+                    </Button>
+                  </form>
+                </li>
+              ))}
+            </Stack>
+          </Stack>
         </Card>
       )}
     </div>
@@ -260,116 +293,138 @@ function ServiceRow({ service, paths }: { service: Service; paths: TenantPaths }
   const modes = service.modes.filter(isConsultationMode)
 
   return (
-    <li className="card card-tight stack" style={{ gap: 'var(--space-4)' }}>
-      <div className="row between">
-        <div className="grow stack">
-          <strong>{service.name}</strong>
-          <span className="fine">
-            {service.duration_minutes} minutes ·{' '}
-            {modes.length === 0
-              ? 'no delivery mode chosen'
-              : modes.map((mode) => MODE_LABELS[mode]).join(', ')}
-          </span>
+    <Card as="li" padding="tight">
+      {/* `<Card as="li">` and `<Stack>` rather than `className="card card-tight stack"`
+          with the gap written out: the class trio and the inline gap were the same three
+          decisions the primitives make, and `.card-tight` is what `padding="tight"` is. */}
+      <Stack gap="4">
+        <div className="row between">
+          <div className="grow stack">
+            <strong>{service.name}</strong>
+            <span className="fine">
+              {service.duration_minutes} minutes ·{' '}
+              {modes.length === 0
+                ? 'no delivery mode chosen'
+                : modes.map((mode) => MODE_LABELS[mode]).join(', ')}
+            </span>
+          </div>
+          {/* `wrap={false}` because `.row` does not wrap, and the price and its "No price"
+              badge are one reading — a badge that drops to its own line reads as a second
+              fact about the service rather than a qualifier on the figure beside it. */}
+          <Inline as="span" gap="4" wrap={false}>
+            <strong className="tnum">
+              <Money value={service.price} />
+            </strong>
+            {service.price.amount_minor === 0 ? <Badge tone="warn">No price</Badge> : null}
+          </Inline>
         </div>
-        <span className="row" style={{ gap: 'var(--space-4)' }}>
-          <strong className="tnum">
-            <Money value={service.price} />
-          </strong>
-          {service.price.amount_minor === 0 ? <Badge tone="warn">No price</Badge> : null}
-        </span>
-      </div>
 
-      {service.description ? <p className="muted">{service.description}</p> : null}
+        {service.description ? <p className="muted">{service.description}</p> : null}
 
-      <details>
-        <summary className="lnk">Edit this service</summary>
+        <details>
+          <summary className="lnk">Edit this service</summary>
 
-        <form
-          action={editService.bind(null, { selfPath: paths.services, id: service.id })}
-          className="stack"
-          style={{ gap: 'var(--space-5)', marginTop: 'var(--space-5)' }}
-        >
-          <Field name="name" id={`name-${service.id}`} label="Name">
-            {(control) => (
-              <Input {...control} type="text" maxLength={120} defaultValue={service.name} required />
-            )}
-          </Field>
+          {/*
+            SURVIVING INLINE STYLE, and it is the one space on this screen no Stack can own.
+            `<summary>` has to be the FIRST child of `<details>` for the disclosure to work
+            at all, so the summary and the body it opens are not two children of a container
+            anybody can put a `gap` on — the gap would have to include the summary itself and
+            close up when the disclosure is shut. This one margin holds the body off the
+            control that opened it; everything below it is a Stack.
+          */}
+          <div style={{ marginTop: 'var(--space-5)' }}>
+            <Stack gap="5">
+              <form action={editService.bind(null, { selfPath: paths.services, id: service.id })}>
+                <Stack gap="5">
+              <Field name="name" id={`name-${service.id}`} label="Name">
+                {(control) => (
+                  <Input {...control} type="text" maxLength={120} defaultValue={service.name} required />
+                )}
+              </Field>
 
-          <Field name="description" id={`description-${service.id}`} label="Description">
-            {(control) => (
-              <Textarea {...control} rows={2} maxLength={2000} defaultValue={service.description ?? ''} />
-            )}
-          </Field>
+              <Field name="description" id={`description-${service.id}`} label="Description">
+                {(control) => (
+                  <Textarea {...control} rows={2} maxLength={2000} defaultValue={service.description ?? ''} />
+                )}
+              </Field>
 
-          <div className="grid g-2">
-            <Field
-              name="duration_minutes"
-              id={`duration-${service.id}`}
-              label="Length in minutes"
-            >
-              {(control) => (
-                <Input
-                  {...control}
-                  type="number"
-                  inputMode="numeric"
-                  min={5}
-                  max={480}
-                  step={5}
-                  defaultValue={service.duration_minutes}
-                  required
-                />
-              )}
-            </Field>
+              <div className="grid g-2">
+                <Field
+                  name="duration_minutes"
+                  id={`duration-${service.id}`}
+                  label="Length in minutes"
+                >
+                  {(control) => (
+                    <Input
+                      {...control}
+                      type="number"
+                      inputMode="numeric"
+                      min={5}
+                      max={480}
+                      step={5}
+                      defaultValue={service.duration_minutes}
+                      required
+                    />
+                  )}
+                </Field>
 
-            <Field
-              name="price"
-              id={`price-${service.id}`}
-              label="Price in Ugandan shillings"
-              hint="Changing this changes what the next patient is asked for. It does not touch an appointment already booked."
-            >
-              {(control) => (
-                <Input
-                  {...control}
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="off"
-                  defaultValue={priceToForm(service.price.amount_minor)}
-                  required
-                />
-              )}
-            </Field>
+                <Field
+                  name="price"
+                  id={`price-${service.id}`}
+                  label="Price in Ugandan shillings"
+                  hint="Changing this changes what the next patient is asked for. It does not touch an appointment already booked."
+                >
+                  {(control) => (
+                    <Input
+                      {...control}
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="off"
+                      defaultValue={priceToForm(service.price.amount_minor)}
+                      required
+                    />
+                  )}
+                </Field>
+              </div>
+
+              <Choice
+                name="modes"
+                id={`modes-${service.id}`}
+                legend="How this service can be delivered"
+                multiple
+                options={modeOptions()}
+                defaultValue={modes}
+              />
+
+              <div className="row-wrap">
+                <Button type="submit" variant="primary">
+                  Save changes
+                </Button>
+              </div>
+                </Stack>
+              </form>
+
+              <form action={withdraw.bind(null, { selfPath: paths.services, id: service.id })}>
+                {/* The button keeps a block wrapper so it stays its own width rather than
+                    stretching to the column, which is what a Stack child does by default and
+                    what a destructive control should never do. */}
+                <Stack gap="2">
+                  <div>
+                    <Button type="submit" variant="danger">
+                      Stop offering this
+                    </Button>
+                  </div>
+                  <p className="fine">
+                    It disappears from the patient&rsquo;s list immediately. Nothing is deleted, and
+                    appointments already booked for it are unaffected.
+                  </p>
+                </Stack>
+              </form>
+            </Stack>
           </div>
-
-          <Choice
-            name="modes"
-            id={`modes-${service.id}`}
-            legend="How this service can be delivered"
-            multiple
-            options={modeOptions()}
-            defaultValue={modes}
-          />
-
-          <div className="row-wrap">
-            <Button type="submit" variant="primary">
-              Save changes
-            </Button>
-          </div>
-        </form>
-
-        <form
-          action={withdraw.bind(null, { selfPath: paths.services, id: service.id })}
-          style={{ marginTop: 'var(--space-5)' }}
-        >
-          <Button type="submit" variant="danger">
-            Stop offering this
-          </Button>
-          <p className="fine" style={{ marginTop: 'var(--space-2)' }}>
-            It disappears from the patient&rsquo;s list immediately. Nothing is deleted, and
-            appointments already booked for it are unaffected.
-          </p>
-        </form>
-      </details>
-    </li>
+        </details>
+      </Stack>
+    </Card>
   )
 }
 

@@ -1,4 +1,4 @@
-import { Card, DateTime, Notice } from '@carevelo/ui'
+import { Card, DateTime, Grid, Inline, Notice, Stack, Stat } from '@carevelo/ui'
 import type { Attempt } from '../api/http'
 import type { SmsUsage } from '../api/types'
 
@@ -29,8 +29,9 @@ export function SmsUsagePanel({ usage }: { usage: Attempt<SmsUsage> }) {
   if (!usage.ok) {
     return (
       <Card as="section">
-        <h2 className="title">Messages used this month</h2>
-        <div style={{ marginTop: 'var(--space-4)' }}>
+        <Stack gap="4">
+          <h2 className="title">Messages used this month</h2>
+
           {usage.status === 403 ? (
             <Notice tone="info" title="This is the clinic administrator’s view">
               <p>Ask your administrator if you need this month&rsquo;s message counts.</p>
@@ -40,7 +41,7 @@ export function SmsUsagePanel({ usage }: { usage: Attempt<SmsUsage> }) {
               <p>{usage.message ?? 'The request did not reach the API. Try again in a moment.'}</p>
             </Notice>
           )}
-        </div>
+        </Stack>
       </Card>
     )
   }
@@ -49,60 +50,59 @@ export function SmsUsagePanel({ usage }: { usage: Attempt<SmsUsage> }) {
 
   return (
     <Card as="section">
-      <div className="row-wrap" style={{ justifyContent: 'space-between' }}>
-        <h2 className="title">Messages used this month</h2>
-        {value.periodStart === null ? null : (
-          <span className="muted">
-            {/*
-             * A bare `YYYY-MM-DD` from the API, resolved in the CLINIC's timezone. Midnight
-             * UTC is 03:00 the same morning in Africa/Kampala, so the rendered date is the
-             * day the API meant; an earlier hour would roll it back a day for all of East
-             * Africa.
-             */}
-            Since <DateTime value={`${value.periodStart}T00:00:00Z`} />
-          </span>
-        )}
-      </div>
+      {/* One Stack for the whole panel. Six `marginTop`s stood here and they did not agree
+          with each other — 12px above the unreadable notice, 16px above everything else —
+          which is the signature of a space nobody decided. The column decides once. */}
+      <Stack gap="5">
+        <Inline justify="between">
+          <h2 className="title">Messages used this month</h2>
+          {value.periodStart === null ? null : (
+            <span className="muted">
+              {/*
+               * A bare `YYYY-MM-DD` from the API, resolved in the CLINIC's timezone. Midnight
+               * UTC is 03:00 the same morning in Africa/Kampala, so the rendered date is the
+               * day the API meant; an earlier hour would roll it back a day for all of East
+               * Africa.
+               */}
+              Since <DateTime value={`${value.periodStart}T00:00:00Z`} />
+            </span>
+          )}
+        </Inline>
 
-      {value.unreadable ? (
-        /* A zero and "we could not read the figures" lead a clinic to do opposite things,
-           and a zero is the more alarming of the two to be wrong about. */
-        <div style={{ marginTop: 'var(--space-4)' }}>
+        {value.unreadable ? (
+          /* A zero and "we could not read the figures" lead a clinic to do opposite things,
+             and a zero is the more alarming of the two to be wrong about. */
           <Notice tone="bad" title="The counts came back in an unexpected shape">
             <p>
               This console could not read this month&rsquo;s message counts. They are not zero
               — they are unknown.
             </p>
           </Notice>
-        </div>
-      ) : (
-        <div className="grid g-3" style={{ marginTop: 'var(--space-5)' }}>
-          <div className="stat">
-            <span className="stat__label">Recorded this month</span>
-            <span className="stat__value">{value.total ?? '—'}</span>
-            <span className="stat__note">Every message, whatever became of it.</span>
-          </div>
+        ) : (
+          <Grid cols={3}>
+            {/* `<Stat>` rather than three hand-assembled spans: it puts the label before the
+                value in the DOM by construction, which is the difference between a screen
+                reader saying "Recorded this month, 412" and reading out a bare number with
+                nothing attached to it. */}
+            <Stat
+              label="Recorded this month"
+              value={value.total ?? '—'}
+              note="Every message, whatever became of it."
+            />
 
-          {value.counts.map((entry) => (
-            <div className="stat" key={entry.status}>
-              <span className="stat__label">{entry.status}</span>
-              <span className="stat__value">{entry.count}</span>
-            </div>
-          ))}
+            {value.counts.map((entry) => (
+              <Stat key={entry.status} label={entry.status} value={entry.count} />
+            ))}
 
-          <div className="stat">
-            <span className="stat__label">Suppressed by the rate limit</span>
-            <span className="stat__value">{value.suppressed ?? '—'}</span>
-            <span className="stat__note">
-              Meant to go out and did not. Nobody is told when this happens, which is why it
-              is here.
-            </span>
-          </div>
-        </div>
-      )}
+            <Stat
+              label="Suppressed by the rate limit"
+              value={value.suppressed ?? '—'}
+              note="Meant to go out and did not. Nobody is told when this happens, which is why it is here."
+            />
+          </Grid>
+        )}
 
-      {value.suppressed !== null && value.suppressed > 0 ? (
-        <div style={{ marginTop: 'var(--space-5)' }}>
+        {value.suppressed !== null && value.suppressed > 0 ? (
           <Notice tone="warn" title="Some messages did not go out">
             <p>
               {value.suppressed} message{value.suppressed === 1 ? '' : 's'} hit the per-clinic
@@ -111,14 +111,10 @@ export function SmsUsagePanel({ usage }: { usage: Attempt<SmsUsage> }) {
               were not sent. Patients expecting a reminder did not get one.
             </p>
           </Notice>
-        </div>
-      ) : null}
+        ) : null}
 
-      {value.note === '' ? null : (
-        <p className="fine" style={{ marginTop: 'var(--space-5)' }}>
-          {value.note}
-        </p>
-      )}
+        {value.note === '' ? null : <p className="fine">{value.note}</p>}
+      </Stack>
     </Card>
   )
 }

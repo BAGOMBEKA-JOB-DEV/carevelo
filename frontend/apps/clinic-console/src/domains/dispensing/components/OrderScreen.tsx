@@ -1,4 +1,15 @@
-import { Badge, Button, Card, DateTime, Money, Notice, PageHeader } from '@carevelo/ui'
+import {
+  Badge,
+  Button,
+  Card,
+  DataTable,
+  DateTime,
+  EmptyState,
+  Money,
+  Notice,
+  PageHeader,
+  Stack,
+} from '@carevelo/ui'
 import { attempt } from '../api/http'
 import { getOrder } from '../api/queue'
 import {
@@ -262,53 +273,82 @@ function DispensedLines({ order }: { order: DispenseOrder }) {
 
   return (
     <Card as="section" aria-labelledby="dispensed">
-      <div className="stack">
+      <Stack gap="2">
         <h2 id="dispensed">What was dispensed</h2>
 
-        <div className="table-scroll">
-          <table className="table">
-            <thead>
-              <tr>
-                <th scope="col">Item</th>
-                <th scope="col" className="tnum">Quantity</th>
-                <th scope="col" className="tnum">Unit price</th>
-                <th scope="col">Filled</th>
-              </tr>
-            </thead>
-            <tbody>
-              {lines.map((line) => (
-                <tr key={line.id}>
-                  <td>
-                    {line.medicine_name_dispensed}
-                    {line.substitution_id ? (
-                      <>
-                        {' '}
-                        {/* Traceable back to the clinician who allowed it, which is the
-                            reason the column exists on the resource at all. */}
-                        <Badge tone="info">Approved substitute</Badge>
-                      </>
-                    ) : null}
-                  </td>
-                  <td className="tnum">{line.quantity_dispensed}</td>
-                  <td className="tnum">
-                    <Money value={line.unit_price} />
-                  </td>
-                  <td>
-                    {line.is_fulfilled ? (
-                      <Badge tone="good">Filled</Badge>
-                    ) : (
-                      <span>
-                        <Badge tone="warn">Not filled</Badge>{' '}
-                        <span className="muted">{line.unfulfilled_reason}</span>
-                      </span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+        {/*
+         * THE LAST HAND-WRITTEN TABLE IN THIS DOMAIN. Four `<th>`s that happened to carry
+         * `scope` and a `<tbody>` that rendered nothing at all when the order had no lines —
+         * a heading row over blank space, which reads as "loading" to the person looking at
+         * it. `<DataTable>` makes both impossible by construction: every header cell is
+         * `scope="col"`, and `empty` is a required prop.
+         *
+         * No `className="queue"` here, deliberately. Sticky headings are for the lists long
+         * enough that the columns scroll away — the pharmacy queue, the dispatch board. An
+         * order holds a handful of lines, and bounding the height would introduce a scroll
+         * region over four rows for nothing.
+         */}
+        <DataTable
+          caption="What physically changed hands, including the lines that were not filled."
+          captionHidden
+          rows={lines}
+          rowKey={(line) => line.id}
+          empty={
+            <EmptyState title="No lines were recorded on this dispense" icon="box">
+              The order is marked dispensed but carries no items. That is a record worth
+              querying with the pharmacist who closed it rather than reading as an empty
+              order — nothing was removed from this screen.
+            </EmptyState>
+          }
+          columns={[
+            {
+              /* The medicine NAMES the row: it is the thing that was or was not handed over,
+                 and every other column is a quantity or a state belonging to it. */
+              key: 'item',
+              header: 'Item',
+              rowHeader: true,
+              cell: (line) => (
+                <>
+                  {line.medicine_name_dispensed}
+                  {line.substitution_id ? (
+                    <>
+                      {' '}
+                      {/* Traceable back to the clinician who allowed it, which is the
+                          reason the column exists on the resource at all. */}
+                      <Badge tone="info">Approved substitute</Badge>
+                    </>
+                  ) : null}
+                </>
+              ),
+            },
+            {
+              key: 'quantity',
+              header: 'Quantity',
+              numeric: true,
+              cell: (line) => line.quantity_dispensed,
+            },
+            {
+              key: 'unit-price',
+              header: 'Unit price',
+              numeric: true,
+              cell: (line) => <Money value={line.unit_price} />,
+            },
+            {
+              key: 'filled',
+              header: 'Filled',
+              cell: (line) =>
+                line.is_fulfilled ? (
+                  <Badge tone="good">Filled</Badge>
+                ) : (
+                  <span>
+                    <Badge tone="warn">Not filled</Badge>{' '}
+                    <span className="muted">{line.unfulfilled_reason}</span>
+                  </span>
+                ),
+            },
+          ]}
+        />
+      </Stack>
     </Card>
   )
 }

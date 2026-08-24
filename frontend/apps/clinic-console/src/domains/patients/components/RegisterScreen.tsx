@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react'
 import { redirect } from 'next/navigation'
-import { Button, Notice, PageHeader } from '@carevelo/ui'
+import { Button, Card, Grid, Inline, Notice, PageHeader, Stack } from '@carevelo/ui'
 import { registerPatient } from '../api/patients'
 import type { RegistrationInput, Sex } from '../api/types'
 import type { PatientsPaths } from '../model/paths'
@@ -185,58 +185,88 @@ export function RegisterScreen({ paths, error, field }: RegisterScreenProps): Re
           record: paths.record,
         })}
         >
-          <div className="grid g-2">
-            <section className="card stack" aria-labelledby="identity-heading">
-              <h2 className="title-sm" id="identity-heading">
-                The patient
-              </h2>
-              <p className="muted">Required. This is everything the clinic needs to reach them.</p>
-              <div className="grid" style={{ gap: 'var(--space-5)', marginTop: 'var(--space-4)' }}>
-                <IdentityFields fault={fault} />
-              </div>
-            </section>
+          {/*
+            Three columns of decisions that were each written as a margin on the element being
+            pushed: the two-card row, the guardian card and the button row. As margins they had
+            to be remembered on every sibling and re-checked whenever one was inserted; as two
+            nested Stacks they are two numbers, and the nesting is exactly the grouping the old
+            values described — 18px between the cards, 24px before the buttons.
+          */}
+          <Stack gap="7">
+            <Stack gap="6">
+              <Grid cols={2}>
+                <Card as="section" aria-labelledby="identity-heading">
+              {/*
+                `gap="2"` is what `.card stack` gave the heading and its paragraph; the outer
+                gap is that class gap and the hand-set `marginTop` added together, which lands
+                on the scale at 18px. The field column was a single-column `.grid` with a
+                hand-set gap, which is a flex column with a gap by another name.
+              */}
+                  <Stack gap="6">
+                    <Stack gap="2">
+                      <h2 className="title-sm" id="identity-heading">
+                        The patient
+                      </h2>
+                      <p className="muted">
+                        Required. This is everything the clinic needs to reach them.
+                      </p>
+                    </Stack>
 
-            <section className="card stack" aria-labelledby="detail-heading">
-              <h2 className="title-sm" id="detail-heading">
-                Optional details
-              </h2>
-              <p className="muted">
-                Collect only what care requires. None of these is a condition of being
-                registered or treated.
-              </p>
-              <div className="grid" style={{ gap: 'var(--space-5)', marginTop: 'var(--space-4)' }}>
-                <DetailFields fault={fault} />
-              </div>
-            </section>
-          </div>
+                    <Stack gap="5">
+                      <IdentityFields fault={fault} />
+                    </Stack>
+                  </Stack>
+                </Card>
 
-          <section
-            className="card stack"
-            aria-labelledby="guardian-heading"
-            style={{ marginTop: 'var(--space-6)' }}
-          >
-            <h2 className="title-sm" id="guardian-heading">
-              Guardian
-            </h2>
-            <p className="muted">
-              Required if the patient is under 18 — the guardian, not the patient, gives
-              consent. Also where a next-of-kin number goes when the patient has no phone of
-              their own: register against that number with the agreement of both, and handle
-              notifications in person rather than sending them to a handset nobody carries.
-            </p>
-            <div className="grid g-2" style={{ marginTop: 'var(--space-4)' }}>
-              <GuardianContactFields fault={fault} />
-            </div>
-          </section>
+                <Card as="section" aria-labelledby="detail-heading">
+                  <Stack gap="6">
+                    <Stack gap="2">
+                      <h2 className="title-sm" id="detail-heading">
+                        Optional details
+                      </h2>
+                      <p className="muted">
+                        Collect only what care requires. None of these is a condition of being
+                        registered or treated.
+                      </p>
+                    </Stack>
 
-          <div className="row-wrap" style={{ marginTop: 'var(--space-7)' }}>
-            <Button type="submit" variant="primary">
-              Register patient
-            </Button>
-            <Button href={paths.registry} variant="quiet">
-              Cancel
-            </Button>
-          </div>
+                    <Stack gap="5">
+                      <DetailFields fault={fault} />
+                    </Stack>
+                  </Stack>
+                </Card>
+              </Grid>
+
+              <Card as="section" aria-labelledby="guardian-heading">
+                <Stack gap="6">
+                  <Stack gap="2">
+                    <h2 className="title-sm" id="guardian-heading">
+                      Guardian
+                    </h2>
+                    <p className="muted">
+                      Required if the patient is under 18 — the guardian, not the patient, gives
+                      consent. Also where a next-of-kin number goes when the patient has no phone of
+                      their own: register against that number with the agreement of both, and handle
+                      notifications in person rather than sending them to a handset nobody carries.
+                    </p>
+                  </Stack>
+
+                  <Grid cols={2}>
+                    <GuardianContactFields fault={fault} />
+                  </Grid>
+                </Stack>
+              </Card>
+            </Stack>
+
+            <Inline gap="4">
+              <Button type="submit" variant="primary">
+                Register patient
+              </Button>
+              <Button href={paths.registry} variant="quiet">
+                Cancel
+              </Button>
+            </Inline>
+          </Stack>
         </form>
       </div>
     </>

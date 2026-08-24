@@ -150,7 +150,7 @@ export default async function AccountPage() {
           <div className="cell">
             <div className="stat">
               <span className="stat__label">{t('yourClinicLabel')}</span>
-              <span className="stat__value" style={{ fontSize: 21 }}>
+              <span className="stat__value stat__value--md">
                 {clinic}
               </span>
               <span className="stat__note tnum">{phone ?? ''}</span>
@@ -160,7 +160,7 @@ export default async function AccountPage() {
           <div className="cell">
             <div className="stat">
               <span className="stat__label">{t('signedInAsLabel')}</span>
-              <span className="stat__value" style={{ fontSize: 21 }}>
+              <span className="stat__value stat__value--md">
                 {user.name}
               </span>
               <span className="stat__note tnum">{user.phone ?? ''}</span>

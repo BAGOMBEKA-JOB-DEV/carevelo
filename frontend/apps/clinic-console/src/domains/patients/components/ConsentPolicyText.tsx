@@ -53,45 +53,53 @@ export function ConsentPolicyText({
   const document = parsePolicyText(text)
 
   return (
-    <div
-      lang={lang}
-      className="stack"
-      style={{ gap: 'var(--space-5)', fontSize: 14.5, lineHeight: 1.6 }}
-    >
-      {document.title ? (
-        <h3 id={titleId} className="title-sm">
-          {document.title}
-        </h3>
-      ) : null}
+    /*
+      SURVIVING INLINE STYLE, and what survives is the READING SIZE, not the layout. This is
+      the only block of continuous prose in the console — everything else here is scanned,
+      and this is read aloud to a patient across a counter or read by them off the screen —
+      so it is set a step larger than the interface at a looser line height. There is no
+      class for a reading measure in the token layer; `.fine` is 12px and `.title` is 21px
+      and neither is body copy. It belongs in the token layer as the prose size it is, and
+      the token layer is not this task's to write. The COLUMN, which was the other half of
+      this style, is now a Stack.
+    */
+    <div lang={lang} style={{ fontSize: 14.5, lineHeight: 1.6 }}>
+      <Stack gap="5">
+        {document.title ? (
+          <h3 id={titleId} className="title-sm">
+            {document.title}
+          </h3>
+        ) : null}
 
-      {document.sections.map((section, sectionIndex) => (
-        /*
-         * Indexed keys, and this is one of the few places that is right rather than lazy: the
-         * list is derived from an immutable document in a single pass, never reordered, never
-         * filtered and never appended to. There is no stable identifier in the source text to
-         * use instead, and inventing one from the heading would collide the moment a policy
-         * repeated a word.
-         */
-        <Stack as="section" key={sectionIndex} gap="3">
-          {section.heading ? (
-            <h4 className="field__label policy-heading">
-              {section.heading}
-            </h4>
-          ) : null}
+        {document.sections.map((section, sectionIndex) => (
+          /*
+           * Indexed keys, and this is one of the few places that is right rather than lazy: the
+           * list is derived from an immutable document in a single pass, never reordered, never
+           * filtered and never appended to. There is no stable identifier in the source text to
+           * use instead, and inventing one from the heading would collide the moment a policy
+           * repeated a word.
+           */
+          <Stack as="section" key={sectionIndex} gap="3">
+            {section.heading ? (
+              <h4 className="field__label policy-heading">
+                {section.heading}
+              </h4>
+            ) : null}
 
-          {section.blocks.map((block, blockIndex) =>
-            block.kind === 'paragraph' ? (
-              <p key={blockIndex}>{block.text}</p>
-            ) : (
-              <ul key={blockIndex} className="policy-list">
-                {block.items.map((item, itemIndex) => (
-                  <li key={itemIndex}>{item}</li>
-                ))}
-              </ul>
-            ),
-          )}
-        </Stack>
-      ))}
+            {section.blocks.map((block, blockIndex) =>
+              block.kind === 'paragraph' ? (
+                <p key={blockIndex}>{block.text}</p>
+              ) : (
+                <ul key={blockIndex} className="policy-list">
+                  {block.items.map((item, itemIndex) => (
+                    <li key={itemIndex}>{item}</li>
+                  ))}
+                </ul>
+              ),
+            )}
+          </Stack>
+          ))}
+      </Stack>
     </div>
   )
 }

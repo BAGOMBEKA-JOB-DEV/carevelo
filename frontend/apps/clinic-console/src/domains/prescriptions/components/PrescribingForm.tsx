@@ -219,6 +219,16 @@ function ItemRow({
   const id = (field: string) => `item-${index}-${field}`
 
   return (
+    /*
+      SURVIVING INLINE STYLE, and the `<fieldset>` is the reason. Neither Card's element
+      union nor Stack's includes one, and that is deliberate on both: a fieldset is a form
+      grouping, not a layout box, and its non-legend children live in an anonymous content
+      box the browser creates and the `<legend>` does not belong to. `.card stack` makes
+      THAT box the flex column, so the gap belongs beside the class that establishes it.
+      Moving the column onto an inner `<Stack>` would change which box the browser is
+      laying the legend against, and a legend's position relative to a card's hairline is
+      not something to alter on the way past a spacing sweep.
+    */
     <fieldset className="card stack" style={{ gap: 'var(--space-4)' }}>
       <legend className="eyebrow">Medicine {index + 1}</legend>
 
@@ -305,6 +315,21 @@ function ItemRow({
         * classifying one would be a clinical judgement this platform has no standing to make.
         * The consequence is written beside the box rather than discovered at the pharmacy.
         */}
+      {/*
+        TWO SURVIVING INLINE STYLES, and both are on the hit target rather than on a column.
+
+        The `<label>` keeps its own: Inline's element union stops at the elements that are
+        layout and a `<label>` is not one — it is the CONTROL's extended hit area, and
+        `--touch-min` is the 44px floor that hit area answers to. Wrapping an Inline inside
+        it would put the row on a child and leave the floor on the parent, which is two
+        places to get one target wrong. `.row`'s own gap is 12px and this pair wants 8, so
+        the gap has to be stated beside it.
+
+        The 600 on the first line is the shape `.choice__text` and `.choice__note` already
+        describe, at 550 and 12.5px against this hand-rolled 600 and `.fine`'s 12px. Adopting
+        them is the right end state and it is a VISIBLE change to a clinical control, which
+        is not something a spacing sweep gets to make on the way past. Flagged in the report.
+      */}
       <label className="row" style={{ gap: 'var(--space-3)', minHeight: 'var(--touch-min)' }}>
         <input
           type="checkbox"
@@ -369,18 +394,39 @@ function Confirmation({
           <span className="record-name">{patientName}</span>
         </div>
 
-        <ul className="stack" style={{ gap: 'var(--space-4)', listStyle: 'none' }}>
+        {/* `<Stack as="ul">` and not `<ul className="stack">` with the marker turned off by
+            hand: the hand-rolled version removed `list-style` and left the user agent's 40px
+            `padding-left`, so this review list has been indented under the patient's name,
+            and removing the marker without restoring `role="list"` costs the "list, 3 items"
+            a screen reader announces before reading back what is about to be issued. */}
+        <Stack as="ul" gap="4">
           {items.map((item, index) => (
             <Stack as="li" key={index} gap="2">
+              {/*
+                SURVIVING INLINE STYLE. 15.5px is a deliberate half-step above the 14.5px body
+                size for the ONE line a clinician reads back before signing, and there is no
+                class on the type scale between `.fine` at 12px and `.title` at 21px. It
+                belongs in the token layer beside the sizes it sits between, and the token
+                layer is not this task's to write — see the report.
+              */}
               <span style={{ fontSize: 15.5 }}>{documentLine(item)}</span>
               {item.isControlled ? <Badge tone="warn">Controlled — in person only</Badge> : null}
             </Stack>
           ))}
-        </ul>
+        </Stack>
 
-        <div className="stack" style={{ gap: 'var(--space-2)', borderTop: '1px solid var(--hairline)', paddingTop: 'var(--space-4)' }}>
-          <span className="eyebrow">Issued by</span>
-          <PrescriberBlock prescriber={prescriber} />
+        {/*
+          SURVIVING INLINE STYLE, and what is left of it is a rule and the space under it —
+          the hairline that separates what is being prescribed from who is prescribing it.
+          Neither is a step on the space scale and neither has a class in the token layer, so
+          there is nothing for a primitive to take. The column INSIDE it is a Stack, which is
+          the part that was a layout decision.
+        */}
+        <div style={{ borderTop: '1px solid var(--hairline)', paddingTop: 'var(--space-4)' }}>
+          <Stack gap="2">
+            <span className="eyebrow">Issued by</span>
+            <PrescriberBlock prescriber={prescriber} />
+          </Stack>
         </div>
       </Stack>
 
@@ -419,6 +465,10 @@ function PrescriberBlock({ prescriber }: { prescriber: Prescriber }) {
   if (prescriber.kind === 'known') {
     return (
       <Stack gap="1">
+        {/* SURVIVING INLINE STYLE, and it is the same missing weight utility as the
+            controlled-medicine label above: 600 is a step the type scale has no class for.
+            Not `<strong>`, which is 700 and would also announce an emphasis nobody put on a
+            clinician's own name. See the report. */}
         <span style={{ fontWeight: 600 }}>{prescriber.profile.name}</span>
         <span className="tnum">
           {prescriber.profile.registration_body.toUpperCase()}{' '}
@@ -445,6 +495,7 @@ function PrescriberBlock({ prescriber }: { prescriber: Prescriber }) {
 
   return (
     <Stack gap="1">
+      {/* The same 600 as above, for the same reason. */}
       <span style={{ fontWeight: 600 }}>
         {prescriber.kind === 'unreadable' ? prescriber.name : 'You'}
       </span>

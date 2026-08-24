@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react'
 import { getTranslations } from 'next-intl/server'
-import { Button, Card, Notice } from '@carevelo/ui'
+import { Button, Card, Notice, Stack } from '@carevelo/ui'
 import type { Tenant } from '@/lib/tenant'
 import { PageBody } from '@/components/PageBody'
 
@@ -38,7 +38,10 @@ export async function ConsentDeclined({
 
   return (
     <PageBody>
-      <div className="grid" style={{ gap: 'var(--space-7)' }}>
+      {/* One rhythm for the page, stated once on the column. `<Stack>` rather than the
+          single-column `.grid` this was: the two lay full-width children out identically,
+          and only one of them takes the spacing scale as a type rather than as a string. */}
+      <Stack gap="7">
         <div className="site-sec-head">
           <span className="site-eyebrow">{t('declined.eyebrow')}</span>
           <h1 className="site-h1">{t('declined.title')}</h1>
@@ -46,16 +49,17 @@ export async function ConsentDeclined({
         </div>
 
         <Card as="section" aria-labelledby="declined-what-happens">
-          <h2 className="title" id="declined-what-happens">
-            {t('declined.whatHappensHeading')}
-          </h2>
+          {/* 12px between the heading and each of its two sentences — one distance, three
+              elements, said once on the column that owns it rather than twice as a margin
+              on the two elements that do not. */}
+          <Stack gap="4">
+            <h2 className="title" id="declined-what-happens">
+              {t('declined.whatHappensHeading')}
+            </h2>
 
-          <p className="subtitle" style={{ marginTop: 'var(--space-4)' }}>
-            {t('declined.nothingClinical')}
-          </p>
-          <p className="subtitle" style={{ marginTop: 'var(--space-4)' }}>
-            {t('declined.contactPurged')}
-          </p>
+            <p className="subtitle">{t('declined.nothingClinical')}</p>
+            <p className="subtitle">{t('declined.contactPurged')}</p>
+          </Stack>
         </Card>
 
         {/* The sentence the exception path exists to deliver. Not a footnote. */}
@@ -71,7 +75,7 @@ export async function ConsentDeclined({
             {t('declined.backToClinic', { clinic })}
           </Button>
         </div>
-      </div>
+      </Stack>
     </PageBody>
   )
 }

@@ -1,4 +1,4 @@
-import { Badge, Button, DateTime, Field, Icon, Inline, Stack, Textarea } from '@carevelo/ui'
+import { Badge, Button, Card, DateTime, Field, Icon, Inline, Stack, Textarea } from '@carevelo/ui'
 import { NOTE_SECTIONS, SECTION_LABEL, isNoteSection, type NoteSection } from '../model/drafts'
 import type { ClinicalNote } from '../model/types'
 
@@ -48,60 +48,65 @@ export function NoteThread({
   const addenda = notes.filter((note) => note.supersedes_note_id !== null)
 
   return (
-    <section className="card stack" style={{ gap: 'var(--space-6)' }} aria-labelledby="record-heading">
-      <div className="stack">
-        <h2 id="record-heading" className="title-sm">
-          On the record
-        </h2>
-        <p className="fine">
-          Everything saved to this consultation, oldest first within each section. Nothing here
-          can be edited or removed — a correction is an addendum, which is added below and sits
-          alongside what it corrects.
-        </p>
-      </div>
+    <Card as="section" aria-labelledby="record-heading">
+      <Stack gap="6">
+        {/* A bare `.stack` before this, which is 6px in the reset — so `gap="2"`, and the
+            value is now on the page where a reviewer can see it rather than in a stylesheet
+            somebody has to go and look up. */}
+        <Stack gap="2">
+          <h2 id="record-heading" className="title-sm">
+            On the record
+          </h2>
+          <p className="fine">
+            Everything saved to this consultation, oldest first within each section. Nothing here
+            can be edited or removed — a correction is an addendum, which is added below and sits
+            alongside what it corrects.
+          </p>
+        </Stack>
 
-      {notes.length === 0 ? (
-        <p className="muted">Nothing has been saved to this consultation yet.</p>
-      ) : null}
+        {notes.length === 0 ? (
+          <p className="muted">Nothing has been saved to this consultation yet.</p>
+        ) : null}
 
-      {NOTE_SECTIONS.map((section) => {
-        const entries = notes.filter((note) => note.note_type === section)
+        {NOTE_SECTIONS.map((section) => {
+          const entries = notes.filter((note) => note.note_type === section)
 
-        if (entries.length === 0) {
-          return null
-        }
+          if (entries.length === 0) {
+            return null
+          }
 
-        const current = entries[entries.length - 1]
-        const earlier = entries.slice(0, -1)
+          const current = entries[entries.length - 1]
+          const earlier = entries.slice(0, -1)
 
-        if (current === undefined) {
-          return null
-        }
+          if (current === undefined) {
+            return null
+          }
 
-        return (
-          <SectionRecord
-            key={section}
-            section={section}
-            current={current}
-            earlier={earlier}
-            addenda={addenda.filter((note) => note.supersedes_note_id === current.id)}
-            addendumAction={addendumAction}
-          />
-        )
-      })}
+          return (
+            <SectionRecord
+              key={section}
+              section={section}
+              current={current}
+              earlier={earlier}
+              addenda={addenda.filter((note) => note.supersedes_note_id === current.id)}
+              addendumAction={addendumAction}
+            />
+          )
+        })}
 
-      {/*
-        * Addenda whose superseded note is not the CURRENT entry of its section — because the
-        * section was written again afterwards, or because the note was an addendum itself.
-        * They still belong on the screen: an addendum that is not rendered anywhere is a
-        * correction the next reader never sees.
-        */}
-      {addenda
-        .filter((note) => !isAttachedAbove(note, notes))
-        .map((note) => (
-          <Entry key={note.id} note={note} tone="addendum" />
-        ))}
-    </section>
+        {/*
+          * Addenda whose superseded note is not the CURRENT entry of its section — because the
+          * section was written again afterwards, or because the note was an addendum itself.
+          * They still belong on the screen: an addendum that is not rendered anywhere is a
+          * correction the next reader never sees.
+          */}
+        {addenda
+          .filter((note) => !isAttachedAbove(note, notes))
+          .map((note) => (
+            <Entry key={note.id} note={note} tone="addendum" />
+          ))}
+      </Stack>
+    </Card>
   )
 }
 
@@ -134,16 +139,32 @@ function SectionRecord({
             {earlier.length} earlier {earlier.length === 1 ? 'save' : 'saves'} of this section
           </summary>
 
-          <p className="fine" style={{ marginTop: 'var(--space-3)' }}>
-            These are the part-written versions saved automatically while the note was being
-            typed. They are kept because nothing in a clinical record is ever removed, not
-            because anybody needs to read them.
-          </p>
+          {/*
+            * KEPT, AND IT IS THE SPACE BETWEEN A DISCLOSURE AND ITS CONTENT.
+            *
+            * `<details>` cannot become a Stack. Its non-summary children are shown and hidden
+            * by the element itself, and giving `<details>` `display: flex` is the one change
+            * that breaks that — Chrome renders the content while the disclosure is CLOSED,
+            * which on this control would put every earlier auto-save of a clinical note on
+            * screen unasked. So the offset below the summary stays a margin on the content
+            * wrapper, where it is one declaration rather than one per child: the three
+            * `marginTop`s that were here are now this one plus the Stack's own gap.
+            *
+            * A `.disclose` + content rule in console.css would retire it. That file is not
+            * this task's to write — see the report.
+            */}
+          <div style={{ marginTop: 'var(--space-3)' }}>
+            <Stack gap="3">
+              <p className="fine">
+                These are the part-written versions saved automatically while the note was being
+                typed. They are kept because nothing in a clinical record is ever removed, not
+                because anybody needs to read them.
+              </p>
 
-          <div className="stack" style={{ gap: 'var(--space-3)', marginTop: 'var(--space-3)' }}>
-            {earlier.map((note) => (
-              <Entry key={note.id} note={note} tone="earlier" />
-            ))}
+              {earlier.map((note) => (
+                <Entry key={note.id} note={note} tone="earlier" />
+              ))}
+            </Stack>
           </div>
         </details>
       ) : null}
@@ -159,22 +180,27 @@ function SectionRecord({
           <Icon name="file" /> Add an addendum to this section
         </summary>
 
-        <form action={addendumAction} className="stack" style={{ gap: 'var(--space-4)', marginTop: 'var(--space-4)' }}>
-          <input type="hidden" name="note_id" value={current.id} />
+        {/* The same disclosure offset as above, and kept for the same reason. The column
+            inside it is a Stack, so the form is a plain block again — which is what a form
+            should be, since the element it renders as is decided by what it submits. */}
+        <form action={addendumAction} style={{ marginTop: 'var(--space-4)' }}>
+          <Stack gap="4">
+            <input type="hidden" name="note_id" value={current.id} />
 
-          <Field
-            name={`addendum-${current.id}`}
-            label="What needs correcting or adding?"
-            hint="This is added to the record as a new entry that supersedes the one above. The original stays exactly as it is and stays readable — that is what makes the correction trustworthy."
-          >
-            {(control) => <Textarea {...control} name="body" required rows={3} />}
-          </Field>
+            <Field
+              name={`addendum-${current.id}`}
+              label="What needs correcting or adding?"
+              hint="This is added to the record as a new entry that supersedes the one above. The original stays exactly as it is and stays readable — that is what makes the correction trustworthy."
+            >
+              {(control) => <Textarea {...control} name="body" required rows={3} />}
+            </Field>
 
-          <div>
-            <Button variant="primary" type="submit">
-              Add addendum
-            </Button>
-          </div>
+            <div>
+              <Button variant="primary" type="submit">
+                Add addendum
+              </Button>
+            </div>
+          </Stack>
         </form>
       </details>
     </Stack>
@@ -189,10 +215,9 @@ function Entry({
   tone: 'current' | 'earlier' | 'addendum'
 }) {
   return (
-    <article
-      className={tone === 'current' ? 'card card-tight stack' : 'stack'}
-      style={{ gap: 'var(--space-2)' }}
-    >
+    /* The style said `gap: var(--space-2)`, which is what `.stack` in the reset already
+       sets. Two ways of saying 6px, so one of them goes. */
+    <article className={tone === 'current' ? 'card card-tight stack' : 'stack'}>
       <Inline gap="3">
         {tone === 'addendum' ? <Badge tone="info">Addendum</Badge> : null}
         {tone === 'earlier' ? <Badge tone="neutral">Earlier save</Badge> : null}
@@ -209,15 +234,19 @@ function Entry({
       </Inline>
 
       {/* `pre` with wrapping, not a paragraph: a clinician's line breaks are part of what they
-          wrote, and collapsing them changes the note. */}
+          wrote, and collapsing them changes the note. `.verbatim` in console.css is that rule,
+          written for this element and until now used by nothing — it carries the `pre-wrap`,
+          the body face and the zeroed margin. `.muted` carries the colour, which was
+          `var(--ink-muted)` spelled out by hand.
+
+          THE SIZE IS THE ONE THING LEFT, AND IT IS LEFT ON PURPOSE. `.verbatim` is 14px flat
+          while these two tones are 13px and 15px — an earlier auto-save is deliberately
+          quieter than the entry that stands. Collapsing all three to 14px is a visual change
+          to how a clinical record reads, and `.verbatim--sm`/`--lg` belong beside the rule
+          they modify in console.css, which is not this task's file. Named in the report. */}
       <pre
-        style={{
-          whiteSpace: 'pre-wrap',
-          fontFamily: 'inherit',
-          fontSize: tone === 'earlier' ? 13 : 15,
-          color: tone === 'earlier' ? 'var(--ink-muted)' : 'var(--ink)',
-          margin: 0,
-        }}
+        className={tone === 'earlier' ? 'verbatim muted' : 'verbatim'}
+        style={{ fontSize: tone === 'earlier' ? 13 : 15 }}
       >
         {note.body}
       </pre>

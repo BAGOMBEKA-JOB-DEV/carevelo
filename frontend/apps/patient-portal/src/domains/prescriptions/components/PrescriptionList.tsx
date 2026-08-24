@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { getTranslations } from 'next-intl/server'
-import { Badge, Card, DateTime, EmptyState, Icon, Notice } from '@carevelo/ui'
+import { Badge, Card, DateTime, EmptyState, Icon, Inline, Notice, Stack } from '@carevelo/ui'
 import { statusTone, statusWord } from './status'
 import type { PrescriptionListResult } from '../api/prescriptions'
 
@@ -43,6 +43,12 @@ export async function PrescriptionList({
       <div className="page-head">
         <div className="grow">
           <span className="site-eyebrow">{t('detailEyebrow')}</span>
+          {/* SURVIVING INLINE STYLE. This header's two distances are different — 12px from
+              the eyebrow down to the title, 6px from the title down to the lede — and the
+              second one is not ours to move: `.page-head p` in the token layer sets it on
+              every descendant paragraph, so a `<Stack>` here would ADD its gap on top of
+              that 6px rather than replace it. One `marginTop` states the one distance the
+              markup actually owns. */}
           <h1 id="prescriptions-title" style={{ marginTop: 'var(--space-4)' }}>
             {t('listTitle')}
           </h1>
@@ -67,28 +73,28 @@ export async function PrescriptionList({
       ) : (
         <>
           {/* A real list, so a screen reader announces "list, 4 items" and a patient can
-              jump between rows. The bullets are removed here rather than in the token
-              layer because packages/ui has no opinion about lists yet and one inline
-              declaration is cheaper than a class nothing else uses. */}
-          <ul className="stack" style={{ listStyle: 'none', padding: 0, gap: 'var(--space-4)' }}>
+              jump between rows. `Stack as="ul"` is what removes the user agent's markers
+              and indent — and it puts `role="list"` back on, which Safari drops the moment
+              `list-style` goes and which the hand-written version here silently lost. */}
+          <Stack as="ul" gap="4">
             {result.page.prescriptions.map((prescription) => (
               <Card as="li" key={prescription.id} padding="tight">
                 <div className="row-wrap between">
                   <div className="stack grow">
-                    <div className="row-wrap" style={{ gap: 'var(--space-3)' }}>
+                    <Inline gap="3">
                       <Badge tone={statusTone(prescription.status)}>
                         {t(statusWord(prescription.status))}
                       </Badge>
                       <span className="fine">
                         {t('itemCount', { count: prescription.items?.length ?? 0 })}
                       </span>
-                    </div>
+                    </Inline>
 
                     {/* Labelled, because a name on its own in a list of clinical records
                         is ambiguous — the patient's own name would sit in exactly the same
                         place on a screen a member of staff was looking at. */}
                     <span className="stat__label">{t('prescribedByLabel')}</span>
-                    <span className="stat__value" style={{ fontSize: 19 }}>
+                    <span className="stat__value stat__value--sm">
                       {prescription.issued_by.name}
                     </span>
 
@@ -111,8 +117,12 @@ export async function PrescriptionList({
                 </div>
               </Card>
             ))}
-          </ul>
+          </Stack>
 
+          {/* SURVIVING INLINE STYLE. 18px between the list and its pager, and the list
+              above is a `<Stack>` whose gap is the distance between ROWS — a different
+              decision that must not follow this one. Neither element has a column of its
+              own to hold the space, so it stays a margin on the pager. */}
           <nav
             aria-label={t('paginationLabel')}
             className="row-wrap between"

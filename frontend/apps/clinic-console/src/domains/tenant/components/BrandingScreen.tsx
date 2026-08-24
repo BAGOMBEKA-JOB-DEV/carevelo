@@ -101,15 +101,22 @@ export async function BrandingScreen(props: BrandingScreenProps) {
       )}
 
       <Card as="section">
-        <span className="eyebrow">Branding</span>
-        <h2 className="title-sm">How {name} looks to its patients</h2>
-        <p className="muted">
-          The patient portal wears your name, your logo and your colours. This console keeps
-          Carevelo&rsquo;s — your staff know which software they are using, and your patients
-          never need to.
-        </p>
+        {/* The eyebrow, the heading and the paragraph stood flush against one another in
+            normal flow and the editor below them was pushed down by a hand-set margin. The
+            nested `gap="none"` keeps that heading block exactly as tight as it was, and the
+            outer gap IS the margin — one decision, on the column, where a reviewer can see
+            which step of the scale it is. */}
+        <Stack gap="7">
+          <Stack gap="none">
+            <span className="eyebrow">Branding</span>
+            <h2 className="title-sm">How {name} looks to its patients</h2>
+            <p className="muted">
+              The patient portal wears your name, your logo and your colours. This console keeps
+              Carevelo&rsquo;s — your staff know which software they are using, and your patients
+              never need to.
+            </p>
+          </Stack>
 
-        <div style={{ marginTop: 'var(--space-7)' }}>
           <BrandingEditor
             action={saveBranding.bind(null, { selfPath: paths.branding })}
             clinicName={name}
@@ -121,7 +128,7 @@ export async function BrandingScreen(props: BrandingScreenProps) {
             surface={branding.surface}
             logoUrl={branding.logo_url}
           />
-        </div>
+        </Stack>
       </Card>
 
       <Card as="section">

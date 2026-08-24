@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Stack } from '@carevelo/ui'
+import { Stack, ThemeToggle } from '@carevelo/ui'
 import { SECTION_IDS, SECTIONS, type SectionId } from './sections'
 
 /**
@@ -44,6 +44,26 @@ import { SECTION_IDS, SECTIONS, type SectionId } from './sections'
  * meant the gap between the round and the sign-out row was decided by the sign-out row,
  * while the gap above the round was decided by nothing. One `gap` on the column is one
  * decision, and it cannot be got wrong by inserting a sibling.
+ *
+ * THE THEME TOGGLE IS THIS APP'S FIRST CLIENT COMPONENT, AND IT IS ALSO THE ONLY ONE.
+ * The dark palette in colors.css has never rendered on this surface: the tokens existed,
+ * the bootstrap script did not, and there was no control to set the preference. All three
+ * arrive together, because any two of them without the third is a feature nobody can reach.
+ * The button itself is the shared `<ThemeToggle>` — its whole job is to write to browser
+ * storage, which is the one thing a server component cannot do, and it is the single
+ * 'use client' in packages/ui for exactly that reason. Note what this costs and what it does
+ * not: the paragraph above says this surface ships no client JavaScript, and that is no
+ * longer strictly true. It ships this one button, and nothing else changed.
+ *
+ * It is worth that on the surface where a needless client bundle is paid for by a rider on a
+ * mid-range Android phone, because this is also the only surface in the product that is read
+ * OUTDOORS. Sunlight wants the light theme and a delivery at 8pm wants the dark one, and the
+ * same rider has both within a shift. A theme that cannot be changed from the device is, on
+ * this app, the same as no theme at all.
+ *
+ * It sits in the topbar and comes LAST in the markup, which is last in the tab order: the
+ * theme is the least urgent thing on this screen and must not sit between a rider — or a
+ * keyboard user — and the delivery they opened the page for.
  */
 export function FieldShell({ active, children }: { active: SectionId | null; children: ReactNode }) {
   return (
@@ -52,6 +72,8 @@ export function FieldShell({ active, children }: { active: SectionId | null; chi
 
       <header className="topbar">
         <span className="topbar__title">Deliveries</span>
+        <span className="topbar__spacer" />
+        <ThemeToggle />
       </header>
 
       <main className="fieldview__main" id="main">

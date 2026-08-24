@@ -3,12 +3,16 @@ import { redirect } from 'next/navigation'
 import {
   Badge,
   Button,
-    DateTime,
+  Card,
+  DataTable,
+  DateTime,
   Field,
   Icon,
+  Inline,
   Input,
   Notice,
   PageHeader,
+  Stack,
 } from '@carevelo/ui'
 import { attempt } from '../api/http'
 import {
@@ -245,15 +249,19 @@ export async function ConsentDeskScreen({
       <>
         {heading}
         <Notice tone="bad" announce title="The consent policy could not be loaded">
-          <p>
-            {policy.message
-              ?? 'The request did not reach the API. Nothing has been recorded and nothing has changed.'}
-          </p>
-          <p style={{ marginTop: 'var(--space-4)' }}>
-            No consent can be captured without the exact wording the patient is agreeing to on
-            screen in front of them. Try again in a moment; if it keeps failing, tell the
-            patient the clinic will complete their registration and contact them.
-          </p>
+          {/* A Notice's children land in a plain block, so the second paragraph was pushing
+              itself away from the first. The column says it once. */}
+          <Stack gap="4">
+            <p>
+              {policy.message
+                ?? 'The request did not reach the API. Nothing has been recorded and nothing has changed.'}
+            </p>
+            <p>
+              No consent can be captured without the exact wording the patient is agreeing to on
+              screen in front of them. Try again in a moment; if it keeps failing, tell the
+              patient the clinic will complete their registration and contact them.
+            </p>
+          </Stack>
         </Notice>
       </>
     )
@@ -310,62 +318,92 @@ export async function ConsentDeskScreen({
         ) : null}
 
         {/* ---- The policy, in full, in the patient's language --------------- */}
-        <section className="card stack" aria-labelledby="policy-title">
-          <div className="row between">
-            <h2 className="title-sm grow">What the patient is agreeing to</h2>
-            {languages.length > 1 ? (
-              <nav className="row-wrap" aria-label="Policy language">
-                {languages.map((code) => (
-                  <Button
-                    key={code}
-                    variant={code === shown ? 'primary' : 'quiet'}
-                    href={`${returnHref}?policy=${encodeURIComponent(code)}`}
-                    aria-current={code === shown ? 'true' : undefined}
-                  >
-                    {languageName(code)}
-                  </Button>
-                ))}
-              </nav>
-            ) : null}
-          </div>
+        <Card as="section" aria-labelledby="policy-title">
+          {/*
+            The heading row and the sentence under it are one group at the 6px `.card stack`
+            gave them; the policy itself and the disclosure below it are held off that group
+            by the column. The one figure that moved is the space above the disclosure: the
+            class gap plus its hand-set margin came to 22px, which is not a step on the scale
+            because it was never chosen. It is 18px, like everything else in this card.
+          */}
+          <Stack gap="6">
+            <Stack gap="2">
+              <div className="row between">
+                <h2 className="title-sm grow">What the patient is agreeing to</h2>
+                {languages.length > 1 ? (
+                  <nav className="row-wrap" aria-label="Policy language">
+                    {languages.map((code) => (
+                      <Button
+                        key={code}
+                        variant={code === shown ? 'primary' : 'quiet'}
+                        href={`${returnHref}?policy=${encodeURIComponent(code)}`}
+                        aria-current={code === shown ? 'true' : undefined}
+                      >
+                        {languageName(code)}
+                      </Button>
+                    ))}
+                  </nav>
+                ) : null}
+              </div>
 
-          <p className="muted">
-            This is the exact wording pinned to whatever the patient decides. Show it to them —
-            it is not a summary and it is not behind a link.
-          </p>
+              <p className="muted">
+                This is the exact wording pinned to whatever the patient decides. Show it to them —
+                it is not a summary and it is not behind a link.
+              </p>
+            </Stack>
 
-          {prose === undefined || shown === undefined ? (
-            <Notice tone="bad" announce>
-              The policy has no text in any language this console received. Do not record a
-              decision: there is nothing to show the patient.
-            </Notice>
-          ) : (
-            <div style={{ marginTop: 'var(--space-4)' }}>
+            {prose === undefined || shown === undefined ? (
+              <Notice tone="bad" announce>
+                The policy has no text in any language this console received. Do not record a
+                decision: there is nothing to show the patient.
+              </Notice>
+            ) : (
               <ConsentPolicyText text={prose} lang={shown} titleId="policy-title" />
-            </div>
-          )}
+            )}
 
-          <details style={{ marginTop: 'var(--space-5)' }}>
-            <summary style={SUMMARY}>The version and fingerprint recorded with the decision</summary>
-            <p className="muted" style={{ marginTop: 'var(--space-3)', fontSize: 13 }}>
-              Every consent record pins these. Months later the versioned wording can be
-              re-rendered and checked against the fingerprint, which is how the clinic proves
-              nothing was quietly changed after the patient agreed to it.
-            </p>
-            <dl className="stack" style={{ marginTop: 'var(--space-4)' }}>
-              <dt className="field__label">Version</dt>
-              <dd className="tnum">{policy.value.version}</dd>
-              <dt className="field__label" style={{ marginTop: 'var(--space-3)' }}>
-                Fingerprint
-              </dt>
-              {/* Whole, not truncated: a shortened hash cannot be checked against anything,
-                  which would make showing it theatre. */}
-              <dd className="identifier">
-                <code>{policy.value.text_hash}</code>
-              </dd>
-            </dl>
-          </details>
-        </section>
+            <details>
+              <summary style={SUMMARY}>The version and fingerprint recorded with the decision</summary>
+
+              {/*
+                THREE SURVIVING INLINE STYLES IN THIS DISCLOSURE, and each one is a case a
+                primitive genuinely cannot take.
+
+                `<summary>` has to be the FIRST child of `<details>` for the disclosure to work
+                at all, so the summary and the body it opens are never two children of a
+                container a `gap` could go on — the space under the summary has to be stated on
+                the body. That is the `marginTop` on the paragraph.
+
+                13px is a footnote size the type scale has no class for; `.fine` is 12px and the
+                body is 14.5px, and this is deliberately between them. It belongs in the token
+                layer, which is not this task's to write — see the report.
+
+                And the `<dl>` takes no primitive at all: neither Stack's element union nor
+                Grid's includes a description list, because `<dl>` promises a screen reader that
+                its children are term-and-definition pairs and the only legal children are
+                `<dt>`, `<dd>` and the `<div>`s grouping them. Its margin and the extra step
+                before the second term stay with it.
+              */}
+              <p className="muted" style={{ marginTop: 'var(--space-3)', fontSize: 13 }}>
+                Every consent record pins these. Months later the versioned wording can be
+                re-rendered and checked against the fingerprint, which is how the clinic proves
+                nothing was quietly changed after the patient agreed to it.
+              </p>
+
+              <dl className="stack" style={{ marginTop: 'var(--space-4)' }}>
+                <dt className="field__label">Version</dt>
+                <dd className="tnum">{policy.value.version}</dd>
+                <dt className="field__label" style={{ marginTop: 'var(--space-3)' }}>
+                  Fingerprint
+                </dt>
+                {/* Whole, not truncated: a shortened hash cannot be checked against anything,
+                    which would make showing it theatre. */}
+                <dd className="identifier">
+                  <code>{policy.value.text_hash}</code>
+                </dd>
+              </dl>
+            </details>
+          </Stack>
+        </Card>
 
         {/* ---- One question at a time -------------------------------------- */}
         {policy.value.consent_types.map((type) => (
@@ -446,158 +484,175 @@ function ConsentQuestion({
   const blocked = type !== 'data_processing' && !dataProcessingGranted
 
   return (
-    <section className="card stack" aria-labelledby={headingId}>
-      <div className="row between">
-        <h2 className="title-sm grow" id={headingId}>
-          {display.label}
-        </h2>
-        {asked ? (
-          <Badge tone={actionDisplay(latest.action).tone}>{actionDisplay(latest.action).label}</Badge>
-        ) : (
-          <Badge>Not asked</Badge>
-        )}
-      </div>
-
-      <p className="muted">{display.purpose}</p>
-
-      {asked && latest.occurred_at !== null ? (
-        <p className="muted" style={{ fontSize: 13.5 }}>
-          Last answered <DateTime value={latest.occurred_at} format="datetime" />
-          {latest.granted_by === 'guardian' ? (
-            <> by {latest.guardian_name ?? 'a guardian'}
-              {latest.guardian_relationship === null ? '' : ` (${latest.guardian_relationship})`}
-            </>
-          ) : (
-            ' by the patient'
-          )}
-          .
-        </p>
-      ) : null}
-
-      {type === CAPTURED_AT_DELIVERY ? (
-        <Notice tone="info" icon="truck" title="Not asked here">
-          This one is taken at the moment the patient chooses delivery over collection, on the
-          pharmacy screen. Consent has to be specific, and agreeing in advance to a disclosure
-          that may never happen is not specific. The rider is never given a diagnosis or a list
-          of medicines either way.
-        </Notice>
-      ) : blocked ? (
-        <Notice tone="warn" icon="lock" title="Ask about the use of health information first">
-          Without consent to use their information at all, nothing else can be agreed. Record
-          that decision above, then come back to this one.
-        </Notice>
-      ) : (
-        <form
-          action={submitDecision.bind(null, {
-            patientId: patient.id,
-            consentType: type,
-            policyVersion,
-            /*
-             * BOUND AT RENDER FROM THE RECORD'S DATE OF BIRTH, not posted by the form. A hidden
-             * `granted_by` field would be a control that decides whether a child's own tick
-             * counts as a lawful basis, editable by anyone who can open developer tools. The
-             * API re-checks and refuses a minor's own decision regardless — this is what stops
-             * the desk meeting that refusal after filling the form in.
-             */
-            grantedBy: guardianDecides ? 'guardian' : 'patient',
-            returnHref,
-            recordHref,
-          })}
-          className="stack"
-          style={{ gap: 'var(--space-5)', marginTop: 'var(--space-4)' }}
-        >
-          <p>
-            <strong>{display.ask}</strong>
-          </p>
-
-          {guardianDecides ? (
-            <div className="grid g-2">
-              <Field
-                name="guardian_name"
-                label="Guardian’s name"
-                id={`${headingId}-guardian-name`}
-                hint="The person answering, as they give it."
-              >
-                {(control) => (
-                  <Input
-                    {...control}
-                    type="text"
-                    maxLength={200}
-                    required
-                    autoComplete="off"
-                    defaultValue={patient.guardian.name ?? undefined}
-                  />
-                )}
-              </Field>
-
-              <Field
-                name="guardian_relationship"
-                label="Relationship to the patient"
-                id={`${headingId}-guardian-relationship`}
-              >
-                {(control) => (
-                  <Input
-                    {...control}
-                    type="text"
-                    maxLength={60}
-                    required
-                    autoComplete="off"
-                    defaultValue={patient.guardian.relationship ?? undefined}
-                  />
-                )}
-              </Field>
-            </div>
-          ) : null}
-
-          {/*
-            A plain checkbox rather than <Choice>, because this is not one option among
-            several — it is a single condition that has to be true before either button means
-            anything. `required` is what makes it a condition rather than a suggestion, and it
-            works with no JavaScript.
-
-            SAID PLAINLY BECAUSE IT MATTERS: this tick is stored nowhere. What IS stored is the
-            guardian's name and relationship on the immutable consent record, and the acting
-            staff member on the audit event. The tick exists to make the press deliberate on the
-            most consequential form in the product.
-          */}
-          <label className="row" htmlFor={`${headingId}-attested`}>
-            <input
-              className="choice__input"
-              id={`${headingId}-attested`}
-              name="attested"
-              type="checkbox"
-              value="yes"
-              required
-            />
-            <span className="choice__text">
-              <span>
-                {guardianDecides
-                  ? 'I identified this guardian in person and put the question to them.'
-                  : 'I put this question to the patient in person and this is their answer.'}
-              </span>
-            </span>
-          </label>
-
-          {type === 'data_processing' ? (
-            <Notice tone="warn" icon="shield" title="If they decline, the registration ends here">
-              Declining is a decision the clinic respects and records. It also clears the email,
-              date of birth, sex, national ID and address collected during this registration on
-              the spot, and the record can never be edited, consented or given an account again.
-              Nothing recovers it — they would have to be registered from scratch.
-            </Notice>
-          ) : null}
-
-          <div className="row-wrap">
-            <Button type="submit" name="decision" value="granted" variant="primary">
-              <Icon name="check" /> {asked ? 'They now consent' : 'They consent'}
-            </Button>
-            <Button type="submit" name="decision" value="declined" variant="quiet">
-              They decline
-            </Button>
+    <Card as="section" aria-labelledby={headingId}>
+      {/*
+        The heading, what this consent is for and when it was last answered are one group at
+        the 6px `.card stack` gave them. What comes next — a notice saying this one is not
+        asked here, a notice saying another consent has to come first, or the form itself —
+        is one slot, and it now sits 18px below that group whichever of the three it is. It
+        was 18px for the form and 6px for either notice, because only the form carried a
+        margin; a slot whose spacing changes with which branch filled it is a slot nobody
+        chose the spacing of.
+      */}
+      <Stack gap="6">
+        <Stack gap="2">
+          <div className="row between">
+            <h2 className="title-sm grow" id={headingId}>
+              {display.label}
+            </h2>
+            {asked ? (
+              <Badge tone={actionDisplay(latest.action).tone}>{actionDisplay(latest.action).label}</Badge>
+            ) : (
+              <Badge>Not asked</Badge>
+            )}
           </div>
-        </form>
-      )}
-    </section>
+
+          <p className="muted">{display.purpose}</p>
+
+          {asked && latest.occurred_at !== null ? (
+            /* SURVIVING INLINE STYLE. 13.5px is a deliberate half-step under the 14.5px body
+               size for a line that qualifies the answer above it rather than being part of
+               it, and the type scale has no class between `.fine` at 12px and the body. It
+               belongs in the token layer — see the report. */
+            <p className="muted" style={{ fontSize: 13.5 }}>
+              Last answered <DateTime value={latest.occurred_at} format="datetime" />
+              {latest.granted_by === 'guardian' ? (
+                <> by {latest.guardian_name ?? 'a guardian'}
+                  {latest.guardian_relationship === null ? '' : ` (${latest.guardian_relationship})`}
+                </>
+              ) : (
+                ' by the patient'
+              )}
+              .
+            </p>
+          ) : null}
+        </Stack>
+
+        {type === CAPTURED_AT_DELIVERY ? (
+          <Notice tone="info" icon="truck" title="Not asked here">
+            This one is taken at the moment the patient chooses delivery over collection, on the
+            pharmacy screen. Consent has to be specific, and agreeing in advance to a disclosure
+            that may never happen is not specific. The rider is never given a diagnosis or a list
+            of medicines either way.
+          </Notice>
+        ) : blocked ? (
+          <Notice tone="warn" icon="lock" title="Ask about the use of health information first">
+            Without consent to use their information at all, nothing else can be agreed. Record
+            that decision above, then come back to this one.
+          </Notice>
+        ) : (
+          <form
+            action={submitDecision.bind(null, {
+              patientId: patient.id,
+              consentType: type,
+              policyVersion,
+              /*
+               * BOUND AT RENDER FROM THE RECORD'S DATE OF BIRTH, not posted by the form. A hidden
+               * `granted_by` field would be a control that decides whether a child's own tick
+               * counts as a lawful basis, editable by anyone who can open developer tools. The
+               * API re-checks and refuses a minor's own decision regardless — this is what stops
+               * the desk meeting that refusal after filling the form in.
+               */
+              grantedBy: guardianDecides ? 'guardian' : 'patient',
+              returnHref,
+              recordHref,
+            })}
+          >
+            <Stack gap="5">
+              <p>
+                <strong>{display.ask}</strong>
+              </p>
+
+              {guardianDecides ? (
+                <div className="grid g-2">
+                  <Field
+                    name="guardian_name"
+                    label="Guardian’s name"
+                    id={`${headingId}-guardian-name`}
+                    hint="The person answering, as they give it."
+                  >
+                    {(control) => (
+                      <Input
+                        {...control}
+                        type="text"
+                        maxLength={200}
+                        required
+                        autoComplete="off"
+                        defaultValue={patient.guardian.name ?? undefined}
+                      />
+                    )}
+                  </Field>
+
+                  <Field
+                    name="guardian_relationship"
+                    label="Relationship to the patient"
+                    id={`${headingId}-guardian-relationship`}
+                  >
+                    {(control) => (
+                      <Input
+                        {...control}
+                        type="text"
+                        maxLength={60}
+                        required
+                        autoComplete="off"
+                        defaultValue={patient.guardian.relationship ?? undefined}
+                      />
+                    )}
+                  </Field>
+                </div>
+              ) : null}
+
+              {/*
+                A plain checkbox rather than <Choice>, because this is not one option among
+                several — it is a single condition that has to be true before either button means
+                anything. `required` is what makes it a condition rather than a suggestion, and it
+                works with no JavaScript.
+
+                SAID PLAINLY BECAUSE IT MATTERS: this tick is stored nowhere. What IS stored is the
+                guardian's name and relationship on the immutable consent record, and the acting
+                staff member on the audit event. The tick exists to make the press deliberate on the
+                most consequential form in the product.
+              */}
+              <label className="row" htmlFor={`${headingId}-attested`}>
+                <input
+                  className="choice__input"
+                  id={`${headingId}-attested`}
+                  name="attested"
+                  type="checkbox"
+                  value="yes"
+                  required
+                />
+                <span className="choice__text">
+                  <span>
+                    {guardianDecides
+                      ? 'I identified this guardian in person and put the question to them.'
+                      : 'I put this question to the patient in person and this is their answer.'}
+                  </span>
+                </span>
+              </label>
+
+              {type === 'data_processing' ? (
+                <Notice tone="warn" icon="shield" title="If they decline, the registration ends here">
+                  Declining is a decision the clinic respects and records. It also clears the email,
+                  date of birth, sex, national ID and address collected during this registration on
+                  the spot, and the record can never be edited, consented or given an account again.
+                  Nothing recovers it — they would have to be registered from scratch.
+                </Notice>
+              ) : null}
+
+              <Inline gap="4">
+                <Button type="submit" name="decision" value="granted" variant="primary">
+                  <Icon name="check" /> {asked ? 'They now consent' : 'They consent'}
+                </Button>
+                <Button type="submit" name="decision" value="declined" variant="quiet">
+                  They decline
+                </Button>
+              </Inline>
+            </Stack>
+          </form>
+        )}
+      </Stack>
+    </Card>
   )
 }
 
@@ -635,47 +690,54 @@ function WithdrawalSection({
   }
 
   return (
-    <section className="card stack" aria-labelledby="withdraw-heading">
-      <h2 className="title-sm" id="withdraw-heading">
-        Withdrawing a consent
-      </h2>
+    <Card as="section" aria-labelledby="withdraw-heading">
+      {/* Everything the desk has to read is one group at the 6px it already had; the buttons
+          that act on it are held off that group by the column, which is what the hand-set
+          margin on the button row was saying. */}
+      <Stack gap="6">
+        <Stack gap="2">
+          <h2 className="title-sm" id="withdraw-heading">
+            Withdrawing a consent
+          </h2>
 
-      <p className="muted">
-        The patient may take any of these back at any time, and this is where you record that
-        they have. A withdrawal is written as a new record; the grant it revokes is left exactly
-        as it was, because a consent history that can be edited proves nothing at all.
-      </p>
+          <p className="muted">
+            The patient may take any of these back at any time, and this is where you record that
+            they have. A withdrawal is written as a new record; the grant it revokes is left exactly
+            as it was, because a consent history that can be edited proves nothing at all.
+          </p>
 
-      <p className="muted">
-        Withdrawing stops new use of their information. It does not delete the medical record
-        already on file — the clinic may be legally obliged to keep it. Tell the patient that
-        plainly rather than promising an erasure nobody can carry out.
-      </p>
+          <p className="muted">
+            Withdrawing stops new use of their information. It does not delete the medical record
+            already on file — the clinic may be legally obliged to keep it. Tell the patient that
+            plainly rather than promising an erasure nobody can carry out.
+          </p>
 
-      {latest['data_processing']?.action === 'granted' ? (
-        <Notice tone="warn" icon="shield">
-          Withdrawing consent to use health information moves this patient out of active care.
-          Nothing new can be booked, consulted or dispensed until consent is given again.
-        </Notice>
-      ) : null}
+          {latest['data_processing']?.action === 'granted' ? (
+            <Notice tone="warn" icon="shield">
+              Withdrawing consent to use health information moves this patient out of active care.
+              Nothing new can be booked, consulted or dispensed until consent is given again.
+            </Notice>
+          ) : null}
+        </Stack>
 
-      <div className="row-wrap" style={{ marginTop: 'var(--space-4)' }}>
-        {withdrawable.map((type) => (
-          <form
-            key={type}
-            action={submitWithdrawal.bind(null, {
-              patientId: patient.id,
-              consentType: type,
-              returnHref,
-            })}
-          >
-            <Button type="submit" variant="quiet">
-              Withdraw: {consentDisplay(type).label}
-            </Button>
-          </form>
-        ))}
-      </div>
-    </section>
+        <Inline gap="4">
+          {withdrawable.map((type) => (
+            <form
+              key={type}
+              action={submitWithdrawal.bind(null, {
+                patientId: patient.id,
+                consentType: type,
+                returnHref,
+              })}
+            >
+              <Button type="submit" variant="quiet">
+                Withdraw: {consentDisplay(type).label}
+              </Button>
+            </form>
+          ))}
+        </Inline>
+      </Stack>
+    </Card>
   )
 }
 
@@ -698,57 +760,86 @@ function History({ records }: { records: readonly ConsentRecord[] }): ReactEleme
   }
 
   return (
-    <section className="card" aria-labelledby="history-heading">
-      <h2 className="title-sm" id="history-heading" style={{ marginBottom: 'var(--space-4)' }}>
-        Everything decided so far
-      </h2>
+    <Card as="section" aria-labelledby="history-heading">
+      {/* The `marginBottom` under the heading was the only space in this card, and 12px is
+          exactly `gap="4"` — one decision on the column instead of one on the heading. */}
+      <Stack gap="4">
+        <h2 className="title-sm" id="history-heading">
+          Everything decided so far
+        </h2>
 
-      <div className="table-scroll">
-        <table className="table">
-          <caption className="sr-only">Consent decisions, newest first</caption>
-          <thead>
-            <tr>
-              <th scope="col">Consent</th>
-              <th scope="col">Decision</th>
-              <th scope="col">Who decided</th>
-              <th scope="col">When</th>
-              <th scope="col">Policy version</th>
-            </tr>
-          </thead>
-          <tbody>
-            {records.map((record) => {
-              const action = actionDisplay(record.action)
+        {/*
+          `<DataTable>` rather than the table this was written out as. What it changes here is
+          two things the hand-written version could not have without somebody remembering
+          them. The `.table-scroll` wrapper is now focusable and named, so on a narrow screen
+          the columns that overflow can be reached by someone who is not holding a mouse —
+          this is a five-column table on a desk that is frequently a laptop turned sideways.
+          And the consent type is the row's own name rather than the first of five equal
+          cells, so a screen reader reading across says "Use of health information, Decision,
+          Granted" instead of announcing a decision against nothing. That is visible as well
+          as audible: `.table tbody th` carries the weight a row's name is supposed to have.
 
-              return (
-                <tr key={record.id}>
-                  <td>{consentDisplay(record.consent_type).label}</td>
-                  <td>
-                    <Badge tone={action.tone}>{action.label}</Badge>
-                  </td>
-                  <td>
-                    {record.granted_by === 'guardian'
-                      ? `${record.guardian_name ?? 'Guardian'}${
-                          record.guardian_relationship === null
-                            ? ''
-                            : ` (${record.guardian_relationship})`
-                        }`
-                      : 'The patient'}
-                  </td>
-                  <td>
-                    {record.occurred_at === null ? (
-                      <span className="muted">—</span>
-                    ) : (
-                      <DateTime value={record.occurred_at} format="datetime" />
-                    )}
-                  </td>
-                  <td className="tnum">{record.policy_version}</td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
-    </section>
+          The caption is the sentence that was already here, still `sr-only`, still saying the
+          order — "newest first" is not decoration on a consent history, it is what tells a
+          reader which of two rows about the same consent is the one in force.
+        */}
+        <DataTable
+          caption="Consent decisions, newest first"
+          captionHidden
+          rows={records}
+          rowKey={(record) => record.id}
+          /* Unreachable: this component returns null above when there are no records, because
+             a history card with an empty table says less than no card at all. `empty` is
+             required by construction and says the only true thing. */
+          empty={<p className="muted">No decisions have been recorded.</p>}
+          columns={[
+            {
+              key: 'consent',
+              header: 'Consent',
+              rowHeader: true,
+              cell: (record) => consentDisplay(record.consent_type).label,
+            },
+            {
+              key: 'decision',
+              header: 'Decision',
+              cell: (record) => {
+                const action = actionDisplay(record.action)
+
+                return <Badge tone={action.tone}>{action.label}</Badge>
+              },
+            },
+            {
+              key: 'who',
+              header: 'Who decided',
+              cell: (record) =>
+                record.granted_by === 'guardian'
+                  ? `${record.guardian_name ?? 'Guardian'}${
+                      record.guardian_relationship === null
+                        ? ''
+                        : ` (${record.guardian_relationship})`
+                    }`
+                  : 'The patient',
+            },
+            {
+              key: 'when',
+              header: 'When',
+              cell: (record) =>
+                record.occurred_at === null ? (
+                  <span className="muted">—</span>
+                ) : (
+                  <DateTime value={record.occurred_at} format="datetime" />
+                ),
+            },
+            {
+              key: 'version',
+              header: 'Policy version',
+              numeric: true,
+              cell: (record) => record.policy_version,
+            },
+          ]}
+        />
+      </Stack>
+    </Card>
   )
 }
 

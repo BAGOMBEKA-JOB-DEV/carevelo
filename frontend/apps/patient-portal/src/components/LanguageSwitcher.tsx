@@ -1,3 +1,4 @@
+import { Inline } from '@carevelo/ui'
 import { getLocale, getTranslations } from 'next-intl/server'
 import { chooseLocale } from '@/i18n/actions'
 import { LOCALES } from '@/i18n/locales'
@@ -31,16 +32,30 @@ export async function LanguageSwitcher() {
   const [locale, t] = await Promise.all([getLocale(), getTranslations('Language')])
 
   return (
+    /* SURVIVING INLINE STYLE. This form is one of four blocks inside a footer column
+       whose rhythm is set by margins on the elements themselves — `.site-footer` styles
+       its own `p`, `h4` and `ul` — so there is no column here for a `<Stack>` to be, and
+       wrapping the four would replace four different distances with one. */
     <form action={chooseLocale} style={{ marginTop: 'var(--space-6)' }}>
       {/* A fieldset because these two buttons are one choice. The legend says what the
           choice is for people who hear the page rather than see it; sighted readers have
-          the heading above and do not need it twice. */}
+          the heading above and do not need it twice.
+
+          SURVIVING INLINE STYLE, and it is a USER-AGENT reset rather than a layout
+          decision. `<fieldset>` arrives with a border, 2px of inline margin and asymmetric
+          padding from the browser's own stylesheet; reset.css normalises `h1`–`h4`, `p`
+          and the layout utilities but not this element, and it is the only fieldset in the
+          app. One property bag here is cheaper — and far more legible — than a rule in the
+          shared reset that every one of the four apps downloads for a single call site. */}
       <fieldset style={{ border: 0, margin: 0, padding: 0 }}>
         <legend className="sr-only">{t('legend')}</legend>
 
         <h4>{t('heading')}</h4>
 
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-3)' }}>
+        {/* `Inline` rather than a hand-rolled flex row: 8px between two buttons that
+            must be allowed to fall onto separate lines when a clinic's name pushes the
+            footer column narrow. */}
+        <Inline gap="3">
           {LOCALES.map((candidate) => {
             const active = candidate === locale
 
@@ -58,7 +73,7 @@ export async function LanguageSwitcher() {
               </button>
             )
           })}
-        </div>
+        </Inline>
       </fieldset>
     </form>
   )

@@ -1,6 +1,6 @@
 import type { ReactElement, ReactNode } from 'react'
 import { getLocale, getTranslations } from 'next-intl/server'
-import { Badge, Button, Card, Field, Input, Notice } from '@carevelo/ui'
+import { Badge, Button, Card, Field, Input, Notice, Stack } from '@carevelo/ui'
 import type { Tenant } from '@/lib/tenant'
 import { recordConsent } from '../api/consents'
 import { forgetRegistration, noteDecision } from '../api/handoff'
@@ -224,15 +224,18 @@ export async function ConsentScreen({
 
   return (
     /*
-     * ONE VERTICAL RHYTHM FOR THE WHOLE PAGE, set by a single-column grid rather than by a
-     * margin on each block. The token layer has no margin utilities and `Notice` and `Card`
-     * take a className but no style — so the alternative was a wrapper div around half the
-     * elements here, each carrying the same number, each free to drift from the others.
-     * A grid gap states the spacing once and applies it to every child including the ones
-     * added later.
+     * ONE VERTICAL RHYTHM FOR THE WHOLE PAGE, set by the column rather than by a margin on
+     * each block. The alternative was a wrapper div around half the elements here, each
+     * carrying the same number, each free to drift from the others. A gap states the
+     * spacing once and applies it to every child including the ones added later.
+     *
+     * `<Stack>` and not the single-column `.grid` this used to be: a one-column grid and a
+     * flex column lay full-width children out identically, and `Stack` is where the eight
+     * spacing steps live as a type — `gap="8"` cannot be a pixel and cannot be a step that
+     * does not exist, which `style={{ gap: 'var(--space-8)' }}` could both become.
      */
     <PageBody>
-      <div className="grid" style={{ gap: 'var(--space-8)' }}>
+      <Stack gap="8">
         <div className="site-sec-head">
           <span className="site-eyebrow">{t('consent.eyebrow')}</span>
           <h1 className="site-h1">{t('consent.title', { clinic })}</h1>
@@ -264,51 +267,55 @@ export async function ConsentScreen({
                 it is the one card on the screen that gets it.
                 --------------------------------------------------------------- */}
             <Card as="section" aria-labelledby="consent-policy" tone="brand">
-              {primary !== locale ? (
-                <Notice tone="warn" announce={false}>
-                  {t('consent.policyLanguageMissing')}
-                </Notice>
-              ) : null}
+              {/* 18px down this card, stated once. It was two `marginTop`s that happened to
+                  agree; a gap on the column cannot stop agreeing. */}
+              <Stack gap="6">
+                {primary !== locale ? (
+                  <Notice tone="warn" announce={false}>
+                    {t('consent.policyLanguageMissing')}
+                  </Notice>
+                ) : null}
 
-              <ConsentPolicyText text={primaryText} lang={primary} titleId="consent-policy" />
+                <ConsentPolicyText text={primaryText} lang={primary} titleId="consent-policy" />
 
-              <p className="subtitle" style={{ marginTop: 'var(--space-6)', fontSize: 13 }}>
-                {t('consent.policyVersion', { version: policy.version })}
-              </p>
+                {/* SURVIVING INLINE STYLE, and one class away from going. 13px is a note
+                    under a block of policy text: `.subtitle` is 16px, `.fine` is 12px, and
+                    the step between them does not exist. It is the same 13px written out on
+                    four screens in this app, so the fix is `.subtitle--sm` beside `.subtitle`
+                    in tokens/typography.css — which is not this sweep's file to write. */}
+                <p className="subtitle" style={{ fontSize: 13 }}>
+                  {t('consent.policyVersion', { version: policy.version })}
+                </p>
 
-              {secondaryText !== undefined && secondary !== null ? (
-                /*
-                 * A DISCLOSURE, NOT A LINK, and the difference is the requirement. The other
-                 * language is already in this document — no navigation, no fetch, nothing to
-                 * fail on a stalled connection — and `<details>` opens without JavaScript.
-                 * Collapsed rather than open, because two full policies expanded at once is
-                 * a page nobody reads either half of; the summary is written in the language
-                 * it opens into, so it is legible to the person who needs it.
-                 */
-                <details style={{ marginTop: 'var(--space-6)' }}>
-                  <summary
-                    lang={secondary}
-                    style={{
-                      cursor: 'pointer',
-                      // The whole row is the target, and it answers to the same 44px floor
-                      // as every other control: this is opened one-handed, on a phone.
-                      minHeight: 'var(--touch-min)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      fontWeight: 600,
-                    }}
-                  >
-                    {secondary === 'lg' ? t('consent.readInLuganda') : t('consent.readInEnglish')}
-                  </summary>
+                {secondaryText !== undefined && secondary !== null ? (
+                  /*
+                   * A DISCLOSURE, NOT A LINK, and the difference is the requirement. The other
+                   * language is already in this document — no navigation, no fetch, nothing to
+                   * fail on a stalled connection — and `<details>` opens without JavaScript.
+                   * Collapsed rather than open, because two full policies expanded at once is
+                   * a page nobody reads either half of; the summary is written in the language
+                   * it opens into, so it is legible to the person who needs it.
+                   */
+                  <details>
+                    {/* `.disclosure__summary` in the token layer. A `<summary>` is a CONTROL
+                        — clicked, tabbed to, toggling state — so it answers to the same 44px
+                        floor as every other control on a surface opened one-handed on a
+                        phone, and the user agent gives it the height of one line of text.
+                        The geometry was written out by hand on four screens in this app
+                        before that class existed. */}
+                    <summary lang={secondary} className="disclosure__summary">
+                      {secondary === 'lg' ? t('consent.readInLuganda') : t('consent.readInEnglish')}
+                    </summary>
 
-                  <ConsentPolicyText
-                    text={secondaryText}
-                    lang={secondary}
-                    titleAs="h3"
-                    headingAs="h4"
-                  />
-                </details>
-              ) : null}
+                    <ConsentPolicyText
+                      text={secondaryText}
+                      lang={secondary}
+                      titleAs="h3"
+                      headingAs="h4"
+                    />
+                  </details>
+                ) : null}
+              </Stack>
             </Card>
 
             {/* ---------------------------------------------------------------
@@ -414,33 +421,36 @@ export async function ConsentScreen({
                 --------------------------------------------------------------- */}
             {processingDecided ? null : (
               <Card as="section" aria-labelledby="consent-decline" padding="tight">
-                <h2 className="title" id="consent-decline">
-                  {t('consent.declineHeading')}
-                </h2>
-                <p className="subtitle" style={{ marginTop: 'var(--space-4)' }}>
-                  {t('consent.declineBody', { clinic })}
-                </p>
-                <p className="subtitle" style={{ marginTop: 'var(--space-4)' }}>
-                  {t('consent.declineStillWelcome', { clinic })}
-                </p>
+                {/* Two columns nested rather than one, because the two distances here are
+                    genuinely different and collapsing them would say something the design
+                    does not: 12px holds the heading and its two sentences together as one
+                    paragraph of prose, and 18px separates that paragraph from the control
+                    that acts on it. A single gap would either crowd the button against the
+                    text or open a hole in the middle of the sentence pair. */}
+                <Stack gap="6">
+                  <Stack gap="4">
+                    <h2 className="title" id="consent-decline">
+                      {t('consent.declineHeading')}
+                    </h2>
+                    <p className="subtitle">{t('consent.declineBody', { clinic })}</p>
+                    <p className="subtitle">{t('consent.declineStillWelcome', { clinic })}</p>
+                  </Stack>
 
-                <form
-                  action={submitDecision.bind(null, decisionFor('data_processing', false))}
-                  style={{ marginTop: 'var(--space-6)' }}
-                >
-                  {guardian ? (
-                    <GuardianFields idPrefix="decline" strings={guardianStrings} />
-                  ) : null}
+                  <form action={submitDecision.bind(null, decisionFor('data_processing', false))}>
+                    {guardian ? (
+                      <GuardianFields idPrefix="decline" strings={guardianStrings} />
+                    ) : null}
 
-                  <Button variant="quiet" type="submit">
-                    {t('consent.declineButton')}
-                  </Button>
-                </form>
+                    <Button variant="quiet" type="submit">
+                      {t('consent.declineButton')}
+                    </Button>
+                  </form>
+                </Stack>
               </Card>
             )}
           </>
         )}
-      </div>
+      </Stack>
     </PageBody>
   )
 }
@@ -470,23 +480,30 @@ function DecisionCard({
 }): ReactElement {
   return (
     <Card as="section" aria-labelledby={`${id}-title`}>
-      <div className="row between">
-        <h3 className="title grow" id={`${id}-title`}>
-          {title}
-        </h3>
+      {/* 12px holds the title row and the sentence explaining it together; 18px separates
+          that pair from the decision itself. Nested, because those are two different
+          statements and one gap can only make one of them. */}
+      <Stack gap="6">
+        <Stack gap="4">
+          <div className="row between">
+            <h3 className="title grow" id={`${id}-title`}>
+              {title}
+            </h3>
 
-        {action === undefined ? null : (
-          /* The word, not a colour: a coloured dot says nothing to a colour-blind patient
-             and less to a screen reader. See Badge.tsx. */
-          <Badge tone={action === 'granted' ? 'good' : 'neutral'}>{actionLabels[action]}</Badge>
-        )}
-      </div>
+            {action === undefined ? null : (
+              /* The word, not a colour: a coloured dot says nothing to a colour-blind
+                 patient and less to a screen reader. See Badge.tsx. */
+              <Badge tone={action === 'granted' ? 'good' : 'neutral'}>
+                {actionLabels[action]}
+              </Badge>
+            )}
+          </div>
 
-      <p className="subtitle" style={{ marginTop: 'var(--space-4)' }}>
-        {body}
-      </p>
+          <p className="subtitle">{body}</p>
+        </Stack>
 
-      <div style={{ marginTop: 'var(--space-6)' }}>{children}</div>
+        {children}
+      </Stack>
     </Card>
   )
 }
@@ -515,6 +532,14 @@ function GuardianFields({
   strings: GuardianStrings
 }): ReactElement {
   return (
+    /* SURVIVING INLINE STYLE, and the margin is the honest half of it. These fields are
+       dropped into four different forms on this page, each of which puts a submit button
+       directly after them, and the 18px below is a property of THAT relationship — not of
+       this column. `Stack` deliberately has no margin prop (a space AROUND a thing is not
+       a space BETWEEN things, and a `margin` prop is the first step to a utility
+       framework), and giving each of the four forms its own `<Stack gap="6">` would state
+       the same distance four times to retire it once. The 16px between the fields is the
+       column's own and is stated with `.stack`'s gap. */
     <div className="stack" style={{ gap: 'var(--space-5)', marginBottom: 'var(--space-6)' }}>
       <span className="field__label">{strings.legend}</span>
 

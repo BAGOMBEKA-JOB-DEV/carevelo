@@ -1,4 +1,4 @@
-import { Badge, Card } from '@carevelo/ui'
+import { Badge, Card, Inline, Stack } from '@carevelo/ui'
 
 /**
  * The revenue screen, which does not exist, said out loud.
@@ -34,29 +34,34 @@ import { Badge, Card } from '@carevelo/ui'
 export function RevenuePlaceholder() {
   return (
     <Card as="section">
-      <div className="row-wrap" style={{ justifyContent: 'space-between' }}>
-        <h2 className="title">What this clinic took</h2>
-        <Badge tone="warn">Waiting on the API</Badge>
-      </div>
+      {/* Four `marginTop`s, all of them the same step, all of them saying the space BELOW
+          the element above. One column, one gap, and a paragraph added later cannot arrive
+          without it. */}
+      <Stack gap="4">
+        <Inline justify="between">
+          <h2 className="title">What this clinic took</h2>
+          <Badge tone="warn">Waiting on the API</Badge>
+        </Inline>
 
-      <p className="muted" style={{ marginTop: 'var(--space-4)' }}>
-        This is where a month of takings will go: what was collected, by service and by way
-        of paying, and how it compares with the month before.
-      </p>
+        <p className="muted">
+          This is where a month of takings will go: what was collected, by service and by way
+          of paying, and how it compares with the month before.
+        </p>
 
-      <p className="muted" style={{ marginTop: 'var(--space-4)' }}>
-        It is not here yet because there is no endpoint that can answer it honestly. The only
-        figures the platform holds are counts of the payment attempts it recorded, one day at
-        a time, and money never passes through Carevelo — so adding those up would produce a
-        confident number about your account that we have no way to check. You would make
-        decisions on it, and it might be wrong.
-      </p>
+        <p className="muted">
+          It is not here yet because there is no endpoint that can answer it honestly. The only
+          figures the platform holds are counts of the payment attempts it recorded, one day at
+          a time, and money never passes through Carevelo — so adding those up would produce a
+          confident number about your account that we have no way to check. You would make
+          decisions on it, and it might be wrong.
+        </p>
 
-      <p className="muted" style={{ marginTop: 'var(--space-4)' }}>
-        Until then, <a className="lnk" href="/payments/reconciliation">reconciliation</a> shows
-        every record we hold for a day with the aggregator&rsquo;s reference against each one,
-        and exports the same records as a CSV for your own books.
-      </p>
+        <p className="muted">
+          Until then, <a className="lnk" href="/payments/reconciliation">reconciliation</a> shows
+          every record we hold for a day with the aggregator&rsquo;s reference against each one,
+          and exports the same records as a CSV for your own books.
+        </p>
+      </Stack>
     </Card>
   )
 }

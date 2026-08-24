@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { getTranslations } from 'next-intl/server'
-import { Button, Card, Icon, Notice } from '@carevelo/ui'
+import { Button, Card, Icon, Notice, Stack } from '@carevelo/ui'
 import { prescriptionDocumentLink } from '../api/prescriptions'
 import { localPath } from './localPath'
 
@@ -46,8 +46,8 @@ export async function PrescriptionDocument({
 
   return (
     <Card as="section" aria-labelledby="prescription-document" padding="tight">
-      <div className="stack" style={{ gap: 'var(--space-4)' }}>
-        <h2 id="prescription-document" className="stat__value" style={{ fontSize: 19 }}>
+      <Stack gap="4">
+        <h2 id="prescription-document" className="stat__value stat__value--sm">
           {t('documentHeading')}
         </h2>
 
@@ -75,7 +75,7 @@ export async function PrescriptionDocument({
             <Icon name="file" /> {t('documentOpen')}
           </Button>
         </form>
-      </div>
+      </Stack>
     </Card>
   )
 }

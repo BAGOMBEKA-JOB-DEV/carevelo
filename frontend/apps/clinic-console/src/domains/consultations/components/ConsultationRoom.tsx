@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import {
   Badge,
   Button,
+  Card,
   Choice,
   DateTime,
   EmptyState,
@@ -136,11 +137,16 @@ export function ConsultationRoom({
         <Notice tone="warn" icon="lock" title={CLOSED_TITLE[state.reason]}>
           {CLOSED_BODY[state.reason]}
         </Notice>
-        <p style={{ marginTop: 'var(--space-5)' }}>
-          <Button variant="quiet" href={paths.day}>
-            Back to the schedule
-          </Button>
-        </p>
+        {/* `<Stack>` and not a `marginTop` on the paragraph: the space belongs to the column
+            the notice and the button share, and a margin here would have to be remembered
+            again the day anything is added between them. */}
+        <Stack gap="5">
+          <p>
+            <Button variant="quiet" href={paths.day}>
+              Back to the schedule
+            </Button>
+          </p>
+        </Stack>
       </>
     )
   }
@@ -271,46 +277,52 @@ export function ConsultationRoom({
         <Problem problem={problem} message={message} />
 
         <Stack gap="5">
-          <section className="card stack" style={{ gap: 'var(--space-5)' }} aria-labelledby="door-heading">
-            <h2 id="door-heading" className="title-sm">
-              {state.consultation === null ? 'Start this consultation' : 'Rejoin this consultation'}
-            </h2>
+          <Card as="section" aria-labelledby="door-heading">
+            <Stack gap="5">
+              <h2 id="door-heading" className="title-sm">
+                {state.consultation === null ? 'Start this consultation' : 'Rejoin this consultation'}
+              </h2>
 
-            <p className="muted">
-              {state.consultation === null
-                ? 'Starting records that you joined and opens the note. The patient sees that you have arrived.'
-                : 'This consultation is already under way. Rejoining spends a fresh pass on the door; nothing about the record changes.'}
-            </p>
+              <p className="muted">
+                {state.consultation === null
+                  ? 'Starting records that you joined and opens the note. The patient sees that you have arrived.'
+                  : 'This consultation is already under way. Rejoining spends a fresh pass on the door; nothing about the record changes.'}
+              </p>
 
-            <form action={join} className="stack" style={{ gap: 'var(--space-5)' }}>
-              {state.consultation === null ? (
-                <Choice
-                  name="mode"
-                  legend="How will you hold it?"
-                  required
-                  defaultValue={defaultMode(state.bookedMode)}
-                  options={MODE_OPTIONS}
-                  hint={
-                    state.bookedMode === null
-                      ? 'Recorded as what actually happens, which is what the patient is shown.'
-                      : `Booked as ${MODE_LABEL[state.bookedMode].toLowerCase()}. If you already know that will not work, say so now rather than after a failed attempt — the booking is left alone as the record of what was agreed.`
-                  }
-                />
-              ) : null}
+              {/* The column is a Stack inside the form rather than the form wearing `.stack`:
+                  what element a form renders as is decided by what it submits. */}
+              <form action={join}>
+                <Stack gap="5">
+                  {state.consultation === null ? (
+                    <Choice
+                      name="mode"
+                      legend="How will you hold it?"
+                      required
+                      defaultValue={defaultMode(state.bookedMode)}
+                      options={MODE_OPTIONS}
+                      hint={
+                        state.bookedMode === null
+                          ? 'Recorded as what actually happens, which is what the patient is shown.'
+                          : `Booked as ${MODE_LABEL[state.bookedMode].toLowerCase()}. If you already know that will not work, say so now rather than after a failed attempt — the booking is left alone as the record of what was agreed.`
+                      }
+                    />
+                  ) : null}
 
-              <div>
-                <Button variant="primary" size="lg" type="submit">
-                  <Icon name="activity" /> {state.consultation === null ? 'Start and go in' : 'Rejoin'}
-                </Button>
-              </div>
-            </form>
+                  <div>
+                    <Button variant="primary" size="lg" type="submit">
+                      <Icon name="activity" /> {state.consultation === null ? 'Start and go in' : 'Rejoin'}
+                    </Button>
+                  </div>
+                </Stack>
+              </form>
 
-            <p className="fine">
-              Going in is a single-use pass, which is why it is a button and not a link — a
-              refresh or a back button would otherwise spend one and lock you out of your own
-              consultation. If you lose the tab, come back here and press it again.
-            </p>
-          </section>
+              <p className="fine">
+                Going in is a single-use pass, which is why it is a button and not a link — a
+                refresh or a back button would otherwise spend one and lock you out of your own
+                consultation. If you lose the tab, come back here and press it again.
+              </p>
+            </Stack>
+          </Card>
 
           <PatientHistory patient={state.patient} history={state.history} />
         </Stack>
@@ -368,24 +380,27 @@ export function ConsultationRoom({
               <ModeControl consultation={consultation} bookedMode={state.bookedMode} action={changeMode} />
             ) : null}
 
-            <section className="card stack" style={{ gap: 'var(--space-5)' }} aria-labelledby="note-heading">
-              <div className="stack">
-                <h2 id="note-heading" className="title-sm">
-                  The note
-                </h2>
-                <p className="fine">
-                  Kept on this device as you type and sent to the clinic&rsquo;s record every
-                  few seconds. A dropped connection loses nothing.
-                </p>
-              </div>
+            <Card as="section" aria-labelledby="note-heading">
+              <Stack gap="5">
+                {/* A bare `.stack` before this — 6px in the reset — so `gap="2"`. */}
+                <Stack gap="2">
+                  <h2 id="note-heading" className="title-sm">
+                    The note
+                  </h2>
+                  <p className="fine">
+                    Kept on this device as you type and sent to the clinic&rsquo;s record every
+                    few seconds. A dropped connection loses nothing.
+                  </p>
+                </Stack>
 
-              <NoteEditor
-                consultationId={consultation.id}
-                userId={userId}
-                seeds={seedSections(state.notes)}
-                closed={ended}
-              />
-            </section>
+                <NoteEditor
+                  consultationId={consultation.id}
+                  userId={userId}
+                  seeds={seedSections(state.notes)}
+                  closed={ended}
+                />
+              </Stack>
+            </Card>
 
             <PatientHistory patient={state.patient} history={state.history} />
 

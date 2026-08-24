@@ -1,4 +1,4 @@
-import { Badge, Card, Icon, Inline, Notice } from '@carevelo/ui'
+import { Badge, Card, Icon, Inline, Notice, Stack } from '@carevelo/ui'
 import { attempt } from '../api/http'
 import { getChecklist } from '../api/clinic'
 import type { ChecklistItem, TenantPaths } from '../model/types'
@@ -86,38 +86,44 @@ export async function OnboardingChecklist({ paths, compact = false }: Onboarding
 
   return (
     <Card as="section">
-      <div className="row between">
-        <div className="grow">
-          <span className="eyebrow">Onboarding</span>
-          <h2 className="title-sm">Getting this clinic ready</h2>
+      {/* One column for the whole card. `<Stack as="ul">` and not `<ul className="stack">`,
+          because the hand-rolled version never reset the list: this checklist has been
+          rendering with the user agent's bullets and a 40px indent beside the ticks that are
+          already saying done or not done. Stack strips both and restores `role="list"`,
+          which Safari drops along with the marker. The two closing sentences keep their own
+          `gap="none"` group — they were flush and they read as one paragraph pair. */}
+      <Stack gap="6">
+        <div className="row between">
+          <div className="grow">
+            <span className="eyebrow">Onboarding</span>
+            <h2 className="title-sm">Getting this clinic ready</h2>
+          </div>
+          <Badge tone={checklist.is_ready_to_activate ? 'good' : 'warn'}>
+            {checklist.is_ready_to_activate ? 'Ready to see patients' : 'In progress'}
+          </Badge>
         </div>
-        <Badge tone={checklist.is_ready_to_activate ? 'good' : 'warn'}>
-          {checklist.is_ready_to_activate ? 'Ready to see patients' : 'In progress'}
-        </Badge>
-      </div>
 
-      <ul className="stack" style={{ gap: 'var(--space-4)', marginTop: 'var(--space-6)' }}>
-        {checklist.items.map((item) => (
-          <ChecklistLine key={item.key} item={item} href={hrefFor(item.key, paths)} />
-        ))}
-      </ul>
+        <Stack as="ul" gap="4">
+          {checklist.items.map((item) => (
+            <ChecklistLine key={item.key} item={item} href={hrefFor(item.key, paths)} />
+          ))}
+        </Stack>
 
-      {/*
-       * The API's own sentence about the aggregator, verbatim. It is the one line that
-       * stops an administrator reading an untick as a stop sign, and it belongs to the
-       * backend rather than to this component — the checklist and the payment path must
-       * not be able to disagree about whether care is blocked.
-       */}
-      {checklist.note === '' ? null : (
-        <p className="fine" style={{ marginTop: 'var(--space-6)' }}>
-          {checklist.note}
-        </p>
-      )}
+        <Stack gap="none">
+          {/*
+           * The API's own sentence about the aggregator, verbatim. It is the one line that
+           * stops an administrator reading an untick as a stop sign, and it belongs to the
+           * backend rather than to this component — the checklist and the payment path must
+           * not be able to disagree about whether care is blocked.
+           */}
+          {checklist.note === '' ? null : <p className="fine">{checklist.note}</p>}
 
-      <p className="fine">
-        This clinic is currently <strong>{checklist.tenant_status}</strong>. The status follows
-        from onboarding; it is never set by hand.
-      </p>
+          <p className="fine">
+            This clinic is currently <strong>{checklist.tenant_status}</strong>. The status follows
+            from onboarding; it is never set by hand.
+          </p>
+        </Stack>
+      </Stack>
     </Card>
   )
 }
@@ -133,32 +139,39 @@ export async function OnboardingChecklist({ paths, compact = false }: Onboarding
  */
 function ChecklistLine({ item, href }: { item: ChecklistItem; href: string | null }) {
   return (
-    <li className="row" style={{ alignItems: 'flex-start' }}>
-      <span aria-hidden="true" className="li-mark">
-        {item.is_complete ? <Icon name="check" /> : <Icon name="clock" />}
-      </span>
+    <li>
+      {/* `<Inline>` inside the `<li>` rather than on it: the element union stops at the
+          elements that are layout, and an `<li>` is a LIST ITEM before it is a row — it
+          carries the position a screen reader counts off. `align="start"` is what the
+          hand-set `alignItems` was: the tick sits on the first line of a label that wraps
+          to two, not floating in the middle of the pair. */}
+      <Inline gap="4" align="start" wrap={false}>
+        <span aria-hidden="true" className="li-mark">
+          {item.is_complete ? <Icon name="check" /> : <Icon name="clock" />}
+        </span>
 
-      <span className="grow stack">
-        <Inline as="span" gap="3">
-          {href === null ? (
-            <span>{item.label}</span>
-          ) : (
-            <a className="lnk" href={href}>
-              {item.label}
-            </a>
-          )}
+        <span className="grow stack">
+          <Inline as="span" gap="3">
+            {href === null ? (
+              <span>{item.label}</span>
+            ) : (
+              <a className="lnk" href={href}>
+                {item.label}
+              </a>
+            )}
 
-          {item.is_complete ? (
-            <Badge tone="good">Done</Badge>
-          ) : item.is_required ? (
-            <Badge tone="warn">Still needed</Badge>
-          ) : (
-            <Badge tone="neutral">Optional</Badge>
-          )}
-        </Inline>
+            {item.is_complete ? (
+              <Badge tone="good">Done</Badge>
+            ) : item.is_required ? (
+              <Badge tone="warn">Still needed</Badge>
+            ) : (
+              <Badge tone="neutral">Optional</Badge>
+            )}
+          </Inline>
 
-        {item.detail === null ? null : <span className="fine">{item.detail}</span>}
-      </span>
+          {item.detail === null ? null : <span className="fine">{item.detail}</span>}
+        </span>
+      </Inline>
     </li>
   )
 }

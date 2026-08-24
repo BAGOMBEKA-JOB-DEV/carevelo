@@ -1,5 +1,15 @@
 import { redirect } from 'next/navigation'
-import { Button, EmptyState, Icon, Inline, Notice, PageHeader, Select, Stack } from '@carevelo/ui'
+import {
+  Button,
+  EmptyState,
+  Icon,
+  Inline,
+  Notice,
+  PageHeader,
+  Select,
+  Stack,
+  Toolbar,
+} from '@carevelo/ui'
 import { attempt, type Staff } from '../api/gateway'
 import { cancelAppointment, confirmDeferred, listAppointments } from '../api/appointments'
 import { byId, getPatient, listClinicians, listServices } from '../api/catalogue'
@@ -275,7 +285,10 @@ export function signatureOf(rows: readonly Appointment[]): string {
   return rows.map((row) => `${row.id}:${row.status}`).join(',')
 }
 
-/** Yesterday, today, tomorrow, and which clinician. Three anchors and one GET form. */
+/**
+ * Yesterday, today, tomorrow, and which clinician. Three anchors and one GET form, in the
+ * console's one toolbar shape.
+ */
 function DayNavigation({
   paths,
   day,
@@ -288,7 +301,29 @@ function DayNavigation({
   clinicians: readonly Clinician[]
 }) {
   return (
-    <Inline className="card" gap="5" justify="between">
+    /*
+     * THE SAME BAR THAT SITS ABOVE EVERY LIST IN THIS CONSOLE, and this screen was the last
+     * one inventing its own. It was a `.card` — 24px of padding and a full panel's weight
+     * on a strip of furniture attached to the day below it, which is precisely what
+     * `.console-bar` in console.css exists to stop; the registry, reconciliation, the audit
+     * log and the message log already wear it.
+     *
+     * `<Toolbar>` and not a bare `<Inline>` because the group needed a NAME. Three links and
+     * a select in an unnamed div announce as "Previous, link" with nothing to say previous
+     * WHAT, and a `<div>` with no role does not expose an `aria-label` at all — so the name
+     * had to come from a component that supplies the role with it. `group` and not
+     * `role="toolbar"`: see Toolbar's own docblock. These are plain links and a plain select,
+     * Tab reaches every one of them, and nothing here promises arrow keys.
+     *
+     * The clinician form rides in `actions`, which puts it at the far edge AND last in the
+     * tab order — the same place it already sat visually. Moving through the days is what
+     * this bar is mostly used for; narrowing to one clinician is the occasional act.
+     */
+    <Toolbar
+      label="Move around the schedule and choose whose day to show"
+      className="console-bar"
+      actions={<ClinicianFilter paths={paths} day={day} clinicianId={clinicianId} clinicians={clinicians} />}
+    >
       <Inline gap="3" wrap={false}>
         <Button variant="quiet" href={href(paths.day, { day: shiftDay(day, -1), clinician: clinicianId })}>
           <Icon name="chevLeft" className="ico" /> Previous
@@ -300,16 +335,38 @@ function DayNavigation({
           Next <Icon name="chevRight" className="ico" />
         </Button>
       </Inline>
+    </Toolbar>
+  )
+}
 
-      {/*
-        * A GET form, so the result is a URL. Submitting navigates; the day travels in a
-        * hidden field so choosing a clinician does not silently throw you back to today.
-        *
-        * The submit button is not optional and is not a fallback for "no JavaScript". There
-        * is no onChange handler anywhere in this console; a select that only works once a
-        * bundle has arrived is a select that does nothing in a corridor.
-        */}
-      <form method="get" action={paths.day} className="row" style={{ gap: 'var(--space-3)' }}>
+/** Whose day to show. Its own component so the toolbar reads as the two things it holds. */
+function ClinicianFilter({
+  paths,
+  day,
+  clinicianId,
+  clinicians,
+}: {
+  paths: SchedulePaths
+  day: string
+  clinicianId: string | undefined
+  clinicians: readonly Clinician[]
+}) {
+  /*
+   * A GET form, so the result is a URL. Submitting navigates; the day travels in a hidden
+   * field so choosing a clinician does not silently throw you back to today.
+   *
+   * The submit button is not optional and is not a fallback for "no JavaScript". There is no
+   * onChange handler anywhere in this console; a select that only works once a bundle has
+   * arrived is a select that does nothing in a corridor.
+   *
+   * The row is an `<Inline>` inside the form rather than the form wearing `.row`: what
+   * element a form renders as is decided by what it submits, never by how its controls sit.
+   * `wrap={false}` reproduces `.row` exactly — the label, its select and the submit are one
+   * control in three parts, and a wrapped "Show" reads as a separate action.
+   */
+  return (
+    <form method="get" action={paths.day}>
+      <Inline gap="3" wrap={false}>
         <input type="hidden" name="day" value={day} />
 
         <label className="field__label" htmlFor="clinician-filter">
@@ -327,8 +384,8 @@ function DayNavigation({
         <Button variant="quiet" type="submit">
           Show
         </Button>
-      </form>
-    </Inline>
+      </Inline>
+    </form>
   )
 }
 

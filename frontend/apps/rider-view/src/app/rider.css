@@ -1,5 +1,5 @@
 /* ============================================================
-   The rider view's own layer — four rules, every one of them measured.
+   The rider view's own layer — every rule measured.
 
    WHY THIS FILE EXISTS AT ALL, GIVEN THAT packages/ui IS THE PLACE FOR THIS
 
@@ -22,6 +22,14 @@
    at source, the first block deletes with no other change. The `.tabbar` media query
    deletes when `layout.css` stops hiding the rider's only navigation on a laptop. What is
    genuinely rider-specific — the package reference and the centred secondary row — stays.
+
+   THE DARK THEME REACHES THIS APP FOR THE FIRST TIME IN THIS CHANGE, and that is why the
+   first block below has grown a gate it did not have. `public/theme-init.js`, the script
+   tag in `src/app/layout.tsx` and the `<ThemeToggle>` in `FieldShell.tsx` arrive together;
+   until they did, `:root[data-theme='dark']` in colors.css was a palette nobody could
+   reach, and an override written for the light ground could sit here doing no harm because
+   the dark ground never existed. It does now, so every colour in this file had to be
+   measured against BOTH grounds rather than one, and two of them changed answer.
    ============================================================ */
 
 /* ---- The two AA failures, both reached THROUGH the shared primitives ----
@@ -47,10 +55,142 @@
    `--good` is `.badge-good`, which on this surface is the `delivered` badge — the word that
    tells a rider their work is recorded. A rider only reaches it through a delivery opened
    by its own URL, since the rider endpoint filters delivered work out of the list, but a
-   state that CAN render must be readable when it does. */
-.fieldview {
+   state that CAN render must be readable when it does.
+
+   BOTH ARE NOW GATED TO THE LIGHT THEME, AND THE GATE IS THE POINT OF THIS EDIT. Custom
+   properties inherit, so a value set on `.fieldview` reaches every descendant and beats
+   `:root[data-theme='dark']` outright — not on specificity, but because it is set on a
+   nearer element. An ungated override here therefore does not coexist with the dark
+   palette; it replaces it. Measured on the grounds this app actually paints:
+
+     --ink-faint  #707774 on --canvas    #121513 (dark) =  4.01:1   FAILS
+                  #707774 on --parchment #161917 (dark) =  3.86:1   FAILS
+                  #707774 on --surface   #1b1f1d (dark) =  3.63:1   FAILS
+                  #707774 on --surface-2 #222725 (dark) =  3.31:1   FAILS
+
+     --good       #24734e on --good-soft over --canvas  #1a2c23  =  2.54:1   FAILS
+                  #24734e on --good-soft over --surface #22352b  =  2.26:1   FAILS
+
+   The `--good` number is the one worth stopping on: 2.26:1 is WORSE than the 3.45:1 this
+   block exists to repair, so leaving the override ungated would have made the delivered
+   badge less readable in dark than the bug it fixes in light — a dark green word on a dark
+   green chip, on the one screen that tells a rider their work is recorded.
+
+   `:not([data-theme='dark'])` rather than a bare selector plus a dark override, because
+   the default "system" state stamps no attribute at all: light has to be the branch that
+   catches "no attribute", not the branch that catches `data-theme="light"`. */
+:root:not([data-theme='dark']) .fieldview {
   --ink-faint: #707774;
   --good: #24734e;
+}
+
+/* ---- The dark theme's faint ink ----
+
+   Never rendered before this change, so this is the first time the value has been checked
+   against anything. `--ink-faint` is what `PageHeader` paints its eyebrow with, what `Stat`
+   paints its label with and what `.fine` sets — on this surface, the quiet lines under a
+   delivery's address and the note under the status button.
+
+     #6a716e on --canvas    #121513  =  3.68:1   FAILS
+     #6a716e on --parchment #161917  =  3.54:1   FAILS
+     #6a716e on --surface   #1b1f1d  =  3.33:1   FAILS
+     #6a716e on --surface-2 #222725  =  3.03:1   FAILS
+
+     #8b928f on --canvas    #121513  =  5.78:1   passes
+     #8b928f on --parchment #161917  =  5.57:1   passes
+     #8b928f on --surface   #1b1f1d  =  5.24:1   passes
+     #8b928f on --surface-2 #222725  =  4.77:1   passes
+
+   The same value the clinic console adopted, deliberately: two apps disagreeing about the
+   repair for one shared token is how a token layer ends up with three answers and no fix.
+   The ink hierarchy survives here in a way it does not in light — dark's --ink-muted
+   #949b98 is 6.48:1 on --canvas against this 5.78:1, so faint still reads as fainter.
+
+   `--good`, `--warn`, `--bad` and `--info` are deliberately NOT restated for dark. Measured
+   on the translucent grounds they resolve to here: good 6.05:1 on --canvas and 5.39:1 on
+   --surface, warn 6.28/5.58, bad 5.18/4.63, info 5.36/4.77. Every one passes, and every one
+   would have been broken by inheriting the light block above. */
+:root[data-theme='dark'] .fieldview {
+  --ink-faint: #8b928f;
+}
+
+/* ---- White text on the primary and danger buttons, which dark mode breaks outright ----
+
+   `packages/ui/src/tokens/components.css` sets both foregrounds as a literal:
+
+       .btn-primary { background: var(--primary); color: #fff; }
+       .btn-danger  { background: var(--bad);     color: #fff; }
+
+   That is correct in light and cannot be in dark, because the dark theme lightens the
+   BACKGROUND and leaves the hard-coded foreground where it was:
+
+     #ffffff on --primary #1f6f5c (light)   =  6.02:1   passes
+     #ffffff on --primary #62b39d (dark)    =  2.48:1   FAILS
+     #ffffff on --primary-press #4e9c87     =  3.27:1   FAILS  (:hover)
+     #ffffff on --bad     #c0392b (light)   =  5.44:1   passes
+     #ffffff on --bad     #e8776b (dark)    =  2.88:1   FAILS
+
+   On THIS surface those two classes are not decoration and they are not spread thin. They
+   are "Picked up", "Delivered" and "I could not deliver this" — `btn-lg btn-block`, the
+   single widest control on the screen, and the only thing on the whole app a rider is here
+   to press. A 2.48:1 label on the one button that matters, read one-handed, is the defect
+   this whole exercise exists to catch.
+
+   THE FIX IS `var(--canvas)` AND IT IS A NO-OP IN LIGHT. --canvas is #ffffff in light, so
+   this rule changes nothing there; in dark it resolves to #121513:
+
+     #121513 on --primary       #62b39d  =  7.40:1   passes
+     #121513 on --primary-press #4e9c87  =  5.63:1   passes  (:hover)
+     #121513 on --bad           #e8776b  =  6.37:1   passes
+
+   THIS IS THE ONE PLACE IN THIS FILE THAT CLAIMS A SELECTOR packages/ui ALSO CLAIMS, and
+   there was no token route: the foreground is a literal in that file, so there is nothing
+   to redefine. It is scoped under `.fieldview` to win on specificity rather than on import
+   order, and this stylesheet is loaded by this app alone. `.btn-brand` is NOT touched and
+   must never be — its foreground is --brand-primary-fg, computed server-side for AA against
+   the clinic's own colour. This app renders no `.btn-brand` at all; the rule is stated
+   anyway so that adding one later does not quietly inherit a correction meant for ours. */
+.fieldview .btn-primary,
+.fieldview .btn-danger {
+  color: var(--canvas);
+}
+
+/* ---- The theme toggle, which sits on a band that is dark in BOTH themes ----
+
+   `.site-theme-btn` in the shared layer was drawn for the patient portal's header, which
+   sits on `--canvas`. It takes `--hairline` for its border and `--ink-2` for its glyph, and
+   both of those are near-black in the light theme. This app puts the control in `.topbar`,
+   whose ground is `--topbar-bg` #0d3d33 — a constant dark band, present in the light theme
+   and the dark one, because that is what makes the product feel like one product. So in the
+   LIGHT theme the button arrived as a dark glyph in an all-but-invisible dark box on a dark
+   green band:
+
+     --ink-2 #3c4340 on --topbar-bg #0d3d33  =  1.19:1   FAILS, and is close to unseeable
+     --topbar-ink #e9f2f0 on #0d3d33         =  10.63:1  passes
+     --topbar-ink on the hover fill #204d43  =  8.40:1   passes
+
+   The band already owns three tokens for exactly this. Nothing here is a new colour.
+
+   Scoped to `.topbar` rather than to `.fieldview`, so that a control ever added to a page
+   with no band does not inherit a band's colours.
+
+   AND IT IS SIZED UP, because this app has already made that decision once. The shared
+   button is a 38px square, drawn for a pointer on a marketing header. `--touch-min` is 44px
+   and the `.lnk` rule further down this file exists precisely to hold secondary controls to
+   it — a rule that would be nonsense if the control immediately above the content ignored
+   it. 38px is above the 24px WCAG 2.5.8 AA floor and below the one this app committed to,
+   and the person pressing it is wearing gloves. Width and height rather than padding,
+   because the shared rule sets both explicitly and padding would not reach them. */
+.fieldview .topbar .site-theme-btn {
+  color: var(--topbar-ink);
+  border-color: var(--topbar-line);
+  width: var(--touch-min);
+  height: var(--touch-min);
+}
+
+.fieldview .topbar .site-theme-btn:hover {
+  background: var(--topbar-surface);
+  color: var(--topbar-ink);
 }
 
 /* ---- Every secondary link is a thumb target ----

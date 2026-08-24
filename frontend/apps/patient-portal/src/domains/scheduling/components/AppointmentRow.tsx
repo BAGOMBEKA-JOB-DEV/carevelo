@@ -95,11 +95,12 @@ export async function AppointmentRow({
           </span>
         </Inline>
 
-        {/* SURVIVING INLINE STYLE. 18px at weight 650 is a list-row heading and no step on
-            the type scale is at that size — `.title` is 21px/600, `.title-sm` 17.5px/700 in
-            the display face. One of the two or three heading modifiers that belong in
-            tokens/components.css; see the note in src/app/account/page.tsx. */}
-        <h2 style={{ fontSize: 18, fontWeight: 650 }}>
+        {/* `.card-title` in the token layer: 19px at weight 650, the step between
+            `.title-sm` (17.5px, display face) and `.title` (21px), which is what a heading
+            naming one record wants and what this call site and two others were setting by
+            hand. It was 18px here and 19px on the other two — the same decision taken
+            three times a fortnight apart — so it is 19px now on all three. */}
+        <h2 className="card-title">
           {serviceName ?? t('appointments.serviceUnknown')}
         </h2>
 

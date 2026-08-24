@@ -1,4 +1,5 @@
 import { getTranslations } from 'next-intl/server'
+import type { ReactNode } from 'react'
 import { Card, DateTime, Icon, Money, Notice } from '@carevelo/ui'
 import type { Tenant } from '@/lib/tenant'
 import { moneyFrom, type PaymentIntent, type Receipt } from '../api/types'
@@ -69,77 +70,74 @@ export async function PaymentReceiptCard({
         <Notice tone="warn">{t('receipt.unavailable')}</Notice>
       ) : null}
 
+      {/* SURVIVING INLINE STYLES, and the reason is the same one written out at length in
+          src/app/account/page.tsx: `.card` lays its children out as a BLOCK, with no gap
+          of its own, and the distances down this card are 0 (the eyebrow, the title and
+          the lede sit flush by design), then 18, then 12, then 16, then 18. A single
+          `<Stack>` around the card's contents would have to pick one of those and would
+          silently open the three that are deliberately closed; a nest per pair is five
+          wrapper elements to retire five properties. So the margins stay and each one is
+          the distance it always was. */}
       <h2 style={{ marginTop: 'var(--space-6)' }}>{t('receipt.title')}</h2>
 
+      {/* A `<dl>` and not a `<Stack>`: `Stack`'s `as` union has no `dl` on purpose — see
+          its docblock — because a description list's dt/dd pairing is a semantic contract
+          rather than a column, and this document's whole value is that a screen reader
+          reads "Paid to: Kira Family Clinic" as one fact and not two. `.stack` gives the
+          column; the 6px it sets is the distance between the pairs. */}
       <dl className="stack" style={{ marginTop: 'var(--space-4)' }}>
         {/* The payee, first and in full, because that is what this document asserts. */}
-        <div className="stack">
-          <dt className="field__label">{t('receipt.paidTo')}</dt>
-          <dd style={{ margin: 0 }}>
-            <strong>{receipt?.payee.name ?? clinic}</strong>
-            {receipt === null ? null : (
-              <>
-                {receipt.payee.legal_name === receipt.payee.name ? null : (
-                  <div className="muted">{receipt.payee.legal_name}</div>
-                )}
-                {receipt.payee.physical_address === null ? null : (
-                  <div className="muted">{receipt.payee.physical_address}</div>
-                )}
-                {receipt.payee.district === null ? null : (
-                  <div className="muted">{receipt.payee.district}</div>
-                )}
-                {receipt.payee.contact_phone === null ? null : (
-                  <div className="muted">{receipt.payee.contact_phone}</div>
-                )}
-              </>
-            )}
-          </dd>
-        </div>
+        <Fact label={t('receipt.paidTo')}>
+          <strong>{receipt?.payee.name ?? clinic}</strong>
+          {receipt === null ? null : (
+            <>
+              {receipt.payee.legal_name === receipt.payee.name ? null : (
+                <div className="muted">{receipt.payee.legal_name}</div>
+              )}
+              {receipt.payee.physical_address === null ? null : (
+                <div className="muted">{receipt.payee.physical_address}</div>
+              )}
+              {receipt.payee.district === null ? null : (
+                <div className="muted">{receipt.payee.district}</div>
+              )}
+              {receipt.payee.contact_phone === null ? null : (
+                <div className="muted">{receipt.payee.contact_phone}</div>
+              )}
+            </>
+          )}
+        </Fact>
 
         {money === null ? null : (
-          <div className="stack">
-            <dt className="field__label">{t('receipt.amount')}</dt>
-            <dd style={{ margin: 0 }}>
-              <strong>
-                <Money value={money} />
-              </strong>
-            </dd>
-          </div>
+          <Fact label={t('receipt.amount')}>
+            <strong>
+              <Money value={money} />
+            </strong>
+          </Fact>
         )}
 
-        <div className="stack">
-          <dt className="field__label">{t('receipt.method')}</dt>
-          <dd style={{ margin: 0 }}>{method}</dd>
-        </div>
+        <Fact label={t('receipt.method')}>{method}</Fact>
 
-        <div className="stack">
-          <dt className="field__label">{t('receipt.paidAt')}</dt>
-          <dd style={{ margin: 0 }}>
-            {/* Africa/Kampala, always. The patient, the clinic and the money are all there. */}
-            {paidAt === null ? t('receipt.notRecorded') : <DateTime value={paidAt} format="datetime" />}
-          </dd>
-        </div>
+        <Fact label={t('receipt.paidAt')}>
+          {/* Africa/Kampala, always. The patient, the clinic and the money are all there. */}
+          {paidAt === null ? t('receipt.notRecorded') : <DateTime value={paidAt} format="datetime" />}
+        </Fact>
 
         {payableType === null ? null : (
-          <div className="stack">
-            <dt className="field__label">{t('receipt.title')}</dt>
-            <dd style={{ margin: 0 }}>
-              {payableType === 'appointment' ? t('receipt.forAppointment') : t('receipt.forOrder')}
-            </dd>
-          </div>
+          <Fact label={t('receipt.title')}>
+            {payableType === 'appointment' ? t('receipt.forAppointment') : t('receipt.forOrder')}
+          </Fact>
         )}
 
-        <div className="stack">
-          <dt className="field__label">{t('receipt.reference')}</dt>
-          <dd style={{ margin: 0, fontFamily: 'var(--mono)' }}>{receipt?.reference ?? intent.reference}</dd>
-        </div>
+        {/* Both references in the monospace face, because both get read down a telephone
+            and copied into an aggregator dashboard. `.mono` is the token layer's own class
+            for exactly that; it was being written out as a style property here. */}
+        <Fact label={t('receipt.reference')} valueClassName="mono">
+          {receipt?.reference ?? intent.reference}
+        </Fact>
 
-        <div className="stack">
-          <dt className="field__label">{t('receipt.providerReference', { method })}</dt>
-          <dd style={{ margin: 0, fontFamily: 'var(--mono)' }}>
-            {providerReference ?? t('receipt.notRecorded')}
-          </dd>
-        </div>
+        <Fact label={t('receipt.providerReference', { method })} valueClassName="mono">
+          {providerReference ?? t('receipt.notRecorded')}
+        </Fact>
       </dl>
 
       {/*
@@ -158,5 +156,46 @@ export async function PaymentReceiptCard({
         <RefundGuidance tenant={tenant} />
       </div>
     </Card>
+  )
+}
+
+/**
+ * One labelled fact on the receipt: a `<dt>` and the `<dd>` it belongs to, in the `<div>`
+ * wrapper that is the ONE element a `<dl>` is allowed to hold around a pair.
+ *
+ * WHY IT EXISTS AT ALL. Seven pairs were written out here, and every one of them carried
+ * `style={{ margin: 0 }}` on its `<dd>` — not a layout decision but a user-agent one:
+ * `dd` arrives with `margin-inline-start: 40px` from the browser's own stylesheet, and
+ * reset.css normalises `h1`–`h4`, `p` and the layout utilities without touching the
+ * description-list elements. Seven identical corrections, each free to be forgotten on
+ * the eighth pair somebody adds. One correction, in one place, cannot be.
+ *
+ * THE ZERO IS DELIBERATELY NOT MOVED INTO reset.css, which would be the obvious tidy.
+ * That file is shared by four apps, the console renders fourteen more `<dl>`s of its own,
+ * and a `dd { margin: 0 }` there would silently re-lay-out every one of them. That is a
+ * change the console's owner should make and see, not one to make on their behalf from
+ * a sweep of the portal — it is reported instead.
+ *
+ * `<Stack>` cannot hold this either: it renders a div, and a `<dt>` outside a `<dl>` is
+ * not a term, it is a stray element with a class on it.
+ */
+function Fact({
+  label,
+  valueClassName,
+  children,
+}: {
+  label: string
+  /** For the two references, which are read down a telephone and want the mono face. */
+  valueClassName?: string | undefined
+  children: ReactNode
+}) {
+  return (
+    <div className="stack">
+      <dt className="field__label">{label}</dt>
+      {/* SURVIVING INLINE STYLE — the single UA reset the docblock above is about. */}
+      <dd className={valueClassName} style={{ margin: 0 }}>
+        {children}
+      </dd>
+    </div>
   )
 }
