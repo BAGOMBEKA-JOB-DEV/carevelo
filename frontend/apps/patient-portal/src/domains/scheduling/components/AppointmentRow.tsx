@@ -178,22 +178,20 @@ export async function AppointmentRow({
            * the wrong tap on a cracked screen.
            */
           <details>
-            {/* SURVIVING INLINE STYLE, and the third variant of it in this app — the other
-                two are the `SUMMARY` constant duplicated in ConsentHistory.tsx and
-                RegistrationForm.tsx. A `<details>` marker row is a CONTROL: it wants a
-                pointer, a touch-sized band and its own ink, and the token layer has no class
-                that says so, so every screen that opens one has written the geometry out by
-                hand. `.disclosure` in tokens/components.css is the fix and it retires all
-                three at once; that file is outside this sweep. */}
-            <summary
-              style={{
-                cursor: 'pointer',
-                color: 'var(--ink-2)',
-                fontSize: 13,
-                fontWeight: 600,
-                paddingBlock: 'var(--space-2)',
-              }}
-            >
+            {/* `.disclosure__summary--quiet` in the token layer, which is the class this
+                was the third hand-written variant of — the other two were a `SUMMARY` style
+                constant duplicated in ConsentHistory.tsx and RegistrationForm.tsx, and both
+                are gone now too.
+
+                THE TOUCH BAND IS THE POINT, and it is what changes here: this row used to
+                get 6px of vertical padding on one line of 13px text, which is a target of
+                about 31px. A `<summary>` is a CONTROL — clicked, tabbed to, toggling state
+                — so it answers to the same 44px floor as every `.btn` on a surface used
+                one-handed on a cracked phone. `--quiet` keeps it 13px in the secondary ink
+                so that cancelling does not compete with the appointment it belongs to; the
+                floor is deliberately NOT reduced with the type, because a target that is
+                easy to ignore still has to be easy to hit on purpose. */}
+            <summary className="disclosure__summary disclosure__summary--quiet">
               {t('appointments.cancelSummary')}
             </summary>
 

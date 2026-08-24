@@ -986,6 +986,23 @@ a.feat-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
 .site-footer li { color: var(--ink-muted); font-size: 14.5px; }
 .site-footer a { color: var(--ink-muted); font-size: 14.5px; }
 .site-footer a:hover { color: var(--brand-primary); }
+
+/* The language chooser is the fourth block in the footer's first column, and this file
+   already sets the rhythm of the other three on the elements themselves — `p`, `h4` and
+   `ul` above. So the form gets its distance the same way, in the same place, instead of
+   the `style={{ marginTop: 'var(--space-6)' }}` it carried: a footer column laid out by
+   element margins is not a column any `<Stack>` can be, and half a rhythm in a stylesheet
+   and half in a component is the version nobody can read at once.
+
+   The `<fieldset>` reset is a USER-AGENT correction rather than a layout decision, and it
+   belongs here for the same reason it does not belong in reset.css: `<fieldset>` arrives
+   with a border, 2px of inline margin and asymmetric padding from the browser's own sheet,
+   reset.css normalises `h1`–`h4`, `p` and the layout utilities and deliberately stops
+   there, and this is the only fieldset on the surface. Scoped to the footer, it corrects
+   the one that exists and cannot reach a fieldset somebody writes elsewhere expecting the
+   browser's own frame. */
+.site-footer form { margin-top: var(--space-6); }
+.site-footer fieldset { border: 0; margin: 0; padding: 0; }
 .site-footer__bottom {
   display: flex;
   justify-content: space-between;

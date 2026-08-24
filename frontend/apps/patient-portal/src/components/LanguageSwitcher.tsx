@@ -32,22 +32,24 @@ export async function LanguageSwitcher() {
   const [locale, t] = await Promise.all([getLocale(), getTranslations('Language')])
 
   return (
-    /* SURVIVING INLINE STYLE. This form is one of four blocks inside a footer column
-       whose rhythm is set by margins on the elements themselves — `.site-footer` styles
-       its own `p`, `h4` and `ul` — so there is no column here for a `<Stack>` to be, and
-       wrapping the four would replace four different distances with one. */
-    <form action={chooseLocale} style={{ marginTop: 'var(--space-6)' }}>
+    /* NO INLINE STYLE AND NO `<Stack>`. This form is one of four blocks inside a footer
+       column whose rhythm is set by margins on the ELEMENTS themselves — `.site-footer`
+       already styles its own `p`, `h4` and `ul` in tokens/site.css — so there is no column
+       here for a Stack to be, and wrapping the four would replace four different distances
+       with one. The 18px above this form is stated where the other three are, as
+       `.site-footer form`. */
+    <form action={chooseLocale}>
       {/* A fieldset because these two buttons are one choice. The legend says what the
           choice is for people who hear the page rather than see it; sighted readers have
           the heading above and do not need it twice.
 
-          SURVIVING INLINE STYLE, and it is a USER-AGENT reset rather than a layout
-          decision. `<fieldset>` arrives with a border, 2px of inline margin and asymmetric
-          padding from the browser's own stylesheet; reset.css normalises `h1`–`h4`, `p`
-          and the layout utilities but not this element, and it is the only fieldset in the
-          app. One property bag here is cheaper — and far more legible — than a rule in the
-          shared reset that every one of the four apps downloads for a single call site. */}
-      <fieldset style={{ border: 0, margin: 0, padding: 0 }}>
+          The browser's own border, inline margin and asymmetric padding are cleared by
+          `.site-footer fieldset` in tokens/site.css. That is a USER-AGENT correction rather
+          than a layout decision, and it is scoped to the footer rather than put in the
+          shared reset — which all four apps download — because this is the only fieldset on
+          the surface and a fieldset somebody writes elsewhere should still arrive with the
+          frame the browser gives it. */}
+      <fieldset>
         <legend className="sr-only">{t('legend')}</legend>
 
         <h4>{t('heading')}</h4>
