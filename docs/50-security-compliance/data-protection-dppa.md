@@ -83,7 +83,7 @@ Requirements, each of which is a design constraint rather than a policy aspirati
 
 - **Explicit affirmative action.** No pre-ticked boxes, no bundling into terms acceptance, no "by continuing you agree".
 - **Specific and separate** — `data_processing`, `telemedicine` and `delivery_disclosure` are captured independently, and the delivery consent is captured at the point delivery is chosen rather than pre-emptively.
-- **Informed** — plain language, in English and Luganda, on screen rather than behind a link.
+- **Informed** — plain language, on screen rather than behind a link, and in a language the policy was genuinely written in. That is English alone at present: the Luganda rendering was withdrawn at roughly 7% translated rather than shipped, because wording that presents itself as the patient's language while being a thin copy of someone else's does not inform a patient — it persuades them they have understood, which is the one failure this requirement exists to prevent. The language-keyed structure remains on both sides of the API, so a reviewed translation is an addition rather than a project ([H2 §2](../10-product/prd-h2-patient-registration-consent.md)).
 - **Withdrawable**, as easily as it was given.
 - **Demonstrable** — this is the operative word. An immutable `ConsentRecord` stores the policy version and a hash of the exact text shown, so we can reconstruct months later precisely what someone agreed to ([Domain Model](../20-domain/domain-model.md)).
 

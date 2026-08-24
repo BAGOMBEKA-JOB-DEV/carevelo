@@ -96,46 +96,29 @@ export function DeliveryScreen({
   const state = view(delivery.status)
   const self = deliveryHref(paths, delivery.id)
 
-  /**
-   * Where the rider goes after a move lands.
+  /*
+   * `after()` AND `onProblem()` USED TO BE DECLARED HERE, AND BOTH HAD TO MOVE OUT.
    *
-   * A COMPLETED DELIVERY GOES BACK TO THE LIST, because it has left the list — the rider
-   * endpoint serves only `assigned`, `picked_up` and `en_route`, so staying here would
-   * leave them looking at a screen with no next action and a status that will never
-   * change again. An intermediate move stays put, because the address and the telephone
-   * number are still the two things they need.
+   * They are unchanged; they are at module scope now, below, and take `paths` and the
+   * delivery id as their first two arguments instead of capturing them. The reason is that
+   * an inline `'use server'` function is compiled into a server reference whose bound
+   * arguments are every variable it captures from this component, and Next SERIALISES
+   * (encrypts) those arguments the moment the closure is created — on every render, whether
+   * or not the rider ever presses anything. A function is not serialisable, so the two
+   * actions below capturing two arrow functions threw
+   *
+   *     Functions cannot be passed directly to Client Components unless you explicitly
+   *     expose it by marking it with "use server". [function after]
+   *
+   * out of the render and left both status controls — the one that advances a delivery and
+   * the one that reports a failure — wired to actions whose bound arguments had failed to
+   * encrypt. Nothing about the screen looks any different, which is exactly why a rider at
+   * somebody's gate would be the one to find out. The identical fault in the clinic console
+   * put a receptionist into the error boundary mid-call.
+   *
+   * A module-level function is resolved by the compiled action on the server and is never
+   * bound to it, which is the entire difference. Everything below reads the same.
    */
-  const after = (target: DeliveryStatus, repeat: boolean): string => {
-    const flags = { ...(repeat ? { already: '1' } : {}) }
-
-    if (target === 'delivered' || target === 'failed') {
-      return href(paths.assignments, { done: target, ...flags })
-    }
-
-    return deliveryHref(paths, delivery.id, { done: target, ...flags })
-  }
-
-  /** Where the rider goes when a move does not land. */
-  const onProblem = (kind: StatusProblem, detail: string | null): string => {
-    /*
-     * A REFUSAL GOES BACK TO THE LIST, and this is the one case that must not stay here.
-     * 403 and 404 collapse to the same answer on purpose — the delivery is not this
-     * rider's, and whether it belongs to a colleague or to another clinic entirely is
-     * exactly the difference we decline to disclose. Sending them to a list that is true
-     * says everything a rider needs and nothing more.
-     */
-    if (kind === 'refused') {
-      return href(paths.assignments, { problem: kind })
-    }
-
-    return deliveryHref(paths, delivery.id, {
-      problem: kind,
-      ...(detail ? { message: detail } : {}),
-      // A rejected reason reopens the chooser rather than dropping the rider back to a
-      // screen with no obvious way to try again.
-      ...(kind === 'invalid' ? { report: '1' } : {}),
-    })
-  }
 
   /**
    * Advance to the next status.
@@ -157,16 +140,16 @@ export function DeliveryScreen({
     const outcome = await setStatus(delivery.id, target)
 
     if (outcome.kind === 'changed') {
-      return redirect(after(target, false))
+      return redirect(after(paths, delivery.id, target, false))
     }
 
     if (outcome.kind === 'already') {
       // Not an error, and never shown as one. The tap landed the first time and the
       // answer was lost coming back — see `setStatus()` for the whole reasoning.
-      return redirect(after(target, true))
+      return redirect(after(paths, delivery.id, target, true))
     }
 
-    return redirect(onProblem(outcome.problem, outcome.message))
+    return redirect(onProblem(paths, delivery.id, outcome.problem, outcome.message))
   }
 
   /**
@@ -186,14 +169,14 @@ export function DeliveryScreen({
     const outcome = await setStatus(delivery.id, 'failed', reason)
 
     if (outcome.kind === 'changed') {
-      return redirect(after('failed', false))
+      return redirect(after(paths, delivery.id, 'failed', false))
     }
 
     if (outcome.kind === 'already') {
-      return redirect(after('failed', true))
+      return redirect(after(paths, delivery.id, 'failed', true))
     }
 
-    return redirect(onProblem(outcome.problem, outcome.message))
+    return redirect(onProblem(paths, delivery.id, outcome.problem, outcome.message))
   }
 
   return (
@@ -390,4 +373,61 @@ export function DeliveryScreen({
       </Stack>
     </>
   )
+}
+
+/**
+ * Where the rider goes after a move lands.
+ *
+ * A COMPLETED DELIVERY GOES BACK TO THE LIST, because it has left the list — the rider
+ * endpoint serves only `assigned`, `picked_up` and `en_route`, so staying here would
+ * leave them looking at a screen with no next action and a status that will never
+ * change again. An intermediate move stays put, because the address and the telephone
+ * number are still the two things they need.
+ *
+ * MODULE SCOPE, TAKING `paths` AND THE ID RATHER THAN CAPTURING THEM. See the note where
+ * this used to be declared, inside `DeliveryScreen`: a helper declared in the component is a
+ * captured variable of the server actions that call it, a captured variable is serialised
+ * into the action's bound arguments, and a function cannot be serialised. A module-level
+ * function is resolved by the compiled action on the server and never travels with it.
+ */
+function after(
+  paths: DeliveryPaths,
+  deliveryId: string,
+  target: DeliveryStatus,
+  repeat: boolean,
+): string {
+  const flags = { ...(repeat ? { already: '1' } : {}) }
+
+  if (target === 'delivered' || target === 'failed') {
+    return href(paths.assignments, { done: target, ...flags })
+  }
+
+  return deliveryHref(paths, deliveryId, { done: target, ...flags })
+}
+
+/** Where the rider goes when a move does not land. Module scope for the same reason as `after`. */
+function onProblem(
+  paths: DeliveryPaths,
+  deliveryId: string,
+  kind: StatusProblem,
+  detail: string | null,
+): string {
+  /*
+   * A REFUSAL GOES BACK TO THE LIST, and this is the one case that must not stay here.
+   * 403 and 404 collapse to the same answer on purpose — the delivery is not this
+   * rider's, and whether it belongs to a colleague or to another clinic entirely is
+   * exactly the difference we decline to disclose. Sending them to a list that is true
+   * says everything a rider needs and nothing more.
+   */
+  if (kind === 'refused') {
+    return href(paths.assignments, { problem: kind })
+  }
+
+  return deliveryHref(paths, deliveryId, {
+    problem: kind,
+    ...(detail ? { message: detail } : {}),
+    // A rejected reason reopens the chooser rather than dropping the rider back to a
+    // screen with no obvious way to try again.
+    ...(kind === 'invalid' ? { report: '1' } : {}),
+  })
 }

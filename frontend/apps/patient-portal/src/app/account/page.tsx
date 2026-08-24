@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { getTranslations } from 'next-intl/server'
 import { clinicMetadata } from '@/lib/metadata'
-import { Icon, Notice, type IconName } from '@carevelo/ui'
+import { Icon, type IconName } from '@carevelo/ui'
 import { resolveTenant } from '@/lib/tenant'
 import { currentUser } from '@/lib/session'
 import { signOut } from '@/domains/identity'
@@ -25,19 +25,37 @@ import { SitePageHeader } from '@/components/SitePageHeader'
  * ---------------------------------------------------------------------------------------
  * THIS PAGE USED TO SAY THE FEATURES WERE BEING BUILT. THEY ARE BUILT, SO IT LINKS TO THEM.
  *
- * What it still does NOT do is show a plausible card for something that cannot work. Two
- * whole journeys — paying for a dispensed order, choosing collection or delivery, and
- * tracking a delivery — have no entry point in this portal at all, because the API has no
- * patient-callable listing behind one: `DispenseOrderController::index()` and
- * `DeliveryController::index()` both authorise `viewAny`, which is clinic staff only, and
- * neither uses `AuthorisesPatientReads` (although `viewOwn` exists on both policies,
- * unused). A patient can open an order or a delivery they hold the identifier for and
- * cannot discover that identifier from anywhere they are allowed to look.
+ * AND TWO CARDS THAT WERE DELIBERATELY WITHHELD ARE NOW HERE. The reasoning that withheld
+ * them is kept below rather than deleted, because it was right when it was written and
+ * because the thing that changed is a fact about the API rather than a change of mind about
+ * the design. What it said:
  *
- * A "Your deliveries" card that opened onto a permanent empty state would be worse than
- * none: it would tell a patient that their delivery is not there, when what is true is that
- * this portal cannot ask. So the page says, in the patient's own language, that those pages
- * open from a link the clinic sends and that the message is worth keeping.
+ *   > Two whole journeys — paying for a dispensed order, choosing collection or delivery,
+ *   > and tracking a delivery — have no entry point in this portal at all, because the API
+ *   > has no patient-callable listing behind one: `DispenseOrderController::index()` and
+ *   > `DeliveryController::index()` both authorise `viewAny`, which is clinic staff only,
+ *   > and neither uses `AuthorisesPatientReads` (although `viewOwn` exists on both
+ *   > policies, unused). [...] A "Your deliveries" card that opened onto a permanent empty
+ *   > state would be worse than none: it would tell a patient that their delivery is not
+ *   > there, when what is true is that this portal cannot ask.
+ *
+ * THAT IS NO LONGER TRUE. Both controllers now branch on `AuthorisesPatientReads`, which
+ * authorises and narrows in a single call — a patient's listing returns only rows reaching
+ * their own patient records — and the delivery branch renders `PatientDeliveryResource`,
+ * the TRACKING projection: milestones, not the street address and not `failure_reason`,
+ * which are the dispatcher's to see. So the cards below open onto real lists, and the test
+ * the old note set has been met rather than waived: an empty list on either of them now
+ * means the patient genuinely has none, which is a fact and not a limitation of the portal.
+ *
+ * WHAT SURVIVES FROM THAT REASONING, AND SHOULD KEEP SURVIVING: a card here is a promise
+ * that the page behind it can answer. The rule was never "no cards for unbuilt things" —
+ * it was that a plausible card for something that cannot work costs a patient more than a
+ * missing one, because they stop looking. Anything added to this list later should have to
+ * pass the same test.
+ *
+ * The `<Notice>` that used to sit under these cards — "Opened from a link {clinic} sends
+ * you" — went with the gap it described. Keeping it would tell a patient to hold on to a
+ * message they no longer need, and point them away from the two cards immediately above it.
  * ---------------------------------------------------------------------------------------
  *
  * THE HEADINGS AND CARD COPY LIVE IN THE `Routes` NAMESPACE, which is the route layer's own
@@ -67,8 +85,14 @@ export default async function AccountPage() {
   const phone = tenant.contact?.phone
 
   /*
-   * The four places a patient can actually get to from here, in the order the journey
-   * happens: see what is offered, book it, keep track of it, read what was prescribed.
+   * The six places a patient can actually get to from here, in the order the journey
+   * happens: see what is offered, book it, keep track of it, read what was prescribed,
+   * settle up with the pharmacy and say how you want your medicines, then watch them come.
+   *
+   * THE ORDER IS THE JOURNEY AND NOT AN ALPHABET. A patient arriving at this hub is
+   * somewhere along that line, and the card they want is the one after the thing that just
+   * happened to them — a prescription is followed by an order, an order by a delivery. The
+   * two new cards go at the END for that reason, not because they are new.
    *
    * THE CATALOGUE KEYS ARE WRITTEN OUT, NOT BUILT FROM A TEMPLATE LITERAL. `routes(\`hub.${key}.title\`)`
    * would compile — next-intl's generated key union does not survive interpolation — and
@@ -104,6 +128,28 @@ export default async function AccountPage() {
       title: routes('hub.prescriptions.title'),
       body: routes('hub.prescriptions.body'),
       action: routes('hub.prescriptions.action'),
+    },
+    {
+      /*
+       * `box` rather than `coins`, although this is the card behind which money is owed.
+       * The order is the thing; paying for it is one of its states, and a purse icon on a
+       * hub card would say "this is where you spend" to a patient who may simply be
+       * checking whether their medicines are ready. The amount is on the list itself,
+       * against the row it belongs to, where it can be true or false about one order
+       * rather than about a whole card.
+       */
+      href: '/orders',
+      icon: 'box',
+      title: routes('hub.orders.title'),
+      body: routes('hub.orders.body', { clinic }),
+      action: routes('hub.orders.action'),
+    },
+    {
+      href: '/deliveries',
+      icon: 'truck',
+      title: routes('hub.deliveries.title'),
+      body: routes('hub.deliveries.body', { clinic }),
+      action: routes('hub.deliveries.action'),
     },
   ]
 
@@ -205,23 +251,6 @@ export default async function AccountPage() {
             </Link>
           ))}
         </div>
-
-        {/* Not a card, because it is not somewhere to go. Stated plainly instead, where a
-            patient looking for their delivery will read it.
-
-            A `<Notice>` NOW, AND THAT IS A REAL FIX RATHER THAN A SWEEP. This was a
-            hand-written `.notice notice-info` holding a `<strong>` and a `<p>`. `.notice`
-            is `display: flex` in ROW direction, so those two sat SIDE BY SIDE as two
-            columns, and the 6px `marginTop` on the paragraph was doing nothing but
-            stopping the second column resting on the first one's baseline. Nobody writing
-            a heading and a sentence means them to be two columns. `<Notice title={…}>`
-            puts both in a `.stack grow` — heading above sentence, 6px between them, the
-            same 6px by a mechanism that says what it is — which is what this markup meant
-            all along. Checked at 390px, where the two-column version had the heading and
-            the sentence sharing a 150px column each. */}
-        <Notice tone="info" title={routes('hub.byLinkHeading', { clinic })}>
-          {routes('hub.byLinkBody', { clinic })}
-        </Notice>
 
         {/* Two whole sentences rather than one with a fragment glued on where the phone
             number goes. A translator handed "on {phone}" in isolation has no way to know

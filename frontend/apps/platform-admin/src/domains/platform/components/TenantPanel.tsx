@@ -52,6 +52,40 @@ import { StatusBadge } from './StatusBadge'
  * platform audit trail records the act; that a suspension is commercial rather than
  * clinical is the product's rule and not a per-suspension judgement.
  */
+/**
+ * Everything the two writes below need in order to know where to send the operator back to.
+ *
+ * FOUR STRINGS AND NOTHING CALLABLE, which is the whole reason it exists as a type rather
+ * than as the closure it replaced. It is the one value both inline server actions capture for
+ * their redirects, and a captured value has to survive Next's serialisation of an action's
+ * bound arguments — see the note beside `returnTo` in `TenantPanel`.
+ */
+type PanelReturn = {
+  /** Where the register is mounted. `?tenant=` is what re-opens this panel on it. */
+  registerPath: string
+  status: string | undefined
+  cursor: string | undefined
+  tenantId: string
+}
+
+/**
+ * Back to this exact panel, with whatever the write had to say about itself.
+ *
+ * MODULE SCOPE ON PURPOSE. A helper declared inside the component is a captured variable of
+ * the actions that call it, and a function cannot be serialised into an action's bound
+ * arguments; a module-level function is resolved by the compiled action on the server and is
+ * never bound to it at all.
+ */
+function panelHref(to: PanelReturn, problem?: string, message?: string | null): string {
+  return href(to.registerPath, {
+    status: to.status,
+    cursor: to.cursor,
+    tenant: to.tenantId,
+    problem,
+    message: message ?? undefined,
+  })
+}
+
 export type TenantPanelProps = {
   tenant: Tenant
   can: Capabilities
@@ -64,15 +98,34 @@ export type TenantPanelProps = {
 export function TenantPanel({ tenant, can, paths, status, cursor }: TenantPanelProps) {
   const current = knownStatus(tenant.status)
 
-  /** Back to this exact panel, with whatever the write had to say about itself. */
-  const back = (problem?: string, message?: string | null) =>
-    href(paths.register, {
-      status,
-      cursor,
-      tenant: tenant.id,
-      problem,
-      message: message ?? undefined,
-    })
+  /*
+   * BACK TO THIS EXACT PANEL, AS PLAIN DATA RATHER THAN AS A CLOSURE.
+   *
+   * A `back()` arrow function used to be built on this line and it could not work. An inline
+   * `'use server'` function is compiled into a server reference whose bound arguments are
+   * every variable it captures from this component, and Next SERIALISES (encrypts) those
+   * arguments when the closure is created. A function is not serialisable, so capturing
+   * `back` threw
+   *
+   *     Functions cannot be passed directly to Client Components unless you explicitly
+   *     expose it by marking it with "use server". [function back]
+   *
+   * out of every render of the register, and left both writes below — suspending a clinic,
+   * changing its trial — wired to actions whose bound arguments had failed to encrypt. The
+   * identical fault in the clinic console took a receptionist's booking form into the error
+   * boundary mid-call, which is how the class of defect was found; nothing on this screen
+   * looks any different, which is why it was still here.
+   *
+   * `paths` is safe to capture — `PlatformPaths` is five strings — but it is reduced to the
+   * one path these actions actually redirect to anyway, so that the day a path becomes a
+   * function the way the console's `room(id)` did, this screen does not quietly break too.
+   */
+  const returnTo: PanelReturn = {
+    registerPath: paths.register,
+    status,
+    cursor,
+    tenantId: tenant.id,
+  }
 
   async function changeLifecycle(formData: FormData) {
     'use server'
@@ -88,16 +141,16 @@ export function TenantPanel({ tenant, can, paths, status, cursor }: TenantPanelP
     const chosen = String(formData.get('status') ?? '')
 
     if (!STATUSES.includes(chosen as TenantStatus)) {
-      return redirect(back('incomplete'))
+      return redirect(panelHref(returnTo, 'incomplete'))
     }
 
     const outcome = await updateTenant(tenant.id, { status: chosen as TenantStatus })
 
     if (outcome.kind === 'problem') {
-      return redirect(back(outcome.problem, outcome.message))
+      return redirect(panelHref(returnTo, outcome.problem, outcome.message))
     }
 
-    return redirect(back())
+    return redirect(panelHref(returnTo))
   }
 
   async function changeTrial(formData: FormData) {
@@ -109,16 +162,16 @@ export function TenantPanel({ tenant, can, paths, status, cursor }: TenantPanelP
     // sending. `null` means "clear it", which is a real change and must not be filtered out
     // by a truthiness test — the reason trialEndsAt returns three values rather than two.
     if (value === undefined) {
-      return redirect(back('incomplete'))
+      return redirect(panelHref(returnTo, 'incomplete'))
     }
 
     const outcome = await updateTenant(tenant.id, { trial_ends_at: value })
 
     if (outcome.kind === 'problem') {
-      return redirect(back(outcome.problem, outcome.message))
+      return redirect(panelHref(returnTo, outcome.problem, outcome.message))
     }
 
-    return redirect(back())
+    return redirect(panelHref(returnTo))
   }
 
   return (

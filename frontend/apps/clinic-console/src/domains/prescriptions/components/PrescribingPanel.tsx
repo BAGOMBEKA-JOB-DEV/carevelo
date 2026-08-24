@@ -86,19 +86,29 @@ export async function PrescribingPanel({
 
   const block = prescribingBlock(prescriber, outcome)
 
-  const back = (params: Record<string, string | undefined> = {}) => {
-    const search = new URLSearchParams()
-
-    for (const [key, value] of Object.entries(params)) {
-      if (value !== undefined && value !== '') {
-        search.set(key, value)
-      }
-    }
-
-    const query = search.toString()
-
-    return query === '' ? paths.room(appointmentId) : `${paths.room(appointmentId)}?${query}`
-  }
+  /*
+   * WHERE THE TWO ACTIONS BELOW RETURN TO, AS ONE STRING RATHER THAN AS A CLOSURE.
+   *
+   * A `back()` arrow function used to be built here and it could not work. An inline
+   * `'use server'` function is compiled into a server reference whose bound arguments are
+   * every variable it captures from this component, and Next SERIALISES (encrypts) those
+   * arguments when the closure is created. A function is not serialisable, so capturing
+   * `back` threw
+   *
+   *     Functions cannot be passed directly to Client Components unless you explicitly
+   *     expose it by marking it with "use server". [function back]
+   *
+   * out of the render, and left both forms below wired to actions whose bound arguments had
+   * failed to encrypt — a cancel control and a document control that look right and do
+   * nothing. The same fault on the schedule took the whole booking form into the error
+   * boundary; the schedule and the consultation room carry the identical note.
+   *
+   * `paths` cannot be captured either: `PrescribingPaths` carries `room(appointmentId)`, and
+   * an object with a function in it is exactly as unserialisable as the function. Calling it
+   * once HERE, while we are still in ordinary render code, reduces the whole thing to the
+   * string it was always going to become.
+   */
+  const roomPath = paths.room(appointmentId)
 
   async function cancel(formData: FormData) {
     'use server'
@@ -107,16 +117,18 @@ export async function PrescribingPanel({
     const reason = String(formData.get('reason') ?? '').trim()
 
     if (id === '' || reason.length < 3) {
-      return redirect(back({ problem: 'incomplete' }))
+      return redirect(roomHref(roomPath, { problem: 'incomplete' }))
     }
 
     const outcomeOfCancel = await cancelPrescription(id, reason)
 
     if (outcomeOfCancel.kind === 'problem') {
-      return redirect(back({ problem: 'cancel', message: outcomeOfCancel.message ?? undefined }))
+      return redirect(
+        roomHref(roomPath, { problem: 'cancel', message: outcomeOfCancel.message ?? undefined }),
+      )
     }
 
-    return redirect(back())
+    return redirect(roomHref(roomPath))
   }
 
   /**
@@ -133,7 +145,7 @@ export async function PrescribingPanel({
     const id = String(formData.get('prescription_id') ?? '').trim()
 
     if (id === '') {
-      return redirect(back({ problem: 'incomplete' }))
+      return redirect(roomHref(roomPath, { problem: 'incomplete' }))
     }
 
     const link = await documentLink(id)
@@ -143,7 +155,7 @@ export async function PrescribingPanel({
     }
 
     return redirect(
-      back({
+      roomHref(roomPath, {
         problem: 'document',
         message:
           link.kind === 'rendering'
@@ -199,6 +211,34 @@ export async function PrescribingPanel({
       </Stack>
     </Card>
   )
+}
+
+/**
+ * The consultation room this panel lives in, with whatever the last write had to say.
+ *
+ * MODULE SCOPE, WHICH IS THE ONLY THING THAT DISTINGUISHES IT FROM THE `back()` IT REPLACED.
+ * A helper declared inside the component becomes a captured variable of every inline server
+ * action that calls it, and a captured variable is serialised into the action's bound
+ * arguments — see the long note beside `roomPath` in `PrescribingPanel`. A module-level
+ * function is resolved by the compiled action on the server and is never bound to it.
+ *
+ * Duplicated, near enough, in the consultations domain's own `ConsultationRoom`. That is the
+ * boundary working as intended rather than a missed abstraction: a domain may not reach into
+ * another domain's internals, and eight lines of `URLSearchParams` is a cheaper price than
+ * two domains sharing a module.
+ */
+function roomHref(roomPath: string, params: Record<string, string | undefined> = {}): string {
+  const search = new URLSearchParams()
+
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== '') {
+      search.set(key, value)
+    }
+  }
+
+  const query = search.toString()
+
+  return query === '' ? roomPath : `${roomPath}?${query}`
 }
 
 /** Why there is no form, and who can change it. Never a disabled control — see the header. */

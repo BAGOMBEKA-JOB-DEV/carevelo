@@ -24,6 +24,7 @@ use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\PatientAccountController;
 use App\Http\Controllers\Api\V1\PatientController;
 use App\Http\Controllers\Api\V1\PaymentIntentController;
+use App\Http\Controllers\Api\V1\Platform\PlatformAuditEventController;
 use App\Http\Controllers\Api\V1\Platform\PlatformAuthController;
 use App\Http\Controllers\Api\V1\Platform\TotpEnrolmentController;
 use App\Http\Controllers\Api\V1\PrescriptionController;
@@ -415,6 +416,34 @@ Route::prefix('v1/platform')->name('api.v1.platform.')
         // Time-boxed, reason-recorded, TENANT-NOTIFIED, audited.
         Route::post('break-glass', [BreakGlassController::class, 'store'])->name('break-glass.store');
         Route::get('break-glass', [BreakGlassController::class, 'index'])->name('break-glass.index');
+
+        /*
+         * ---- The evidence layer, read back ----
+         *
+         * Every control on this surface ends "and it is audited", and until this route
+         * existed nothing could read any of it: platform events carry a null tenant_id,
+         * `GET /v1/audit-events` is tenant-scoped by row-level security, and the isolation
+         * policy on audit_events is disjoint in both directions. The break-glass grants
+         * written two lines above, the tenant provisioning above that, the TOTP enrolments
+         * and the platform sign-ins were all being written into a trail with no reader.
+         *
+         * GET only, and there is no route to a second method. No API writes an audit event
+         * and nothing updates or deletes one -- the application role is denied UPDATE and
+         * DELETE by grant.
+         *
+         * BEHIND RequireSecondFactor WITH THE REST OF THE GROUP, and pointedly not exempted.
+         * This is the widest read surface in the product: one request reads across the
+         * platform trail, and a named clinic's trail with it. If any route in this file
+         * should not be the one that skips the gate, it is this one.
+         *
+         * A clinic's events come back as METADATA ONLY -- see PlatformAuditEventResource,
+         * which withholds the payload, the record identifier and the staff member's address
+         * and argues each one. That is what makes this endpoint different in kind from the
+         * tenant route it superficially resembles, rather than the same query with the
+         * scope taken off.
+         */
+        Route::get('audit-events', [PlatformAuditEventController::class, 'index'])
+            ->name('audit-events.index');
     });
 
 /*

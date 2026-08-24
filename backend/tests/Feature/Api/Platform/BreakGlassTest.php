@@ -32,6 +32,22 @@ use Illuminate\Support\Facades\Date;
 
 beforeEach(function () {
     $this->seed(RoleSeeder::class);
+
+    /*
+     * THE Referer IS LOAD-BEARING AND LOOKS LIKE NOISE. Sanctum starts a session
+     * only for a request whose Origin or Referer host is in `config/sanctum.php`'s
+     * stateful list -- a browser always sends one and Laravel's test client never
+     * does. Without it `EnsureFrontendRequestsAreStateful` skips StartSession, so
+     * `$request->hasSession()` is false, `RequireSecondFactor` can find no verified
+     * stamp however it was placed, and every call here answers 403.
+     *
+     * These tests predate the second factor entirely, which is why the header was
+     * never needed before. @see tests/Feature/Platform/TotpEnrolmentTest.php
+     */
+    $this->withHeader('Referer', sprintf(
+        'http://%s/',
+        parse_url((string) config('app.url'), PHP_URL_HOST),
+    ));
 });
 
 function breakGlassUrl(string $path = '/api/v1/platform/break-glass'): string
@@ -74,7 +90,7 @@ function tenantAuditActions(Tenant $tenant): array
 it('records a reason, a scope, a time box and the tenant notification', function () {
     $tenant = Tenant::factory()->create();
 
-    $response = $this->actingAs(platformOperator())
+    $response = $this->actingAsOperator(platformOperator())
         ->postJson(breakGlassUrl(), grantRequest($tenant))
         ->assertCreated();
 
@@ -97,7 +113,7 @@ it('writes the notification into the clinic\'s own audit trail', function () {
     // trail the clinic's administrator already reads.
     $tenant = Tenant::factory()->create();
 
-    $this->actingAs(platformOperator())
+    $this->actingAsOperator(platformOperator())
         ->postJson(breakGlassUrl(), grantRequest($tenant))
         ->assertCreated();
 
@@ -110,7 +126,7 @@ it('rejects a grant with no reason', function () {
     $payload = grantRequest($tenant);
     unset($payload['reason']);
 
-    $this->actingAs(platformOperator())
+    $this->actingAsOperator(platformOperator())
         ->postJson(breakGlassUrl(), $payload)
         ->assertStatus(422)
         ->assertJsonPath('code', 'validation_failed')
@@ -122,7 +138,7 @@ it('rejects a grant with no reason', function () {
 it('rejects a reason too thin for a reviewer to act on', function () {
     $tenant = Tenant::factory()->create();
 
-    $this->actingAs(platformOperator())
+    $this->actingAsOperator(platformOperator())
         ->postJson(breakGlassUrl(), [...grantRequest($tenant), 'reason' => 'debug'])
         ->assertStatus(422)
         ->assertJsonValidationErrors('reason');
@@ -134,7 +150,7 @@ it('rejects a grant with no scope', function () {
     $payload = grantRequest($tenant);
     unset($payload['scope']);
 
-    $this->actingAs(platformOperator())
+    $this->actingAsOperator(platformOperator())
         ->postJson(breakGlassUrl(), $payload)
         ->assertStatus(422)
         ->assertJsonValidationErrors('scope');
@@ -143,7 +159,7 @@ it('rejects a grant with no scope', function () {
 it('rejects a scope outside the closed list', function () {
     $tenant = Tenant::factory()->create();
 
-    $this->actingAs(platformOperator())
+    $this->actingAsOperator(platformOperator())
         ->postJson(breakGlassUrl(), [...grantRequest($tenant), 'scope' => 'everything'])
         ->assertStatus(422)
         ->assertJsonValidationErrors('scope');
@@ -155,7 +171,7 @@ it('rejects a grant with no time box', function () {
     $payload = grantRequest($tenant);
     unset($payload['expires_at']);
 
-    $this->actingAs(platformOperator())
+    $this->actingAsOperator(platformOperator())
         ->postJson(breakGlassUrl(), $payload)
         ->assertStatus(422)
         ->assertJsonValidationErrors('expires_at');
@@ -166,7 +182,7 @@ it('rejects a time box longer than the maximum', function () {
     // issues a second grant, which is notified and audited again.
     $tenant = Tenant::factory()->create();
 
-    $this->actingAs(platformOperator())
+    $this->actingAsOperator(platformOperator())
         ->postJson(breakGlassUrl(), [
             ...grantRequest($tenant),
             'expires_at' => Date::now()->addHours(BreakGlassGrant::MAX_DURATION_HOURS + 1)->toIso8601String(),
@@ -178,7 +194,7 @@ it('rejects a time box longer than the maximum', function () {
 it('rejects a time box that has already elapsed', function () {
     $tenant = Tenant::factory()->create();
 
-    $this->actingAs(platformOperator())
+    $this->actingAsOperator(platformOperator())
         ->postJson(breakGlassUrl(), [
             ...grantRequest($tenant),
             'expires_at' => Date::now()->subHour()->toIso8601String(),
@@ -411,7 +427,7 @@ it('keeps the time box intact across a database round trip', function () {
     // already expired, or could as easily have become a longer one.
     $tenant = Tenant::factory()->create();
 
-    $response = $this->actingAs(platformOperator())
+    $response = $this->actingAsOperator(platformOperator())
         ->postJson(breakGlassUrl(), [
             ...grantRequest($tenant),
             'expires_at' => Date::now()->addHours(2)->toIso8601String(),
@@ -431,7 +447,7 @@ it('lists the grant register for a platform reviewer', function () {
     $tenant = Tenant::factory()->create();
     $grant = BreakGlassGrant::factory()->create(['tenant_id' => $tenant->id]);
 
-    $response = $this->actingAs(platformOperator(ClinicalRole::PlatformAdmin))
+    $response = $this->actingAsOperator(platformOperator(ClinicalRole::PlatformAdmin))
         ->getJson(breakGlassUrl())
         ->assertOk();
 

@@ -36,8 +36,28 @@ class ConsentController extends Controller
      *
      * The version is half of the evidence; the text hash is the other half and
      * catches the change someone forgot to version.
+     *
+     * BUMPED FROM 2026-08-01 WHEN THE LUGANDA RENDERING WAS WITHDRAWN, and the
+     * bump is the whole reason that removal is safe rather than destructive.
+     * The hash below is taken over the entire document -- every language it is
+     * published in, concatenated -- so dropping a language changes the hash of
+     * a policy whose version string had not moved. Every ConsentRecord already
+     * written against 2026-08-01 pins the two-language hash. Had the version
+     * stayed put, re-deriving the hash for 2026-08-01 from this file would
+     * produce a DIFFERENT value from the one stored beside those patients'
+     * decisions, and a version-and-hash pair that disagrees is exactly the
+     * signal this design uses to mean "somebody edited the wording behind a
+     * record" -- we would have manufactured, at scale, the tampering evidence
+     * the pair exists to detect.
+     *
+     * With the version moved, those records are simply records against a
+     * superseded version: their text is resolved from version control, which
+     * is already the only place any superseded wording has ever lived, since
+     * POLICY_TEXT only ever holds the current one. That is an ordinary
+     * supersession rather than a contradiction, and it is why removing a
+     * language is a version bump and not a quiet deletion.
      */
-    public const POLICY_VERSION = '2026-08-01';
+    public const POLICY_VERSION = '2026-08-24';
 
     /**
      * Separate consents, captured separately. Never an array on the wire.
@@ -52,16 +72,30 @@ class ConsentController extends Controller
     public const CONSENT_TYPES = ['data_processing', 'telemedicine', 'delivery_disclosure'];
 
     /**
-     * The full policy, in the clinic's own voice, in both languages.
+     * The full policy, in the clinic's own voice, in every language it is published in.
      *
      * On screen rather than behind a link: a link nobody opens is not
      * information anybody received. `{clinic}` is the only interpolation, and
      * the hash is taken over the RENDERED text, so what we pin is what the
      * patient actually read.
      *
-     * The Luganda rendering below is a working translation and must be reviewed
-     * by a native speaker before this policy version ships to patients. Consent
-     * obtained from wording the patient did not understand is not consent.
+     * ONE LANGUAGE TODAY, AND STILL A MAP. The Luganda rendering that used to
+     * sit beside the English one has been withdrawn. It was a working
+     * translation awaiting a native-speaker review that is not coming, and the
+     * portal around it had reached roughly 7% translated -- 186 of 201 keys
+     * were the English string wearing a Luganda label. That is worse than
+     * plain English, and on this document it is worse in a way that matters
+     * legally: consent obtained from wording a patient did not understand is
+     * not consent, and wording that ANNOUNCES itself as the patient's language
+     * while being someone else's invites exactly that. Withdrawing it is the
+     * honest position until a real translation exists.
+     *
+     * The shape stays a map keyed by language code rather than collapsing to a
+     * bare string, for the same reason the portal kept its i18n plumbing: a
+     * second language should be a new entry here and a regenerated client, not
+     * a change to the response contract, the hash rule and every consumer at
+     * once. Clients read the key rather than assuming `en` -- see the note on
+     * currentPolicy() -- so nothing here needs to know which language it is.
      *
      * @var array<string, string>
      */
@@ -120,60 +154,6 @@ class ConsentController extends Controller
         Nothing on this screen is ticked for you, and nothing is agreed by simply
         continuing.
         TEXT,
-
-        'lg' => <<<'TEXT'
-        Engeri {clinic} gy'ekozesaamu amawulire go ag'obulamu
-
-        BYE TUKUNG'AANYA
-        Erinnya lyo, essimu yo n'ebirala by'otuwa ebiyamba okukutuukirira, awamu
-        n'amawulire ag'obulamu agava mu bujjanjabi bwo wano: by'obuulira omusawo,
-        by'awandiika, eddagala ly'akuwandiikira, n'eddagala eddwaliro lye likuwa.
-
-        AMAWULIRE AG'OBULAMU GA NJAWULO
-        Okusinziira ku tteeka lya Uganda ery'Okukuuma Amawulire n'Eby'ekyama erya
-        2019, amawulire ag'obulamu ga kika kya njawulo. Gakuumibwa n'obwegendereza
-        obusingako, era buli lwe waba omukozi aggulawo ekiwandiiko kyo, okwo
-        kuwandiikibwa.
-
-        ANI AVUNAANYIZIBWA
-        {clinic} y'evunaanyizibwa ku mawulire go era y'esalawo engeri gye
-        gakozesebwamu. Carevelo ekola era n'eddukanya puloguramu ku biragiro
-        by'eddwaliro, era tewali kirala ky'ekola n'amawulire go.
-
-        LWAKI TUGAKOZESA
-        Okukuwa n'okuddukanya obujjanjabi bwo. Tewali kirala. Tetugatunda,
-        tetugakozesa mu kulanga bya bizinensi, era tetukozesa biwandiiko
-        ebikulaga mu kunoonyereza oba mu kwekenneenya.
-
-        ANI AGALABA
-        Abasawo n'abakozi b'eddagala aba {clinic} abali mu kukujjanjaba. Bw'osalawo
-        okutwalirwa eddagala, oyo alitwala aweebwa erinnya lyo, essimu yo,
-        endagiriro n'ennamba y'akapaki - naye tafuna bulwadde bwo era tafuna
-        lukalala lwa ddagala lyo.
-
-        TUGAKUUMA BBANGA KI
-        Ekiwandiiko kyo eky'obujjanjabi kikuumibwa okumala ebbanga etteeka lye
-        ligamba {clinic} okukikuuma. Ebikwata ku kutuukirira eby'okwewandiisa
-        okutamalirizibwa bisangulwa mu nnaku 30.
-
-        EDDEMBE LYO
-        Osobola okusaba okulaba ekiwandiiko kyo, okusaba kiddaabirizibwe, era
-        n'okujjulula okukkiriza kwo mu kiseera kyonna. Okujjulula kuziyiza
-        okukozesa okuggya okw'amawulire go. Tekitegeeza nti buli kimu kisangulwa -
-        {clinic} eyinza okuba n'obuvunaanyizibwa obw'amateeka okukuuma ekiwandiiko
-        kyo - era tujja kukubuulira mu bwesimbu ki ekisoboka okuggyibwawo n'ekitasoboka.
-
-        BY'OKKIRIZA
-        Tubuuza buli kimu kyokka, era osobola okukkiriza ekimu n'otakkiriza ekirala:
-        - Okukozesa amawulire: okukozesa amawulire go okukuwa obujjanjabi. Nga
-          kuno tekuliiwo, tewali kisoboka kugenda mu maaso.
-        - Okwebuuza ku musawo ng'oli walala: okwogera n'omusawo mu vidiyo oba ku ssimu.
-        - Okumanyisa oyo atwala eddagala: okumuwa endagiriro yo n'essimu yo. Kino
-          tukibuuza bwe kiba nti weerondedde okutwalirwa eddagala awaka.
-
-        Tewali kabokisi akakuloboleddwa dda ku lupapula luno, era tewali kikkirizibwa
-        lwa kugenda mu maaso kwokka.
-        TEXT,
     ];
 
     public function __construct(protected AuditLog $audit) {}
@@ -193,9 +173,11 @@ class ConsentController extends Controller
      * this response from the runtime shape, and PHP cannot distinguish a map from a list, so
      * two fields come out wrong in openapi.yaml and therefore in the typed client:
      *
-     *   - `text` publishes as an untyped array. It is a MAP keyed by language code
-     *     (`en`, `lg`), which is why the consent screen cannot ask for a language by key and
-     *     narrows it by hand instead.
+     *   - `text` publishes as an untyped array. It is a MAP keyed by language code (`en`
+     *     alone today, and the key is not promised to stay that), which is why the consent
+     *     screen cannot ask for a language by key and reads the key it finds instead. A
+     *     client that hard-coded `en` would break on the day a second language arrives, which
+     *     is the day this shape exists for.
      *   - `version` publishes as the literal current value, because the constant is visible
      *     and looks like a fixed part of the contract. It is the opposite — it is designed to
      *     change, and a client that pinned it would break on the first policy revision.
@@ -215,7 +197,8 @@ class ConsentController extends Controller
                 'version' => self::POLICY_VERSION,
                 'text_hash' => $this->policyTextHash($text),
                 'consent_types' => self::CONSENT_TYPES,
-                // Both languages together, because both are shown together.
+                // Every language the policy is published in, together, because a
+                // patient is shown all of them on the one screen. One entry today.
                 'text' => $text,
             ],
         ]);
@@ -493,9 +476,17 @@ class ConsentController extends Controller
     /**
      * A hash of the exact text shown, version included.
      *
-     * Over the WHOLE document, both languages, because both appear on the same
-     * screen. Changing either one changes the hash, which is what catches a
-     * wording edit that nobody remembered to version.
+     * Over the WHOLE document -- every language it is published in, sorted and
+     * joined -- because every one of them appears on the same screen. Changing
+     * any of them changes the hash, which is what catches a wording edit that
+     * nobody remembered to version.
+     *
+     * ADDING OR REMOVING A LANGUAGE IS A WORDING CHANGE BY THIS RULE, and the
+     * strongest one there is, so it takes a POLICY_VERSION bump like any other.
+     * Withdrawing Luganda did exactly that -- see the constant. Leaving the
+     * version untouched would have re-pointed a version string at a different
+     * hash, which is indistinguishable from the wording behind a stored consent
+     * having been quietly rewritten.
      *
      * @param  array<string, string>  $text
      */

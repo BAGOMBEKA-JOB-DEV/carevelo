@@ -61,16 +61,42 @@ export function proxy(request: NextRequest): NextResponse {
     "default-src 'self'",
 
     /*
-     * 'strict-dynamic' is what makes this a real control rather than a host allow-list:
-     * it discards 'self' and any host expression in favour of "only what an already
-     * trusted script loaded". Note the consequence for anything added later — under
-     * strict-dynamic a <script> of our own is no longer trusted merely for being
-     * same-origin, so it has to be handed this nonce explicitly, the way the portal's
-     * root layout hands it to /theme-init.js. Nothing on this surface does that today.
-     * 'self' stays for browsers that do not implement strict-dynamic and would otherwise
-     * fall back to nothing.
+     * 'strict-dynamic' WAS HERE AND HAD TO COME OUT. It was breaking the product, and it
+     * did so in the exact silent way this file's own history warns about.
+     *
+     * What it does is discard 'self' and every host expression, leaving "only what an
+     * already-trusted script loaded" plus anything carrying the nonce. That is a stronger
+     * policy on paper. In an App Router app it is also incompatible with a PER-REQUEST
+     * nonce, and the incompatibility only shows up once you drive the thing:
+     *
+     *   Next prefetches the routes a page links to. Each prefetch is its own request, so
+     *   it is minted its own nonce, and the script tags in its RSC payload carry THAT
+     *   nonce. When the router later inserts one of those tags into the page you are on,
+     *   the document enforcing the policy is a DIFFERENT request with a DIFFERENT nonce.
+     *   With 'strict-dynamic' there is no 'self' left to fall back on, so the browser
+     *   refuses the script outright.
+     *
+     * Measured, not reasoned about: signed into the console and walked every screen with
+     * a browser open. The chunk holding the Icon component was refused on /schedule,
+     * /patients, /pharmacy, /dispatch and /schedule/book -- five of seven -- in the DEV
+     * server and again in a real `next build && next start`, under a different chunk hash.
+     * Removing this one token took all five to zero. Nothing else changed.
+     *
+     * WHAT IS ACTUALLY LOST. Without it, `'self'` authorises same-origin scripts again, so
+     * an injected `<script src="/something-on-our-origin.js">` would run where
+     * strict-dynamic would have refused it. That attack needs attacker-controlled
+     * JavaScript served from this origin, and this surface serves none: the only
+     * tenant-supplied asset is a logo, which the API validates, strips and re-encodes as
+     * an image. The nonce still covers every inline script, which is the part that could
+     * exfiltrate a patient's records.
+     *
+     * WHAT WOULD BE STRICTLY BETTER, and is a real piece of work rather than a token: a
+     * nonce that is stable for the document and every prefetch it triggers. Next has no
+     * hook for that today. A CSP that silently breaks the icons on five screens is not
+     * more secure than one that does not -- it is a control nobody can afford to keep, and
+     * it would have been switched off in a hurry by whoever found it next.
      */
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDev ? " 'unsafe-eval'" : ''}`,
+    `script-src 'self' 'nonce-${nonce}'${isDev ? " 'unsafe-eval'" : ''}`,
 
     /*
      * 'unsafe-inline' HERE AND ONLY HERE, and it is a decision rather than something

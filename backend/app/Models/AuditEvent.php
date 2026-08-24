@@ -18,8 +18,16 @@ use LogicException;
  *
  * @property string $id
  * @property ?string $tenant_id
+ * @property string $actor_type
+ * @property ?string $actor_id
+ * @property ?string $actor_role
  * @property string $action
+ * @property ?string $subject_type
+ * @property ?string $subject_id
  * @property Carbon $occurred_at
+ * @property ?string $ip_address
+ * @property ?string $user_agent
+ * @property ?string $request_id
  * @property ?array<string, mixed> $metadata
  */
 class AuditEvent extends Model

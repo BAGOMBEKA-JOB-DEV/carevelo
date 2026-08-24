@@ -1041,7 +1041,7 @@ paths:
   /v1/consent-policies/current:
     get:
       operationId: v1.consent.policy
-      description: "KNOWN CONTRACT IMPRECISION, recorded rather than papered over. The generator infers\nthis response from the runtime shape, and PHP cannot distinguish a map from a list, so\ntwo fields come out wrong in openapi.yaml and therefore in the typed client:\n\n  - `text` publishes as an untyped array. It is a MAP keyed by language code\n    (`en`, `lg`), which is why the consent screen cannot ask for a language by key and\n    narrows it by hand instead.\n  - `version` publishes as the literal current value, because the constant is visible\n    and looks like a fixed part of the contract. It is the opposite — it is designed to\n    change, and a client that pinned it would break on the first policy revision.\n\nNeither is wrong on the wire; both are wrong in the type. Fixing it properly means\npublishing `text` as a list of `{language, body}` objects, which the generator can\ndescribe exactly — a small breaking change worth making before a second consumer\nexists, and deliberately not made mid-flight while the consent screen was being built\nagainst the current shape."
+      description: "KNOWN CONTRACT IMPRECISION, recorded rather than papered over. The generator infers\nthis response from the runtime shape, and PHP cannot distinguish a map from a list, so\ntwo fields come out wrong in openapi.yaml and therefore in the typed client:\n\n  - `text` publishes as an untyped array. It is a MAP keyed by language code (`en`\n    alone today, and the key is not promised to stay that), which is why the consent\n    screen cannot ask for a language by key and reads the key it finds instead. A\n    client that hard-coded `en` would break on the day a second language arrives, which\n    is the day this shape exists for.\n  - `version` publishes as the literal current value, because the constant is visible\n    and looks like a fixed part of the contract. It is the opposite — it is designed to\n    change, and a client that pinned it would break on the first policy revision.\n\nNeither is wrong on the wire; both are wrong in the type. Fixing it properly means\npublishing `text` as a list of `{language, body}` objects, which the generator can\ndescribe exactly — a small breaking change worth making before a second consumer\nexists, and deliberately not made mid-flight while the consent screen was being built\nagainst the current shape."
       summary: 'The current consent policy, in every language it is published in'
       tags:
         - Consent
@@ -1056,10 +1056,10 @@ paths:
                   data:
                     type: object
                     properties:
-                      version: { type: string, const: '2026-08-01' }
+                      version: { type: string, const: '2026-08-24' }
                       text_hash: { type: string }
                       consent_types: { type: array, prefixItems: [{ type: string, const: data_processing }, { type: string, const: telemedicine }, { type: string, const: delivery_disclosure }], minItems: 3, maxItems: 3, additionalItems: false }
-                      text: { type: array, description: 'Both languages together, because both are shown together.', items: {  } }
+                      text: { type: array, description: "Every language the policy is published in, together, because a\npatient is shown all of them on the one screen. One entry today.", items: {  } }
                     required:
                       - version
                       - text_hash
@@ -1456,7 +1456,8 @@ paths:
   /v1/deliveries:
     get:
       operationId: v1.deliveries.index
-      summary: 'The dispatch board'
+      description: "==================================================================\nWHY THE PATIENT BRANCH EXISTS AT ALL\n==================================================================\n\n`DeliveryPolicy::viewOwn()` has admitted a patient since it was written and\nnothing called it, so a patient could `track` a delivery only if they\nALREADY held its identifier — and nothing they were allowed to call ever\nhanded them one. The whole journey of watching a package therefore had no\nentry point in the portal: it opened from a link the clinic sent, or not at\nall. This is that entry point.\n\n==================================================================\nTHE PROJECTION IS THE DECISION, NOT THE QUERY\n==================================================================\n\n`authoriseListing()` guarantees the patient branch returns only rows that\nreach one of this account's own patient records. What it cannot decide is\nwhat a row SAYS, and `DeliveryResource` — the dispatcher's projection —\ncarries the recipient block, the street address, the landmark, the rider\nand `failure_reason`. Serving that to a patient would quietly widen\n`track` into `view`, which `DeliveryPolicy` splits on purpose.\n\nSo the patient branch renders `PatientDeliveryResource`: the TRACKING\nshape, which is milestones rather than contents, and which that class\nargues field by field. The two projections are two classes rather than one\nclass with a conditional, for the same reason the rider has his own.\n\nWHY THE GATE IS ASKED TWICE. `authoriseListing()` decides authorisation and\nnarrowing together — deliberately, so neither can be had without the other\n— and hands back a builder, not a verdict. The line below asks a DIFFERENT\nquestion of the same gate: not \"may this caller list?\" but \"which of the\n     * two audiences is this?\". Reading a flag off the trait would make the\nprojection look like a by-product of the authorisation; asking plainly\nmakes it a decision somebody wrote down.\n\nCURSOR FOR THE PATIENT, OFFSET STILL FOR THE BOARD, AND THAT ASYMMETRY IS\nTEMPORARY AND DELIBERATE. The house rule is cursor pagination, and the new\nlisting gets it from its first day. The board keeps `paginate()` because\n`meta.total` is what the clinic console reads to warn a pharmacist that a\nlane holds more work than one page can carry, and `cursorPaginate()` does\nnot produce a total. Moving the board is the right change and it is a\nchange to those screens as well as to this line, which this one does not\nown; see `apps/clinic-console/src/domains/delivery/api/deliveries.ts`,\nwhich already says it is sending an offset under protest."
+      summary: "Two listings behind one route: the dispatch board, and the patient's own\ndeliveries"
       tags:
         - Delivery
       parameters:
@@ -1477,54 +1478,39 @@ paths:
             type: integer
             minimum: 1
             maximum: 100
+        -
+          name: cursor
+          in: query
+          description: "Opaque and never parsed here. It is read by cursorPaginate() and\nhanded straight back out again."
+          schema:
+            type: string
       responses:
         200:
-          description: 'Paginated set of `DeliveryResource`'
+          description: "Paginated set of `DeliveryResource`\n\nPaginated set of `PatientDeliveryResource`"
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  data:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/DeliveryResource'
-                  links:
+                anyOf:
+                  -
                     type: object
                     properties:
-                      first: { type: [string, 'null'] }
-                      last: { type: [string, 'null'] }
-                      prev: { type: [string, 'null'] }
-                      next: { type: [string, 'null'] }
+                      data: { type: array, items: { $ref: '#/components/schemas/DeliveryResource' } }
+                      links: { type: object, properties: { first: { type: [string, 'null'] }, last: { type: [string, 'null'] }, prev: { type: [string, 'null'] }, next: { type: [string, 'null'] } }, required: [first, last, prev, next] }
+                      meta: { type: object, properties: { current_page: { type: integer, minimum: 1 }, from: { type: [integer, 'null'], minimum: 1 }, last_page: { type: integer, minimum: 1 }, links: { type: array, description: 'Generated paginator links.', items: { type: object, properties: { url: { type: [string, 'null'] }, label: { type: string }, active: { type: boolean } }, required: [url, label, active] } }, path: { type: [string, 'null'], description: 'Base path for paginator generated URLs.' }, per_page: { type: integer, description: 'Number of items shown per page.', minimum: 0 }, to: { type: [integer, 'null'], description: 'Number of the last item in the slice.', minimum: 1 }, total: { type: integer, description: 'Total number of items being paginated.', minimum: 0 } }, required: [current_page, from, last_page, links, path, per_page, to, total] }
                     required:
-                      - first
-                      - last
-                      - prev
-                      - next
-                  meta:
-                    type: object
-                    properties:
-                      current_page: { type: integer, minimum: 1 }
-                      from: { type: [integer, 'null'], minimum: 1 }
-                      last_page: { type: integer, minimum: 1 }
-                      links: { type: array, description: 'Generated paginator links.', items: { type: object, properties: { url: { type: [string, 'null'] }, label: { type: string }, active: { type: boolean } }, required: [url, label, active] } }
-                      path: { type: [string, 'null'], description: 'Base path for paginator generated URLs.' }
-                      per_page: { type: integer, description: 'Number of items shown per page.', minimum: 0 }
-                      to: { type: [integer, 'null'], description: 'Number of the last item in the slice.', minimum: 1 }
-                      total: { type: integer, description: 'Total number of items being paginated.', minimum: 0 }
-                    required:
-                      - current_page
-                      - from
-                      - last_page
+                      - data
                       - links
-                      - path
-                      - per_page
-                      - to
-                      - total
-                required:
-                  - data
-                  - links
-                  - meta
+                      - meta
+                  -
+                    type: object
+                    properties:
+                      data: { type: array, items: { $ref: '#/components/schemas/PatientDeliveryResource' } }
+                      links: { type: object, properties: { first: { type: [string, 'null'] }, last: { type: [string, 'null'] }, prev: { type: [string, 'null'] }, next: { type: [string, 'null'] } }, required: [first, last, prev, next] }
+                      meta: { type: object, properties: { path: { type: [string, 'null'], description: 'Base path for paginator generated URLs.' }, per_page: { type: integer, description: 'Number of items shown per page.', minimum: 0 }, next_cursor: { type: [string, 'null'], description: 'The "cursor" that points to the next set of items.' }, prev_cursor: { type: [string, 'null'], description: 'The "cursor" that points to the previous set of items.' } }, required: [path, per_page, next_cursor, prev_cursor] }
+                    required:
+                      - data
+                      - links
+                      - meta
         403:
           $ref: '#/components/responses/AuthorizationException'
         401:
@@ -1652,7 +1638,7 @@ paths:
             type: string
       responses:
         200:
-          description: ''
+          description: "BUILT FROM THE LISTING'S PROJECTION PLUS EXACTLY ONE FIELD, and the\none field is the whole difference between the two screens.\n\nThe payload used to be assembled by hand here, which meant the rule\n\"what may a patient read off a delivery\" had two implementations — and\nthe second one, the listing, did not exist yet. Now there is one, in\n`PatientDeliveryResource`, and this endpoint is that shape with\n`failure_reason` added.\n\nWHY THE REASON IS ADDED HERE AND NOT THERE. A list is read at a glance\nand often not by the person it belongs to; \"refused\" against a row is a\nstatement about a household, legible to anyone holding the phone. One\ndelivery, opened deliberately, is a different act — and it is the\nscreen that can put the clinic's telephone number beside the reason so\nit leads somewhere. See the resource's own field-by-field argument."
           content:
             application/json:
               schema:
@@ -1664,18 +1650,18 @@ paths:
                       id: { type: string }
                       reference: { type: string }
                       status: { type: string }
-                      failure_reason: { type: [string, 'null'] }
                       assigned_at: { type: [string, 'null'] }
                       delivered_at: { type: [string, 'null'] }
-                      milestones: { type: array, items: { type: string } }
+                      milestones: { type: array, description: "`array_values()` rather than the collection's own `->values()`, which is\nalready called below and is correct at runtime. PHPStan types\n`Collection::all()` as `array<int, T>` and cannot see that `values()` has\njust resequenced the keys, so the declared `list<>` return would not hold.\nThe native function it does understand, and reaching for it is cheaper than\na suppression -- the shape matters, because a non-list here serialises as a\nJSON object keyed by index rather than an array, and a patient's delivery\nthread would arrive at the portal as `{\"0\":{...}}`.", items: {  } }
+                      failure_reason: { type: [string, 'null'] }
                     required:
                       - id
                       - reference
                       - status
-                      - failure_reason
                       - assigned_at
                       - delivered_at
                       - milestones
+                      - failure_reason
                 required:
                   - data
         403:
@@ -1687,8 +1673,8 @@ paths:
   /v1/dispense-orders:
     get:
       operationId: v1.dispense-orders.index
-      description: "Medicine names are deliberately absent: the prescription relation is not\nloaded, so the queue is references and states. A pharmacist scanning for\nwork does not need the contents, and this list is the most-displayed\nscreen in the pharmacy."
-      summary: 'The pharmacy queue'
+      description: "Medicine names are deliberately absent from BOTH: the prescription\nrelation is not loaded, so the listing is references, states and money. A\npharmacist scanning for work does not need the contents, and this is the\nmost-displayed screen in the pharmacy.\n\n==================================================================\nWHY THE PATIENT BRANCH EXISTS AT ALL\n==================================================================\n\n`DispenseOrderPolicy::viewOwn()` has admitted a patient since it was\nwritten and nothing called it, so a patient could open a dispense order\nonly if they ALREADY held its identifier — and nothing they were allowed to\ncall ever handed them one. Paying for a dispensed order and choosing\ncollection or delivery therefore had no entry point in the portal at all:\nboth opened from a link the clinic sent, or not at all. This is that entry\npoint.\n\n==================================================================\nTHE ONE FIELD THAT CHANGES BETWEEN THE TWO AUDIENCES\n==================================================================\n\n`substitutions` IS LOADED FOR STAFF ONLY, and the reason is that\n`SubstitutionResource` publishes `proposed_medicine_name` — correctly, for\na clinician who cannot decide on a substitution without knowing what is\nbeing proposed. Loading it for a patient would put a medicine name in a\nLIST, on the surface this controller's own docblock says is kept free of\nthem, read on shared handsets and over shoulders. It is not withheld from\nthe patient as a fact: the order's own screen, reached by opening one row\ndeliberately, is behind `view` and carries the whole prescription.\n\nNothing else differs, so there is one resource class rather than two —\n`DispenseOrderResource` already gates the relation behind `whenLoaded()`,\nso the field is ABSENT from a patient's payload rather than blanked, which\nis the distinction the rider resource argues at length.\n\nCURSOR FOR THE PATIENT, OFFSET STILL FOR THE QUEUE. The house rule is\ncursor pagination and the new listing gets it from its first day. The queue\nkeeps `paginate()` because the clinic console reads `meta.total` to warn a\npharmacist that a lane holds more orders than one page can carry, and\n`cursorPaginate()` produces no total; moving it is a change to those\nscreens as well as to this line, and this change does not own them. See\n`apps/clinic-console/src/domains/dispensing/api/queue.ts`, which already\nsays it is sending an offset under protest."
+      summary: "Two listings behind one route: the pharmacy queue, and the patient's own\norders"
       tags:
         - DispenseOrder
       parameters:
@@ -1715,6 +1701,12 @@ paths:
           schema:
             type: integer
             minimum: 1
+        -
+          name: cursor
+          in: query
+          description: "`cursor` and `page` are both accepted because this route serves two\nlistings. A patient's own orders page by CURSOR, which is the house\nrule; the pharmacy queue still pages by offset because the console\nreads `meta.total` off it to warn that a lane has overflowed, and a\ncursor paginator has no total to read. Whichever paginator runs\nignores the other's parameter, so sending both is harmless rather\nthan ambiguous — and `RejectsUnknownFields` means a client cannot\nsend `cursor` at all unless it is declared here."
+          schema:
+            type: string
       responses:
         200:
           description: 'Paginated set of `DispenseOrderResource`'
@@ -1742,23 +1734,15 @@ paths:
                   meta:
                     type: object
                     properties:
-                      current_page: { type: integer, minimum: 1 }
-                      from: { type: [integer, 'null'], minimum: 1 }
-                      last_page: { type: integer, minimum: 1 }
-                      links: { type: array, description: 'Generated paginator links.', items: { type: object, properties: { url: { type: [string, 'null'] }, label: { type: string }, active: { type: boolean } }, required: [url, label, active] } }
                       path: { type: [string, 'null'], description: 'Base path for paginator generated URLs.' }
                       per_page: { type: integer, description: 'Number of items shown per page.', minimum: 0 }
-                      to: { type: [integer, 'null'], description: 'Number of the last item in the slice.', minimum: 1 }
-                      total: { type: integer, description: 'Total number of items being paginated.', minimum: 0 }
+                      next_cursor: { type: [string, 'null'], description: 'The "cursor" that points to the next set of items.' }
+                      prev_cursor: { type: [string, 'null'], description: 'The "cursor" that points to the previous set of items.' }
                     required:
-                      - current_page
-                      - from
-                      - last_page
-                      - links
                       - path
                       - per_page
-                      - to
-                      - total
+                      - next_cursor
+                      - prev_cursor
                 required:
                   - data
                   - links
@@ -2938,6 +2922,283 @@ paths:
           $ref: '#/components/responses/ModelNotFoundException'
         401:
           $ref: '#/components/responses/AuthenticationException'
+  /v1/platform/audit-events:
+    get:
+      operationId: v1.platform.audit-events.index
+      tags:
+        - PlatformAuditEvent
+      parameters:
+        -
+          name: tenant_id
+          in: query
+          description: "`exists`, so an unknown clinic is a 422 naming the field rather than an empty\npage that reads as \"this clinic has done nothing\". Not a disclosure worth\nworrying about on this surface: the operator holding a verified platform\nsession can already list every tenant at GET /v1/platform/tenants."
+          schema:
+            type: string
+        -
+          name: action
+          in: query
+          schema:
+            type: string
+            maxLength: 64
+        -
+          name: actor_id
+          in: query
+          schema:
+            type: string
+        -
+          name: from
+          in: query
+          schema:
+            type: string
+            format: date
+        -
+          name: to
+          in: query
+          schema:
+            type: string
+            format: date
+        -
+          name: per_page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+        -
+          name: cursor
+          in: query
+          schema:
+            type: string
+      responses:
+        200:
+          description: 'Paginated set of `PlatformAuditEventResource`'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PlatformAuditEventResource'
+                  links:
+                    type: object
+                    properties:
+                      first: { type: [string, 'null'] }
+                      last: { type: [string, 'null'] }
+                      prev: { type: [string, 'null'] }
+                      next: { type: [string, 'null'] }
+                    required:
+                      - first
+                      - last
+                      - prev
+                      - next
+                  meta:
+                    type: object
+                    properties:
+                      path: { type: [string, 'null'], description: 'Base path for paginator generated URLs.' }
+                      per_page: { type: integer, description: 'Number of items shown per page.', minimum: 0 }
+                      next_cursor: { type: [string, 'null'], description: 'The "cursor" that points to the next set of items.' }
+                      prev_cursor: { type: [string, 'null'], description: 'The "cursor" that points to the previous set of items.' }
+                    required:
+                      - path
+                      - per_page
+                      - next_cursor
+                      - prev_cursor
+                required:
+                  - data
+                  - links
+                  - meta
+        403:
+          $ref: '#/components/responses/AuthorizationException'
+        401:
+          $ref: '#/components/responses/AuthenticationException'
+        422:
+          $ref: '#/components/responses/ValidationException'
+  /v1/platform/auth/sign-in:
+    post:
+      operationId: v1.platform.auth.sign-in
+      description: "A 200 from here means \"the password was right and a code is now\n     * required\", and it is the only thing an operator can learn from it. Note\nwhat it does NOT return: nothing about the account, no name, no roles, no\nidentifier. RequireSecondFactor::PERMITTED_ROUTES makes the same argument\nabout `/v1/me` -- handing an account's details to whoever holds the\npassword alone is a disclosure, and the client needs exactly one fact to\nrender the next screen: that there is a next screen."
+      summary: 'Step one: prove the password. Returns no session'
+      tags:
+        - PlatformAuth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlatformSignInRequest'
+      responses:
+        200:
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      second_factor: { type: string, description: "Named rather than boolean, so the client renders the right\nsecond step. There is exactly one value it can take today and\nthere must never be an `sms` one -- see Totp::uri().", const: totp }
+                      expires_in: { type: integer, const: 300 }
+                    required:
+                      - second_factor
+                      - expires_in
+                required:
+                  - data
+        403:
+          description: ''
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                    const: 'This account has no second factor'
+                  status:
+                    type: integer
+                    const: 403
+                  code:
+                    type: string
+                    const: second_factor_not_enrolled
+                  detail:
+                    type: string
+                  errors:
+                    type: string
+                required:
+                  - type
+                  - title
+                  - status
+                  - code
+                  - detail
+                  - errors
+        429:
+          description: ''
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                    const: 'Too many attempts'
+                  status:
+                    type: integer
+                    const: 429
+                  code:
+                    type: string
+                    const: too_many_attempts
+                  detail:
+                    type: string
+                    const: 'Wait a few minutes and try again.'
+                  errors:
+                    type: string
+                required:
+                  - type
+                  - title
+                  - status
+                  - code
+                  - detail
+                  - errors
+        401:
+          $ref: '#/components/responses/AuthenticationException'
+        422:
+          $ref: '#/components/responses/ValidationException'
+  /v1/platform/auth/challenge:
+    post:
+      operationId: v1.platform.auth.challenge
+      summary: 'Step two: the code. This is the request that actually signs anybody in'
+      tags:
+        - PlatformAuth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SecondFactorChallengeRequest'
+      responses:
+        200:
+          description: "The same resource /v1/platform/me returns. A client that has just\nsigned in wants exactly what it would ask that endpoint for.\n\n\n\n`MeResource`"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/MeResource'
+                required:
+                  - data
+        401:
+          $ref: '#/components/responses/AuthenticationException'
+        429:
+          description: ''
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                    const: 'Too many attempts'
+                  status:
+                    type: integer
+                    const: 429
+                  code:
+                    type: string
+                    const: too_many_attempts
+                  detail:
+                    type: string
+                    const: 'Wait a few minutes and try again.'
+                  errors:
+                    type: string
+                required:
+                  - type
+                  - title
+                  - status
+                  - code
+                  - detail
+                  - errors
+        422:
+          $ref: '#/components/responses/ValidationException'
+  /v1/platform/auth/sign-out:
+    post:
+      operationId: v1.platform.auth.sign-out
+      description: "Reachable by a session that has NOT completed a second factor -- it is the\none route on RequireSecondFactor::PERMITTED_ROUTES -- because a person who\ncannot proceed must still be able to close what they opened. On a shared\nmachine the alternative is walking away from a half-open session."
+      summary: Leave
+      tags:
+        - PlatformAuth
+      responses:
+        204:
+          description: 'No content'
+        401:
+          $ref: '#/components/responses/AuthenticationException'
+  /v1/platform/me:
+    get:
+      operationId: v1.platform.me
+      description: "A platform counterpart to `GET /v1/me`, which a platform operator cannot\nreach: that route is inside the `v1` group behind ResolveTenant, and\n`admin.carevelo.app` resolves to no clinic, so it answers 404 before the\ncontroller runs.\n\nBehind RequireSecondFactor with everything else in the group. There is\ndeliberately no exemption for it -- see RequireSecondFactor's\nPERMITTED_ROUTES for why handing an account's name, address and platform\nroles to a session that has passed only a password is a disclosure rather\nthan a convenience."
+      summary: 'Who am I'
+      tags:
+        - PlatformAuth
+      responses:
+        200:
+          description: '`MeResource`'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/MeResource'
+                required:
+                  - data
+        401:
+          $ref: '#/components/responses/AuthenticationException'
   /v1/platform/tenants:
     get:
       operationId: v1.platform.tenants.index
@@ -3490,9 +3751,32 @@ paths:
   /v1/rider/deliveries:
     get:
       operationId: v1.rider.deliveries.index
+      description: "TWO ANSWERS, ONE FOR EACH TAB THE RIDER APP HAS: the round in front of them,\nand what they finished recently. `RiderAssignmentsRequest` explains why the\nparameter takes those two words rather than the seven-case delivery status\nenum the dispatch board speaks.\n\nTHE PAYLOAD IS THE SAME IN BOTH, AND IT IS `RiderDeliveryResource` — a\nseparate class with no clinical fields on it at all. Finished work does not\nget a wider projection than live work; it gets a narrower window.\n\nNOTHING HERE FILTERS ON OWNERSHIP FROM THE REQUEST. `rider_id` comes from\nthe SESSION, so there is no query a client could write that returns another\nrider's work — and no parameter below could be mistaken for the thing that\nprotects it."
       summary: "Only the authenticated rider's own assignments"
       tags:
         - RiderDelivery
+      parameters:
+        -
+          name: status
+          in: query
+          schema:
+            type: string
+            enum:
+              - active
+              - completed
+        -
+          name: per_page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+        -
+          name: cursor
+          in: query
+          description: "Opaque. Read by cursorPaginate() and handed straight back out; never\nparsed, incremented or constructed by anybody."
+          schema:
+            type: string
       responses:
         200:
           description: 'Paginated set of `RiderDeliveryResource`'
@@ -3535,9 +3819,13 @@ paths:
                   - meta
         401:
           $ref: '#/components/responses/AuthenticationException'
+        422:
+          $ref: '#/components/responses/ValidationException'
   '/v1/rider/deliveries/{delivery}':
     get:
       operationId: v1.rider.deliveries.show
+      description: "WITHOUT THIS THE WINDOW ON THE LISTING WOULD BE COSMETIC. A rider who read\na delivery yesterday holds its identifier, and a `show` with no bound would\nhand back the recipient, the telephone number and the address for as long\nas the row exists. The listing decides what a rider may DISCOVER; this\ndecides what they may still READ, and the two have to agree or only the\nweaker one is true.\n\n404 RATHER THAN 403 for a delivery that has aged out, for the reason every\nrefusal on this surface is a 404: a rider must learn nothing from the\ndifference between \"not yours\" and \"does not exist\", and an address that is\nno longer theirs to read is no longer theirs to be told about either.\n\nACTIVE WORK IS NEVER AGED OUT, however long it has been sitting there. The\nreconciliation read the rider app performs after a lost connection also\nlands here, seconds after the transition it is checking, so it is never\nnear the edge of the window."
+      summary: "One of the rider's own assignments — subject to the same window"
       tags:
         - RiderDelivery
       parameters:
@@ -4080,6 +4368,130 @@ paths:
           $ref: '#/components/responses/AuthorizationException'
         401:
           $ref: '#/components/responses/AuthenticationException'
+  /v1/platform/totp:
+    post:
+      operationId: v1.platform.totp.store
+      description: "THIS REVOKES WHAT THE ACCOUNT HAD, immediately and before anything is\nproved: the previous secret is overwritten, the account is marked\nunconfirmed, and every recovery code is destroyed. An operator who starts\nthis and abandons it cannot sign in until they finish it, and that is the\ncorrect trade rather than an accident. Re-enrolment is what somebody does\nwhen they believe their authenticator is compromised, and a rotation that\nleft the old secret working until the new one was confirmed would keep the\ncompromised factor live for exactly as long as the operator hesitated.\n\n201, because a new credential now exists."
+      summary: 'Generate a secret and hand back the enrolment URI, once'
+      tags:
+        - TotpEnrolment
+      responses:
+        201:
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      secret: { type: string, description: "BOTH FORMS OF THE SAME SECRET, and both are needed. `uri` is what a camera scans. `secret` is what an operator\ntypes when the camera will not focus -- which, on a desk in a\nbadly-lit room with a laptop screen, is often. Omitting the\ntyped form does not reduce the exposure: the URI contains the\nsecret in full, in the query string, in plain view." }
+                      uri: { type: string }
+                      shown_once: { type: boolean, description: "Stated in the payload as well as in this docblock, because\nthe client renders it and the operator is the person who has\nto act on it." }
+                    required:
+                      - secret
+                      - uri
+                      - shown_once
+                required:
+                  - data
+        403:
+          description: ''
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                    const: 'This is not a platform account'
+                  status:
+                    type: integer
+                    const: 403
+                  code:
+                    type: string
+                    const: not_a_platform_account
+                  detail:
+                    type: string
+                  errors:
+                    type: string
+                required:
+                  - type
+                  - title
+                  - status
+                  - code
+                  - detail
+                  - errors
+        401:
+          $ref: '#/components/responses/AuthenticationException'
+  /v1/platform/totp/confirm:
+    post:
+      operationId: v1.platform.totp.confirm
+      description: "The code is checked with the SAME window and the SAME replay defence a\nsign-in challenge uses, because an enrolment confirmed by a code the\nchallenge path would refuse is an enrolment that appears to succeed and\nthen cannot be used."
+      summary: 'Prove the authenticator works, activate it, and issue the recovery codes'
+      tags:
+        - TotpEnrolment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfirmTotpEnrolmentRequest'
+      responses:
+        200:
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      recovery_codes: { type: [array, 'null'], description: "THE ONLY TIME THESE EXIST IN THE CLEAR. Ten codes, each\nspendable once, each stored as a SHA-256 digest the moment it\nwas minted. There is no \"show my codes\" endpoint and there\nmust not be one: an operator who did not write them down\nenrols again, which costs them two minutes, where a second\nendpoint costs everybody a standing way to read ten bypasses\nof the second factor out of a live system.", items: { type: string } }
+                      shown_once: { type: boolean }
+                      count: { type: integer, description: "The count is worth returning so a client can say \"ten codes,\n each usable once\" rather than counting an array and hoping.", const: 10 }
+                    required:
+                      - recovery_codes
+                      - shown_once
+                      - count
+                required:
+                  - data
+        422:
+          $ref: '#/components/responses/ValidationException'
+        403:
+          description: ''
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                    const: 'This is not a platform account'
+                  status:
+                    type: integer
+                    const: 403
+                  code:
+                    type: string
+                    const: not_a_platform_account
+                  detail:
+                    type: string
+                  errors:
+                    type: string
+                required:
+                  - type
+                  - title
+                  - status
+                  - code
+                  - detail
+                  - errors
+        401:
+          $ref: '#/components/responses/AuthenticationException'
   /v1/working-hours:
     get:
       operationId: v1.working-hours.index
@@ -4517,6 +4929,15 @@ components:
         - specialty
         - photo_url
       title: ClinicianResource
+    ConfirmTotpEnrolmentRequest:
+      type: object
+      description: "Proving that the authenticator the operator just set up actually works.\n\nONE FIELD, AND NO RECOVERY CODE. Recovery codes do not exist yet at this point\nin the flow -- they are minted by the confirmation this request drives -- and\nan endpoint that accepted one here would be an endpoint that confirms an\nenrolment using a credential issued against the PREVIOUS secret. That is\nexactly the rotation an operator performs when they believe their old\nauthenticator is compromised, so honouring the old set to complete it would\nlet whoever holds a stolen sheet confirm a secret of their own choosing."
+      properties:
+        code:
+          type: string
+      required:
+        - code
+      title: ConfirmTotpEnrolmentRequest
     ConsentRecordResource:
       type: object
       properties:
@@ -4987,6 +5408,35 @@ components:
         - failure_reason
         - created_at
       title: OutboundNotificationResource
+    PatientDeliveryResource:
+      type: object
+      properties:
+        id:
+          type: string
+        reference:
+          type: string
+        status:
+          type: string
+        assigned_at:
+          type:
+            - string
+            - 'null'
+        delivered_at:
+          type:
+            - string
+            - 'null'
+        milestones:
+          type: array
+          description: "`array_values()` rather than the collection's own `->values()`, which is\nalready called below and is correct at runtime. PHPStan types\n`Collection::all()` as `array<int, T>` and cannot see that `values()` has\njust resequenced the keys, so the declared `list<>` return would not hold.\nThe native function it does understand, and reaching for it is cheaper than\na suppression -- the shape matters, because a non-list here serialises as a\nJSON object keyed by index rather than an array, and a patient's delivery\nthread would arrive at the portal as `{\"0\":{...}}`."
+          items: {  }
+      required:
+        - id
+        - reference
+        - status
+        - assigned_at
+        - delivered_at
+        - milestones
+      title: PatientDeliveryResource
     PatientResource:
       type: object
       properties:
@@ -5126,6 +5576,93 @@ components:
         - initiated_at
         - resolved_at
       title: PaymentIntentResource
+    PlatformAuditEventResource:
+      type: object
+      properties:
+        id:
+          type: string
+        tenant_id:
+          type:
+            - string
+            - 'null'
+          description: "Null on a platform event, which is what makes it one. The screen reads this\nto say \"Carevelo\" rather than naming a clinic."
+        action:
+          type: string
+        actor_type:
+          type: string
+        actor_id:
+          type:
+            - string
+            - 'null'
+        actor_role:
+          type:
+            - string
+            - 'null'
+        subject_type:
+          type:
+            - string
+            - 'null'
+          description: 'The KIND of thing acted on, never which one. See the class docblock.'
+        subject_id:
+          type:
+            - string
+            - 'null'
+        occurred_at:
+          type: string
+        ip_address:
+          type:
+            - string
+            - 'null'
+        user_agent:
+          type:
+            - string
+            - 'null'
+        request_id:
+          type:
+            - string
+            - 'null'
+          description: "Kept on both projections. It holds nothing about anybody -- it is the join\nkey to the application logs, and an operator diagnosing an incident from\nmetadata alone needs the half of the story the logs hold."
+        metadata:
+          type:
+            - object
+            - 'null'
+          additionalProperties: {  }
+        projection:
+          type: string
+          enum:
+            - metadata_only
+            - full
+      required:
+        - id
+        - tenant_id
+        - action
+        - actor_type
+        - actor_id
+        - actor_role
+        - subject_type
+        - subject_id
+        - occurred_at
+        - ip_address
+        - user_agent
+        - request_id
+        - metadata
+        - projection
+      title: PlatformAuditEventResource
+    PlatformSignInRequest:
+      type: object
+      description: "The password half of a platform operator's sign-in.\n\n============================================================\nAN EMAIL ADDRESS. THERE IS NO PHONE FIELD AND THERE MUST NOT BE ONE.\n============================================================\n\nSignInRequest -- the tenant one -- takes an email address OR a phone number,\nbecause a clinician between rooms has their number in hand and most Ugandan\nclinic staff have no reliably-checked email address. None of that applies\nhere. A platform operator is a Carevelo employee at a desk, and the account\nthey hold has `tenant_id = null` and is found by address alone\n(App\\Support\\Auth\\PlatformAccounts). Adding a phone field would introduce an\nidentifier this surface has no lookup for and no reason to want, on the one\naccount in the product whose second factor must never touch a mobile network\n-- see App\\Support\\Totp\\Totp::uri() for why at length.\n\n============================================================\nTHE PASSWORD ALONE GETS NOBODY IN\n============================================================\n\nA successful request here does not return a session. It returns \"now show me a\n * code\", and PlatformAuthController opens no session until one verifies. The\nsplit into two requests is not decoration either: a single form taking a\npassword and a code together has to say which half was wrong, and \"the\n * password is right, the code is not\" is a sentence worth a great deal to\nsomebody working through a credential-stuffing list."
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 255
+        password:
+          type: string
+          description: "No length or composition rule on the way IN, exactly as the tenant\nsign-in has none. A minimum here tells an attacker the shape of\nwhat to guess, and would refuse a correct password that was set\nbefore the rule existed."
+      required:
+        - email
+        - password
+      title: PlatformSignInRequest
     PlatformTenantResource:
       type: object
       properties:
@@ -5482,6 +6019,20 @@ components:
         - landmark
         - status
       title: RiderDeliveryResource
+    SecondFactorChallengeRequest:
+      type: object
+      description: "The code half of a platform operator's sign-in.\n\n============================================================\nONE OF TWO CREDENTIALS, NEVER BOTH\n============================================================\n\n`code` is six digits from the authenticator app. `recovery_code` is one of the\nten strings issued at enrolment, for the operator whose authenticator is in a\ndrawer at home. Exactly one is required, and sending both is a confused client\nrather than a convenience: a request carrying both would have to be resolved\nby a precedence rule, and a precedence rule on a credential check is a way of\nchoosing which of two comparisons an attacker gets to skip.\n\n============================================================\nWHY THE VALIDATION HERE IS SO THIN\n============================================================\n\n`code` is `digits:6` and nothing else -- no \"must be numeric and current\", no\ncheck against the window, no hint about whether the account is even enrolled.\nEvery one of those decisions belongs to TotpAuthenticator, which answers them\nin constant time and returns one sentence for all of the failures. A rule here\nthat refused a well-formed-but-wrong code with a DIFFERENT message from a\nmalformed one would hand a caller a free oracle, one 422 at a time, and it\nwould do it before the rate limiter had counted the attempt.\n\nThe six-digit length is safe to state because it is a fact about the format\nthat every authenticator app in the world already publishes, and refusing a\nfive-character string saves a database read.\n\n`recovery_code` is deliberately loose: the codes are shown grouped in fours\nand get read down a telephone, so hyphens, spaces and lower case all arrive in\npractice. RecoveryCodes::spend() normalises before it digests; a strict\npattern here would refuse a correct credential over its punctuation."
+      properties:
+        code:
+          type:
+            - string
+            - 'null'
+        recovery_code:
+          type:
+            - string
+            - 'null'
+          maxLength: 64
+      title: SecondFactorChallengeRequest
     ServiceResource:
       type: object
       properties:
@@ -6637,6 +7188,15 @@ components:
             - string
             - 'null'
           format: date-time
+        totp_confirmed_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        totp_last_used_step:
+          type:
+            - integer
+            - 'null'
       required:
         - id
         - name
@@ -6649,6 +7209,8 @@ components:
         - phone_verified_at
         - is_active
         - password_change_required_at
+        - totp_confirmed_at
+        - totp_last_used_step
       title: User
     WithdrawConsentRequest:
       type: object
@@ -6685,58 +7247,122 @@ components:
       title: WorkingHourResource
   responses:
     ValidationException:
-      description: 'Validation error'
+      description: 'The request is invalid'
       content:
-        application/json:
+        application/problem+json:
           schema:
             type: object
             properties:
-              message:
+              type:
                 type: string
-                description: 'Errors overview.'
+                description: 'Stable documentation URI for this error.'
+                const: 'https://docs.carevelo.app/errors/validation_failed'
+              title:
+                type: string
+                description: 'Written for a human and safe to show. May be reworded; do not key on it.'
+                const: 'The request is invalid'
+              status:
+                type: integer
+                description: 'Repeats the HTTP status.'
+                const: 422
+              code:
+                type: string
+                description: 'Stable and machine-readable. Key on this.'
+                const: validation_failed
               errors:
                 type: object
-                description: 'A detailed description of each field that failed validation.'
+                description: 'Per-field messages, keyed by field name.'
                 additionalProperties:
                   type: array
                   items:
                     type: string
             required:
-              - message
+              - type
+              - title
+              - status
+              - code
               - errors
     ModelNotFoundException:
       description: 'Not found'
       content:
-        application/json:
+        application/problem+json:
           schema:
             type: object
             properties:
-              message:
+              type:
                 type: string
-                description: 'Error overview.'
+                description: 'Stable documentation URI for this error.'
+                const: 'https://docs.carevelo.app/errors/not_found'
+              title:
+                type: string
+                description: 'Written for a human and safe to show. May be reworded; do not key on it.'
+                const: 'Not found'
+              status:
+                type: integer
+                description: 'Repeats the HTTP status.'
+                const: 404
+              code:
+                type: string
+                description: 'Stable and machine-readable. Key on this.'
+                const: not_found
             required:
-              - message
+              - type
+              - title
+              - status
+              - code
     AuthenticationException:
-      description: Unauthenticated
+      description: 'Sign in to continue'
       content:
-        application/json:
+        application/problem+json:
           schema:
             type: object
             properties:
-              message:
+              type:
                 type: string
-                description: 'Error overview.'
+                description: 'Stable documentation URI for this error.'
+                const: 'https://docs.carevelo.app/errors/unauthenticated'
+              title:
+                type: string
+                description: 'Written for a human and safe to show. May be reworded; do not key on it.'
+                const: 'Sign in to continue'
+              status:
+                type: integer
+                description: 'Repeats the HTTP status.'
+                const: 401
+              code:
+                type: string
+                description: 'Stable and machine-readable. Key on this.'
+                const: unauthenticated
             required:
-              - message
+              - type
+              - title
+              - status
+              - code
     AuthorizationException:
-      description: 'Authorization error'
+      description: 'You do not have permission to do that'
       content:
-        application/json:
+        application/problem+json:
           schema:
             type: object
             properties:
-              message:
+              type:
                 type: string
-                description: 'Error overview.'
+                description: 'Stable documentation URI for this error.'
+                const: 'https://docs.carevelo.app/errors/forbidden'
+              title:
+                type: string
+                description: 'Written for a human and safe to show. May be reworded; do not key on it.'
+                const: 'You do not have permission to do that'
+              status:
+                type: integer
+                description: 'Repeats the HTTP status.'
+                const: 403
+              code:
+                type: string
+                description: 'Stable and machine-readable. Key on this.'
+                const: forbidden
             required:
-              - message
+              - type
+              - title
+              - status
+              - code

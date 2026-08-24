@@ -13,6 +13,7 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -110,8 +111,68 @@ return Application::configure(basePath: dirname(__DIR__))
             return ProblemDetails::make(401, 'unauthenticated', 'Sign in to continue');
         });
 
-        $exceptions->render(function (AuthorizationException $e, Request $request) {
+        /*
+         * 403, and WHY THIS IS NOT TYPED `AuthorizationException` ALONE.
+         *
+         * It was, and it never fired once. Not for a policy denial, not for a
+         * `$this->authorize()` failure, not anywhere in the product. Every 403 that
+         * arrived here as an exception answered with a bare `{"message": "This action
+         * is unauthorized."}` -- the documented contract broken on the single most
+         * security-relevant status code we serve.
+         *
+         * It hid well. The only 403s that looked right were the ones that never came
+         * through this callback at all: RequireSecondFactor and AuthProblem::suspended()
+         * RETURN a ProblemDetails response rather than throwing, so `second_factor_required`
+         * and `tenant_suspended` were correct all along and made the 403 path look
+         * healthy. And every denial test in the suite passed throughout, because
+         * `assertForbidden()` reads the status line and nothing else.
+         *
+         * The cause is ordering inside the framework's handler. `Handler::render()`
+         * calls `prepareException()` BEFORE `renderViaCallbacks()`, and
+         * `prepareException()` rewrites the exception:
+         *
+         *     AuthorizationException without a status -> AccessDeniedHttpException
+         *     AuthorizationException with a status    -> HttpException($e->status())
+         *
+         * So by the time the render callbacks are consulted, no `AuthorizationException`
+         * exists any more. A callback typed to it can only ever match nothing.
+         *
+         * READ THIS BEFORE ADDING ANOTHER EXCEPTION RENDERER. The same rewrite catches
+         * ModelNotFoundException (-> NotFoundHttpException), TokenMismatchException
+         * (-> HttpException 419) and several more. Type the callback to what
+         * `prepareException()` LEAVES BEHIND, not to what your code threw, or you will
+         * write a renderer that silently does nothing exactly like this one did.
+         *
+         * Hence `HttpException`, which covers both rewrites and additionally covers
+         * the `abort(403)` ResolveTenant raises when a session belonging to one clinic
+         * arrives on another clinic's host -- an authorisation refusal that reaches the
+         * handler as a plain HttpException and was answering off-contract for the same
+         * reason, without ever having been an AuthorizationException at all.
+         *
+         * `AuthorizationException` is kept in the union deliberately: it names the case
+         * this callback is FOR, and it is the safety net if a future framework version
+         * stops performing that rewrite.
+         *
+         * THE STATUS GUARD IS LOAD-BEARING, NOT DEFENSIVE TIDINESS. NotFoundHttpException
+         * extends HttpException, and this callback is registered ABOVE the 404 one, so
+         * without the guard every cross-tenant 404 in the product would be answered here
+         * as a 403 -- which is precisely the information disclosure the 404-not-403 rule
+         * exists to prevent. Returning null lets it fall through to the 404 callback.
+         *
+         * The body carries no `detail` and never `$e->getMessage()`. A 403 can arrive
+         * here from any `abort(403)` anywhere, including places that are not
+         * authorisation decisions and whose messages are written for us rather than for
+         * the caller. Surfacing one would tell whoever tripped it which internal check
+         * refused and, worse, sometimes what it was refusing access to. A 403 body says
+         * what the reader can do about it and nothing else, which is why the title is a
+         * constant and there is no detail to drift.
+         */
+        $exceptions->render(function (AuthorizationException|HttpException $e, Request $request) {
             if (! $request->is('api/*')) {
+                return null;
+            }
+
+            if ($e instanceof HttpException && $e->getStatusCode() !== 403) {
                 return null;
             }
 

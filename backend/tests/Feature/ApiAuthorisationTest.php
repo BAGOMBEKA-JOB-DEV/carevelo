@@ -85,7 +85,8 @@ it('refuses a rider access to another rider\'s delivery', function () {
 
     $this->actingAs($otherRider)
         ->getJson(apiUrl($tenant, "/api/v1/rider/deliveries/{$delivery->id}"))
-        ->assertForbidden();
+        ->assertForbidden()
+        ->assertJsonPath('code', 'forbidden');
 });
 
 it('returns 404 not 403 for a resource in another tenant', function () {
@@ -196,6 +197,68 @@ it('refuses an unauthenticated request to a protected endpoint', function () {
     $tenant = Tenant::factory()->create();
 
     $this->getJson(apiUrl($tenant, '/api/v1/rider/deliveries'))->assertUnauthorized();
+});
+
+it('returns RFC 9457 problem details on a policy denial', function () {
+    // THE regression test for the 403 body, and it has to assert the body rather
+    // than the status because the status was never wrong. A render callback typed
+    // to AuthorizationException never fired -- the framework rewrites that
+    // exception into AccessDeniedHttpException before render callbacks are
+    // consulted -- so every 403 in the product answered with a bare
+    // `{"message": ...}` while every other status answered with problem details.
+    // Every denial test in the suite passed throughout, because assertForbidden()
+    // reads the status line and nothing else. See bootstrap/app.php.
+    [$tenant, , $delivery] = riderFixture();
+
+    $otherRider = app(Tenancy::class)->run($tenant->id, function () use ($tenant) {
+        $u = User::factory()->create(['tenant_id' => $tenant->id]);
+        $u->assignRole(ClinicalRole::Rider->value);
+
+        return $u;
+    });
+
+    $response = $this->actingAs($otherRider)
+        ->getJson(apiUrl($tenant, "/api/v1/rider/deliveries/{$delivery->id}"))
+        ->assertForbidden()
+        ->assertHeader('Content-Type', 'application/problem+json')
+        ->assertJsonPath('code', 'forbidden')
+        ->assertJsonPath('status', 403)
+        ->assertJsonPath('type', 'https://docs.carevelo.app/errors/forbidden')
+        ->assertJsonStructure(['type', 'title', 'status', 'code']);
+
+    // And it says nothing about WHY the check refused. The framework's own text
+    // for this is "This action is unauthorized."; a 403 body tells the reader what
+    // they can do, never what rule they tripped or what the resource was.
+    expect($response->json())->not->toHaveKey('message')
+        ->and(strtolower(json_encode($response->json()) ?: ''))
+        ->not->toContain('unauthorized')
+        ->and($response->json('title'))->toBe('You do not have permission to do that');
+});
+
+it('keeps a cross-tenant read at 404 with the not_found code, never 403', function () {
+    // The guard in the 403 callback exists for this. NotFoundHttpException extends
+    // HttpException, and the 403 callback is registered ABOVE the 404 one, so a
+    // callback that matched HttpException without checking the status would answer
+    // every cross-tenant miss as a 403 -- confirming the row exists, which is the
+    // exact disclosure the 404-not-403 rule prevents.
+    $tenancy = app(Tenancy::class);
+    $tenantA = Tenant::factory()->create();
+    $tenantB = Tenant::factory()->create();
+
+    $intentOfA = $tenancy->run($tenantA->id, fn () => PaymentIntent::factory()->create());
+
+    $userOfB = $tenancy->run($tenantB->id, function () use ($tenantB) {
+        $u = User::factory()->create(['tenant_id' => $tenantB->id]);
+        $u->assignRole(ClinicalRole::ClinicAdmin->value);
+
+        return $u;
+    });
+
+    $this->actingAs($userOfB)
+        ->getJson(apiUrl($tenantB, "/api/v1/payment-intents/{$intentOfA->id}"))
+        ->assertNotFound()
+        ->assertJsonPath('code', 'not_found')
+        ->assertJsonPath('status', 404);
 });
 
 it('returns RFC 9457 problem details on validation failure', function () {

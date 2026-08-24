@@ -198,6 +198,9 @@ it('stops serving the document once the link expires', function () {
     // is not a standing grant to read somebody's prescription.
     $this->travel(PrescriptionDocuments::LINK_TTL_SECONDS + 60)->seconds();
 
+    // The refusal comes from the storage disk's own signed-URL route, which is NOT
+    // under api/* and so is not covered by the API's problem+json renderers. The
+    // status is the whole assertion here, deliberately.
     $this->get($url)->assertForbidden();
 });
 

@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\OpenApi\ProblemDetailsExceptionResponse;
 use Dedoc\Scramble\Http\Middleware\RestrictedDocsAccess;
 
 return [
@@ -145,7 +146,19 @@ return [
         RestrictedDocsAccess::class,
     ],
 
-    'extensions' => [],
+    /*
+     * Scramble's built-in exception extensions document a thrown
+     * AuthorizationException, AuthenticationException, ValidationException or
+     * not-found as Laravel's default `{"message": string}`. This API has never
+     * answered any of them that way -- bootstrap/app.php renders all four as RFC
+     * 9457 problem details, which is the documented contract.
+     *
+     * Registering ours here overrides those four without removing anything else:
+     * Scramble prefers the later-registered extension. See the class for the rest.
+     */
+    'extensions' => [
+        ProblemDetailsExceptionResponse::class,
+    ],
 
     /*
      * Automatically document API security (OpenAPI `security` / `securitySchemes`) based on route

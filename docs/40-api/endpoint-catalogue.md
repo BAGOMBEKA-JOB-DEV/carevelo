@@ -58,7 +58,7 @@ While a patient's first password change is outstanding, `GET /v1/me`, `POST /v1/
 | GET | `/v1/patients/{id}/consents` | P self, S admin | Full history |
 | POST | `/v1/patients/{id}/consents` | P, guardian | Immutable record; never an update |
 | POST | `/v1/patients/{id}/consents/withdraw` | P self | Creates a new record |
-| GET | `/v1/consent-policies/current` | P | Text and version, English and Luganda |
+| GET | `/v1/consent-policies/current` | P | Text and version. Text is a map keyed by language code — `en` alone today |
 | POST | `/v1/patients/{id}/merge` | S front desk | **Within a tenant only.** Audited |
 
 ## Appointments & consultations — [H3](../10-product/prd-h3-teleconsultation.md)
@@ -155,7 +155,7 @@ Unauthenticated, signature-verified, and idempotent. Detail in [Webhooks](webhoo
 | GET | `/v1/notifications` | P own, S | Delivery status |
 | GET · PUT | `/v1/notification-templates` | S admin | Within the content rules ([Notifications](../10-product/notifications-sms-whatsapp.md)) |
 | GET | `/v1/sms-balance` | S admin | |
-| GET | `/v1/audit-events` | S admin | **Read-only.** Tenant-scoped |
+| GET | `/v1/audit-events` | S admin | **Read-only.** Tenant-scoped. Platform events (null tenant) are not in it |
 
 ## Platform administration
 
@@ -165,9 +165,17 @@ Unauthenticated, signature-verified, and idempotent. Detail in [Webhooks](webhoo
 | PATCH | `/v1/platform/tenants/{id}` | O | Suspend, resume, offboard |
 | POST | `/v1/platform/tenants/{id}/export` | O | Controller-obligation export ([Retention](../50-security-compliance/data-retention-and-deletion.md)) |
 | POST | `/v1/platform/break-glass` | O | Reason and scope required; **notifies the tenant**; audited |
+| GET | `/v1/platform/break-glass` | O, S admin | The grant register. A clinic administrator sees grants against their own clinic |
+| GET | `/v1/platform/audit-events` | O | **Read-only.** Platform events in full; a clinic's events as **metadata only**. `?tenant_id=` chooses which trail is read |
 | GET | `/v1/platform/health` | O | |
 
 Platform endpoints reach **no clinical data** without an active break-glass grant.
+
+`GET /v1/platform/audit-events` is the platform half of the evidence layer, and it exists because the other half is not reachable from a clinic: platform events — break-glass grants, tenant provisioning and suspension, TOTP enrolments, platform sign-ins — carry a null `tenant_id` and sit outside tenant row-level security, so nothing could read them back at all.
+
+**One response is one trail.** Without `tenant_id` it reads the platform's own events; with one it reads that clinic's, and a clinic's events come back as the ENVELOPE and never the payload — no `metadata`, no `subject_id`, no `ip_address`, no `user_agent`. `projection` on each row says which of the two it is. Record-level detail is what a break-glass grant is for, and that is reason-recorded, time-boxed, tenant-notified and audited ([Audit Logging](../50-security-compliance/audit-logging.md), [RBAC Matrix](../50-security-compliance/rbac-matrix.md)).
+
+Reading it is itself audited, into the platform trail, naming the clinic whose trail was read.
 
 ## Health
 

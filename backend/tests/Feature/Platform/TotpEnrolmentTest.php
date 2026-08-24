@@ -12,6 +12,7 @@ use App\Tenancy\Tenancy;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Log\Events\MessageLogged;
 use Illuminate\Support\Facades\Date;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 /*
@@ -193,10 +194,21 @@ it('never lets the secret appear in an audit event, a log line or a later respon
 
     expect(json_encode($me->json()) ?: '')->not->toContain($secret);
 
-    // 4. NOT IN THE CLEAR IN THE DATABASE. Read as a raw column value, past the
-    //    `encrypted` cast, which is what a database dump would hand somebody.
-    $stored = (string) User::query()
-        ->whereKey($operator->getKey())
+    /*
+     * 4. NOT IN THE CLEAR IN THE DATABASE -- read past the `encrypted` cast,
+     *    because a database dump is what this assertion is standing in for.
+     *
+     *    THE QUERY BUILDER, NOT ELOQUENT, AND THAT IS THE WHOLE POINT OF THE
+     *    LINE. `User::query()->value($column)` looks like a raw column read and
+     *    is not: Eloquent's Builder::value() is `$this->first([$column])` and
+     *    then reads the ATTRIBUTE off the model, so it comes back through the
+     *    cast, decrypted. Written that way this test passed the secret to
+     *    itself and asserted it did not contain itself -- it could only ever
+     *    fail. `DB::table()` touches no model and no cast, so what it returns
+     *    is what is actually on disk.
+     */
+    $stored = (string) DB::table('users')
+        ->where('id', $operator->getKey())
         ->value('totp_secret_encrypted');
 
     expect($stored)->not->toBe('')

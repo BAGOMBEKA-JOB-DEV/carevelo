@@ -43,7 +43,25 @@ export const SCHEDULING_PATHS: SchedulingPaths = {
 /** The status screen for one payment attempt. Matches `app/payments/[payment]/page.tsx`. */
 export const PAYMENT_STATUS_TEMPLATE = '/payments/{id}'
 
-/** Where a patient pays for a dispensed order. Matches `app/pay/order/[order]/page.tsx`. */
+/**
+ * Where a patient pays for a dispensed order. Matches `app/pay/order/[order]/page.tsx`.
+ *
+ * `{id}` IS THE PLACEHOLDER, AND IT IS THE SAME CONVENTION AS `PAYMENT_STATUS_TEMPLATE`
+ * ABOVE. The dispensing domain's `OrderList` needs to build this path for one row out of a
+ * page of them, and it takes the template rather than a function for the reason every path
+ * in that domain is a string: a domain that hard-codes a URL cannot be mounted anywhere
+ * else, and one that took a function would need something serialisable across a boundary it
+ * does not have. The route substitutes nothing — the domain does, once per row, encoding
+ * the id as it goes.
+ */
+export const ORDER_PAYMENT_TEMPLATE = '/pay/order/{id}'
+
+/**
+ * The same path, already substituted, for a caller that holds exactly one order.
+ *
+ * Built FROM the template rather than beside it, so there is one literal to keep in step
+ * with the routing tree instead of two that agree until somebody moves the page.
+ */
 export function orderPaymentPath(orderId: string): string {
-  return `/pay/order/${encodeURIComponent(orderId)}`
+  return ORDER_PAYMENT_TEMPLATE.replace('{id}', encodeURIComponent(orderId))
 }

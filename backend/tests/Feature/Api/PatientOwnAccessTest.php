@@ -40,6 +40,12 @@ use Database\Seeders\RoleSeeder;
 |         the client. This is the dangerous one, and it is why the narrowing lives
 |         inside the same call as the authorisation.
 |
+| Every refusal asserts `code` as well as the status. A status line alone cannot
+| tell a policy denial apart from a signature failure, a suspended clinic or a
+| middleware refusing for some unrelated reason -- and until recently it could not
+| tell any of them apart from a 403 rendered off-contract either, because the
+| render callback for it never fired. See bootstrap/app.php.
+|
 | @see docs/50-security-compliance/rbac-matrix.md
 | @see app/Http/Controllers/Api/V1/Concerns/AuthorisesPatientReads.php
 |
@@ -104,7 +110,8 @@ it('shows a patient their own appointment and refuses another patient theirs', f
 
     $this->actingAs($f['userA'])
         ->getJson(ownUrl($f['tenant'], '/api/v1/appointments/'.$theirs->id))
-        ->assertForbidden();
+        ->assertForbidden()
+        ->assertJsonPath('code', 'forbidden');
 });
 
 it('lists a patient only their own appointments', function () {
@@ -143,7 +150,8 @@ it('lets a patient cancel their own appointment but not another patient\'s', fun
         ->postJson(ownUrl($f['tenant'], '/api/v1/appointments/'.$theirs->id.'/cancel'), [
             'reason' => 'Not mine to cancel',
         ])
-        ->assertForbidden();
+        ->assertForbidden()
+        ->assertJsonPath('code', 'forbidden');
 
     $this->actingAs($f['userA'])
         ->postJson(ownUrl($f['tenant'], '/api/v1/appointments/'.$mine->id.'/cancel'), [
@@ -164,7 +172,8 @@ it('refuses a patient another patient\'s consultation', function () {
 
     $this->actingAs($f['userA'])
         ->getJson(ownUrl($f['tenant'], '/api/v1/consultations/'.$theirs->id))
-        ->assertForbidden();
+        ->assertForbidden()
+        ->assertJsonPath('code', 'forbidden');
 });
 
 it('lists a patient only their own consultations', function () {
@@ -249,7 +258,8 @@ it('refuses a patient another patient\'s prescription document', function () {
 
     $this->actingAs($f['userA'])
         ->getJson(ownUrl($f['tenant'], '/api/v1/prescriptions/'.$theirs->id.'/document'))
-        ->assertForbidden();
+        ->assertForbidden()
+        ->assertJsonPath('code', 'forbidden');
 });
 
 // --- Dispensing, fulfilment and delivery tracking --------------------------
@@ -264,7 +274,8 @@ it('refuses a patient another patient\'s dispense order', function () {
 
     $this->actingAs($f['userA'])
         ->getJson(ownUrl($f['tenant'], '/api/v1/dispense-orders/'.$theirs->id))
-        ->assertForbidden();
+        ->assertForbidden()
+        ->assertJsonPath('code', 'forbidden');
 });
 
 it('refuses a patient the fulfilment choice on another patient\'s order', function () {
@@ -281,7 +292,8 @@ it('refuses a patient the fulfilment choice on another patient\'s order', functi
         ->postJson(ownUrl($f['tenant'], '/api/v1/dispense-orders/'.$theirs->id.'/fulfilment'), [
             'method' => 'pickup',
         ])
-        ->assertForbidden();
+        ->assertForbidden()
+        ->assertJsonPath('code', 'forbidden');
 });
 
 it('refuses a patient tracking on another patient\'s delivery', function () {
@@ -295,7 +307,8 @@ it('refuses a patient tracking on another patient\'s delivery', function () {
 
     $this->actingAs($f['userA'])
         ->getJson(ownUrl($f['tenant'], '/api/v1/deliveries/'.$theirs->id.'/tracking'))
-        ->assertForbidden();
+        ->assertForbidden()
+        ->assertJsonPath('code', 'forbidden');
 });
 
 it('lets a patient track their own delivery', function () {
@@ -332,11 +345,13 @@ it('refuses a patient another patient\'s payment attempt and receipt', function 
 
     $this->actingAs($f['userA'])
         ->getJson(ownUrl($f['tenant'], '/api/v1/payment-intents/'.$theirs->id))
-        ->assertForbidden();
+        ->assertForbidden()
+        ->assertJsonPath('code', 'forbidden');
 
     $this->actingAs($f['userA'])
         ->getJson(ownUrl($f['tenant'], '/api/v1/payment-intents/'.$theirs->id.'/receipt'))
-        ->assertForbidden();
+        ->assertForbidden()
+        ->assertJsonPath('code', 'forbidden');
 });
 
 it('lets a patient read their own payment attempt', function () {

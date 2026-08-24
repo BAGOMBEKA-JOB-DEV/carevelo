@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { SignOutScreen } from '@/domains/identity'
+import { SignOutSubmit } from '@/domains/consultations'
 import { IDENTITY_PATHS } from '../sign-in/paths'
 
 /**
@@ -18,5 +19,10 @@ import { IDENTITY_PATHS } from '../sign-in/paths'
 export const metadata: Metadata = { title: 'Sign out' }
 
 export default function SignOutPage() {
-  return <SignOutScreen paths={IDENTITY_PATHS} />
+  /*
+   * THE ROUTE COMPOSES THE TWO DOMAINS, which is what the boundary rules ask for.
+   * `SignOutSubmit` is consultations' -- it clears the note drafts, and the drafts are
+   * that domain's -- while the screen around it is identity's. Neither imports the other.
+   */
+  return <SignOutScreen paths={IDENTITY_PATHS} submit={<SignOutSubmit />} />
 }

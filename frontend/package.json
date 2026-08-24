@@ -11,7 +11,7 @@
     "budget": "node scripts/bundle-budget.mjs",
     "typecheck": "pnpm -r typecheck",
     "lint": "eslint . --max-warnings 0",
-    "boundaries": "pnpm -r boundaries && depcruise apps --config .dependency-cruiser.cross-app.cjs --ts-config tsconfig.base.json",
+    "boundaries": "pnpm -r boundaries && NODE_OPTIONS=--max-old-space-size=8192 depcruise apps --config .dependency-cruiser.cross-app.cjs --ts-config tsconfig.base.json",
     "boundaries:graph": "depcruise apps packages --config .dependency-cruiser.cross-app.cjs --ts-config tsconfig.base.json --output-type dot > boundaries.dot",
     "api-client:generate": "pnpm --filter @carevelo/api-client generate",
     "api-client:check": "pnpm --filter @carevelo/api-client check",

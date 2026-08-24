@@ -39,7 +39,7 @@ sequenceDiagram
     P->>P: Create Patient (pending_consent)
     Note right of P: NO clinical data may attach<br/>while in this state
 
-    P-->>Pt: Consent screen — plain language,<br/>English and Luganda, on screen
+    P-->>Pt: Consent screen — plain language,<br/>English, on screen
     alt Patient consents
         Pt->>P: Explicit affirmative action
         P->>P: Immutable ConsentRecord<br/>policy version + text hash
@@ -95,7 +95,13 @@ Consent is **granted by an explicit affirmative action**. No pre-ticked boxes, n
 
 Each decision writes an immutable `ConsentRecord` with a timestamp, the policy version, and a hash of the exact text shown ([Domain Model](../20-domain/domain-model.md)). Emits `ConsentGranted`.
 
-The full policy text is available on the same screen — not behind a link that nobody opens — and in English and Luganda at minimum.
+The full policy text is available on the same screen — not behind a link that nobody opens — in English.
+
+**Luganda was published here and has been withdrawn. That is a downgrade, and it is recorded rather than quietly dropped.** The translation reached roughly 7% across the patient portal: 186 of the 201 keys held the English string verbatim under a Luganda label, waiting on a review by a native speaker that did not arrive. On most screens that is shabby. On this one it is a compliance problem, because consent is valid only if it is *informed* — and wording that announces itself as the patient's language while being someone else's does not inform a patient, it persuades them that they understood. English, presented honestly as English, is the better of two poor options until a reviewed translation exists.
+
+Two things were deliberately left standing so that reversing this is small. The portal keeps its `next-intl` structure ([Frontend](../30-architecture/frontend-nextjs.md)), and `GET /v1/consent-policies/current` keeps returning the policy as a **map keyed by language code** rather than collapsing to a bare string. Restoring Luganda is therefore a message file and one more entry in the policy text — not a change to the response contract and every consumer of it.
+
+One consequence is worth stating plainly, because it is the kind of thing that is discovered too late. The text hash pinned on each `ConsentRecord` is taken over the **whole** policy document, every published language concatenated, so removing a language changes the hash of a policy whose version string has not moved. Withdrawing Luganda therefore took a **policy version bump** like any other wording change. Without one, re-deriving the hash for the old version would disagree with the hash stored beside decisions already made, which is exactly the signal this design uses to mean the wording behind a record was tampered with.
 
 ### 3. The account
 
@@ -149,7 +155,7 @@ Withdrawal halts new processing. It does not automatically erase records the cli
 4. Withdrawal creates a new record and never mutates the prior grant.
 5. Declining consent results in `discarded` with no clinical data retained.
 6. Minors cannot reach `active` without a verified guardian consent record.
-7. Consent text is available in English and Luganda, on screen rather than behind a link.
+7. Consent text is on screen rather than behind a link, in full, in every language the policy is published in — English alone, Luganda having been withdrawn rather than shipped at 7% translated (§2). Adding or removing a language changes the policy text hash and therefore requires a new policy version.
 8. The rider-disclosure consent is captured at the point of choosing delivery, not pre-emptively at registration.
 9. All consent events appear in the audit log with actor, timestamp and tenant.
 10. A patient account is created only from an existing patient record, only by clinic staff, and the same call links that record and writes `patient.account_created` naming the staff member.

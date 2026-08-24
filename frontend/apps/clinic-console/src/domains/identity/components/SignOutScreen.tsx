@@ -1,5 +1,6 @@
+import type { ReactNode } from 'react'
 import { redirect } from 'next/navigation'
-import { Button, Notice } from '@carevelo/ui'
+import { Notice } from '@carevelo/ui'
 import { currentUser, signOut } from '../api/session'
 import type { IdentityPaths } from '../model/types'
 import { samePath, withParams } from './screen'
@@ -32,13 +33,43 @@ import { samePath, withParams } from './screen'
  *
  * A plain form post — no 'use client'. Signing out must not depend on a bundle having
  * arrived, least of all on the connection that has just started failing.
+ *
+ * ============================================================================
+ * SIGNING OUT ALSO CLEARS THIS BROWSER'S NOTE DRAFTS, AND THAT IS WHY THE BUTTON IS A
+ * COMPONENT INSTEAD OF A `<Button type="submit">`.
+ *
+ * Acceptance criterion 7 — "no clinical data persists in client storage beyond the active
+ * note draft" — is not satisfied by the server ending a session. The drafts are in this
+ * browser's `localStorage`, and the motivating scenario for the criterion is precisely this
+ * screen's own: a shared clinic laptop where the previous clinician's note outlives them.
+ * The consultations domain owns the sweep (`clearAllDrafts`), and it can only run in a
+ * browser — a Server Action cannot reach into storage — so the CALL is in `SignOutSubmit`,
+ * a client component whose entire job is to make the clear and the POST happen on one press.
+ * Read that file before changing this one: it explains why the clear is on the press and not
+ * on mount, and what is and is not guaranteed when the bundle has not arrived.
+ *
+ * That the sweep existed and nothing called it is the defect this closes. Every part of the
+ * design was in place — the function, the export, the contract written out in
+ * `consultations/model/drafts.ts` — except the one line that made any of it happen.
+ * ============================================================================
  */
 
 export type SignOutScreenProps = {
   paths: IdentityPaths
+  /**
+   * The submit control, handed in rather than imported.
+   *
+   * Signing out has a browser-side half -- clearing the note drafts -- and that half
+   * belongs to the consultations domain, which owns the storage key. A `'use client'`
+   * module pulls its whole import graph into the browser bundle, so a button in THIS
+   * domain importing the consultations barrel dragged ConsultationRoom and the realtime
+   * gateway in with it and failed the build. Composing here is what
+   * `no-cross-domain-internals` recommends in its own comment.
+   */
+  submit: ReactNode
 }
 
-export async function SignOutScreen({ paths }: SignOutScreenProps) {
+export async function SignOutScreen({ paths, submit }: SignOutScreenProps) {
   /*
    * Read for the greeting only, and a null is not a problem worth showing. Somebody whose
    * session already timed out on the way to this page still pressed "sign out" and still
@@ -88,9 +119,10 @@ export async function SignOutScreen({ paths }: SignOutScreenProps) {
           </Notice>
 
           <form action={submitSignOut.bind(null, { paths })} className="auth__fields">
-            <Button type="submit" variant="primary" size="lg" block>
-              Sign out
-            </Button>
+            {/* Handed in by the route rather than imported, because the browser-side half of
+                signing out belongs to the consultations domain that owns the drafts. See
+                app/sign-out/page.tsx and consultations/components/SignOutSubmit.tsx. */}
+            {submit}
           </form>
 
           <p className="auth__aside">

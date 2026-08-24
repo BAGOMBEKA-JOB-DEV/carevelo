@@ -81,6 +81,15 @@ export type DeliveryPaths = {
   /** Where `<AssignmentsScreen>` is mounted. */
   assignments: string
   /**
+   * Where `<CompletedScreen>` is mounted.
+   *
+   * A SEPARATE ENTRY RATHER THAN `assignments` WITH A QUERY STRING, because the two are
+   * two ROUTES: the app's tab bar links to both by path, `FieldShell` marks one of them
+   * current, and a screen that paged itself by appending `?cursor=` to the other tab's URL
+   * would send a rider to the round every time they asked for more history.
+   */
+  completed: string
+  /**
    * Where `<DeliveryScreen>` is mounted, with `{delivery}` standing in for the id.
    * e.g. `/assignments/{delivery}`.
    */

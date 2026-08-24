@@ -110,12 +110,34 @@ export async function DayView({
   const patients = await resolvePatients(rows)
 
   /*
-   * Bound to the day being viewed rather than to anything the form posts. An action that
-   * took its redirect target from the request is an action that can be told where to send
-   * somebody, and the one thing an action must never do is that.
+   * WHERE THE TWO ACTIONS BELOW SEND THE BROWSER — AS ONE STRING, NOT AS A CLOSURE.
+   *
+   * A `back()` arrow function used to live on this line and it was a live defect, not a
+   * style preference. An inline `'use server'` function is compiled into a server reference
+   * whose bound arguments are every variable it captures from this component's scope, and
+   * Next SERIALISES (encrypts) those arguments the moment the closure is created — on every
+   * render, whether or not a single form is rendered from it. A function is not
+   * serialisable. Capturing `back` therefore threw
+   *
+   *     Functions cannot be passed directly to Client Components unless you explicitly
+   *     expose it by marking it with "use server". [function back]
+   *
+   * out of every render of the schedule, and left `cancel` and `confirm` wired to actions
+   * whose bound arguments had failed to encrypt. Nothing about the page looked wrong. The
+   * same mistake one screen away, in AssistedBooking, took the entire booking form into the
+   * error boundary the moment a receptionist pressed the button.
+   *
+   * `paths` cannot be captured either, one level down and for the same reason:
+   * `SchedulePaths` carries `room(appointmentId)`, and an object with a function inside it
+   * is exactly as unserialisable as the function. So the day's own path is pulled out here
+   * as the plain string it is, and the query string is built by `dayHref` at module scope —
+   * module bindings are resolved by the action on the server and are never bound to it.
+   *
+   * The property that made `back` worth having is untouched: the destination is fixed to the
+   * day being VIEWED and never read from what the form posts, so an action cannot be talked
+   * into sending a member of staff somewhere a hidden field chose.
    */
-  const back = (params: Record<string, string | undefined> = {}) =>
-    href(paths.day, { day: chosenDay, clinician: clinicianId, ...params })
+  const dayPath = paths.day
 
   async function cancel(formData: FormData) {
     'use server'
@@ -124,16 +146,25 @@ export async function DayView({
     const reason = String(formData.get('reason') ?? '').trim()
 
     if (id === '' || reason.length < 3) {
-      return redirect(back({ problem: 'incomplete' }))
+      return redirect(dayHref(dayPath, chosenDay, clinicianId, { problem: 'incomplete' }))
     }
 
     const outcome = await cancelAppointment(id, reason)
 
     if (outcome.kind === 'problem') {
-      return redirect(back({ problem: 'failed', message: outcome.message ?? undefined }))
+      return redirect(
+        dayHref(dayPath, chosenDay, clinicianId, {
+          problem: 'failed',
+          message: outcome.message ?? undefined,
+        }),
+      )
     }
 
-    return redirect(back({ done: `Cancelled ${outcome.appointment.reference}` }))
+    return redirect(
+      dayHref(dayPath, chosenDay, clinicianId, {
+        done: `Cancelled ${outcome.appointment.reference}`,
+      }),
+    )
   }
 
   async function confirm(formData: FormData) {
@@ -148,16 +179,25 @@ export async function DayView({
      * unpaid booking is an audited financial assertion and deserves a real gate.
      */
     if (id === '' || String(formData.get('vouch') ?? '').trim().toUpperCase() !== 'CONFIRM') {
-      return redirect(back({ problem: 'incomplete' }))
+      return redirect(dayHref(dayPath, chosenDay, clinicianId, { problem: 'incomplete' }))
     }
 
     const outcome = await confirmDeferred(id)
 
     if (outcome.kind === 'problem') {
-      return redirect(back({ problem: 'failed', message: outcome.message ?? undefined }))
+      return redirect(
+        dayHref(dayPath, chosenDay, clinicianId, {
+          problem: 'failed',
+          message: outcome.message ?? undefined,
+        }),
+      )
     }
 
-    return redirect(back({ done: `Confirmed ${outcome.appointment.reference}` }))
+    return redirect(
+      dayHref(dayPath, chosenDay, clinicianId, {
+        done: `Confirmed ${outcome.appointment.reference}`,
+      }),
+    )
   }
 
   const occupied = rows.filter((row) => {
@@ -248,6 +288,28 @@ export async function DayView({
       </Stack>
     </>
   )
+}
+
+/**
+ * The day this screen is showing, as a URL, carrying whatever the last write had to say.
+ *
+ * MODULE SCOPE, AND THAT IS THE WHOLE POINT OF IT — see the long note beside `dayPath` in
+ * `DayView`. A helper declared inside the component becomes a captured variable of every
+ * inline server action that calls it, and a captured variable has to survive serialisation.
+ * A module-level function is resolved by the compiled action on the server, is never bound
+ * to it, and so costs nothing: the four `redirect(...)` calls above read the same as the
+ * `back(...)` calls they replaced.
+ *
+ * The day and the clinician are passed in rather than read from anywhere, because they are
+ * exactly the two values the actions must not be able to take from the request.
+ */
+function dayHref(
+  dayPath: string,
+  day: string,
+  clinicianId: string | undefined,
+  params: Record<string, string | undefined> = {},
+): string {
+  return href(dayPath, { day, clinician: clinicianId, ...params })
 }
 
 /**
