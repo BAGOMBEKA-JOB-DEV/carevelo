@@ -267,16 +267,14 @@ export async function postAndKeepSession<T>(path: string, body: unknown): Promis
   }
 
   /*
-   * `code` is not on the published `Problem` interface and is on every response
-   * this API sends (docs/40-api/api-conventions.md). Read defensively rather
-   * than asserted: a proxy returning its own error page must produce a message,
-   * not a crash on a sign-in screen.
+   * `code` is on every error this API sends (docs/40-api/api-conventions.md) and is
+   * now on the published `Problem` interface, so it is read from there rather than
+   * dug out of the raw payload. Still checked rather than asserted: the body here is
+   * whatever came back, and a proxy returning its own error page must produce a
+   * message, not a crash on a sign-in screen.
    */
   const problem: Problem = (typeof payload === 'object' && payload !== null ? payload : {}) as Problem
-  const code = typeof payload === 'object' && payload !== null && 'code' in payload
-    && typeof (payload as { code?: unknown }).code === 'string'
-    ? (payload as { code: string }).code
-    : null
+  const code = typeof problem.code === 'string' ? problem.code : null
 
   return {
     ok: false,

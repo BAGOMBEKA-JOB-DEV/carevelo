@@ -7247,58 +7247,122 @@ components:
       title: WorkingHourResource
   responses:
     ValidationException:
-      description: 'Validation error'
+      description: 'The request is invalid'
       content:
-        application/json:
+        application/problem+json:
           schema:
             type: object
             properties:
-              message:
+              type:
                 type: string
-                description: 'Errors overview.'
+                description: 'Stable documentation URI for this error.'
+                const: 'https://docs.carevelo.app/errors/validation_failed'
+              title:
+                type: string
+                description: 'Written for a human and safe to show. May be reworded; do not key on it.'
+                const: 'The request is invalid'
+              status:
+                type: integer
+                description: 'Repeats the HTTP status.'
+                const: 422
+              code:
+                type: string
+                description: 'Stable and machine-readable. Key on this.'
+                const: validation_failed
               errors:
                 type: object
-                description: 'A detailed description of each field that failed validation.'
+                description: 'Per-field messages, keyed by field name.'
                 additionalProperties:
                   type: array
                   items:
                     type: string
             required:
-              - message
+              - type
+              - title
+              - status
+              - code
               - errors
     ModelNotFoundException:
       description: 'Not found'
       content:
-        application/json:
+        application/problem+json:
           schema:
             type: object
             properties:
-              message:
+              type:
                 type: string
-                description: 'Error overview.'
+                description: 'Stable documentation URI for this error.'
+                const: 'https://docs.carevelo.app/errors/not_found'
+              title:
+                type: string
+                description: 'Written for a human and safe to show. May be reworded; do not key on it.'
+                const: 'Not found'
+              status:
+                type: integer
+                description: 'Repeats the HTTP status.'
+                const: 404
+              code:
+                type: string
+                description: 'Stable and machine-readable. Key on this.'
+                const: not_found
             required:
-              - message
+              - type
+              - title
+              - status
+              - code
     AuthenticationException:
-      description: Unauthenticated
+      description: 'Sign in to continue'
       content:
-        application/json:
+        application/problem+json:
           schema:
             type: object
             properties:
-              message:
+              type:
                 type: string
-                description: 'Error overview.'
+                description: 'Stable documentation URI for this error.'
+                const: 'https://docs.carevelo.app/errors/unauthenticated'
+              title:
+                type: string
+                description: 'Written for a human and safe to show. May be reworded; do not key on it.'
+                const: 'Sign in to continue'
+              status:
+                type: integer
+                description: 'Repeats the HTTP status.'
+                const: 401
+              code:
+                type: string
+                description: 'Stable and machine-readable. Key on this.'
+                const: unauthenticated
             required:
-              - message
+              - type
+              - title
+              - status
+              - code
     AuthorizationException:
-      description: 'Authorization error'
+      description: 'You do not have permission to do that'
       content:
-        application/json:
+        application/problem+json:
           schema:
             type: object
             properties:
-              message:
+              type:
                 type: string
-                description: 'Error overview.'
+                description: 'Stable documentation URI for this error.'
+                const: 'https://docs.carevelo.app/errors/forbidden'
+              title:
+                type: string
+                description: 'Written for a human and safe to show. May be reworded; do not key on it.'
+                const: 'You do not have permission to do that'
+              status:
+                type: integer
+                description: 'Repeats the HTTP status.'
+                const: 403
+              code:
+                type: string
+                description: 'Stable and machine-readable. Key on this.'
+                const: forbidden
             required:
-              - message
+              - type
+              - title
+              - status
+              - code

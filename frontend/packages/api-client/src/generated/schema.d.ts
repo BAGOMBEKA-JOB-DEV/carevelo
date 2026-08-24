@@ -3798,16 +3798,34 @@ export interface components {
         };
     };
     responses: {
-        /** @description Validation error */
+        /** @description The request is invalid */
         ValidationException: {
             headers: {
                 [name: string]: unknown;
             };
             content: {
-                "application/json": {
-                    /** @description Errors overview. */
-                    message: string;
-                    /** @description A detailed description of each field that failed validation. */
+                "application/problem+json": {
+                    /**
+                     * @description Stable documentation URI for this error.
+                     * @constant
+                     */
+                    type: "https://docs.carevelo.app/errors/validation_failed";
+                    /**
+                     * @description Written for a human and safe to show. May be reworded; do not key on it.
+                     * @constant
+                     */
+                    title: "The request is invalid";
+                    /**
+                     * @description Repeats the HTTP status.
+                     * @constant
+                     */
+                    status: 422;
+                    /**
+                     * @description Stable and machine-readable. Key on this.
+                     * @constant
+                     */
+                    code: "validation_failed";
+                    /** @description Per-field messages, keyed by field name. */
                     errors: {
                         [key: string]: string[];
                     };
@@ -3820,33 +3838,87 @@ export interface components {
                 [name: string]: unknown;
             };
             content: {
-                "application/json": {
-                    /** @description Error overview. */
-                    message: string;
+                "application/problem+json": {
+                    /**
+                     * @description Stable documentation URI for this error.
+                     * @constant
+                     */
+                    type: "https://docs.carevelo.app/errors/not_found";
+                    /**
+                     * @description Written for a human and safe to show. May be reworded; do not key on it.
+                     * @constant
+                     */
+                    title: "Not found";
+                    /**
+                     * @description Repeats the HTTP status.
+                     * @constant
+                     */
+                    status: 404;
+                    /**
+                     * @description Stable and machine-readable. Key on this.
+                     * @constant
+                     */
+                    code: "not_found";
                 };
             };
         };
-        /** @description Unauthenticated */
+        /** @description Sign in to continue */
         AuthenticationException: {
             headers: {
                 [name: string]: unknown;
             };
             content: {
-                "application/json": {
-                    /** @description Error overview. */
-                    message: string;
+                "application/problem+json": {
+                    /**
+                     * @description Stable documentation URI for this error.
+                     * @constant
+                     */
+                    type: "https://docs.carevelo.app/errors/unauthenticated";
+                    /**
+                     * @description Written for a human and safe to show. May be reworded; do not key on it.
+                     * @constant
+                     */
+                    title: "Sign in to continue";
+                    /**
+                     * @description Repeats the HTTP status.
+                     * @constant
+                     */
+                    status: 401;
+                    /**
+                     * @description Stable and machine-readable. Key on this.
+                     * @constant
+                     */
+                    code: "unauthenticated";
                 };
             };
         };
-        /** @description Authorization error */
+        /** @description You do not have permission to do that */
         AuthorizationException: {
             headers: {
                 [name: string]: unknown;
             };
             content: {
-                "application/json": {
-                    /** @description Error overview. */
-                    message: string;
+                "application/problem+json": {
+                    /**
+                     * @description Stable documentation URI for this error.
+                     * @constant
+                     */
+                    type: "https://docs.carevelo.app/errors/forbidden";
+                    /**
+                     * @description Written for a human and safe to show. May be reworded; do not key on it.
+                     * @constant
+                     */
+                    title: "You do not have permission to do that";
+                    /**
+                     * @description Repeats the HTTP status.
+                     * @constant
+                     */
+                    status: 403;
+                    /**
+                     * @description Stable and machine-readable. Key on this.
+                     * @constant
+                     */
+                    code: "forbidden";
                 };
             };
         };

@@ -63,9 +63,14 @@ it('rejects a session belonging to another tenant, and audits it', function () {
 
     $userOfA = User::factory()->create(['tenant_id' => $tenantA->id]);
 
+    // `abort(403)` in middleware, not a policy denial -- a separate route to a 403
+    // that was answering off-contract for the same reason, and is asserted here so
+    // it cannot drift back.
     $this->actingAs($userOfA)
         ->getJson(tenantUrl($tenantB, '/api/v1/tenant'))
-        ->assertForbidden();
+        ->assertForbidden()
+        ->assertHeader('Content-Type', 'application/problem+json')
+        ->assertJsonPath('code', 'forbidden');
 
     $audited = app(Tenancy::class)->run(
         $tenantB->id,

@@ -22,6 +22,16 @@ export interface Problem {
   type?: string
   title?: string
   status?: number
+  /**
+   * The stable, machine-readable slug. KEY ON THIS AND NOT ON `title`, which the API
+   * documents as rewordable copy.
+   *
+   * It was missing from this interface while the backend sent it on every error, so
+   * callers that needed it — the platform sign-in has to tell `second_factor_required`
+   * apart from an ordinary refusal, and both are a 403 — re-derived it from the raw
+   * payload by hand. Every field the API guarantees belongs here once.
+   */
+  code?: string
   detail?: string
   instance?: string
   errors?: Record<string, string[]>
