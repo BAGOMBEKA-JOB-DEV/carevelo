@@ -42,6 +42,52 @@
 
 /* ==================== FRAME ==================== */
 
+/* ------------------------------------------------------------
+   TELLING THE BROWSER WHICH THEME IT IS RENDERING
+
+   `color-scheme` computes to `normal` on every element in this app in both themes, and
+   nothing in the token layer declares it. That is not a cosmetic gap. It is the only way to
+   tell the browser the page is dark, and the parts of a page the BROWSER draws itself are
+   the parts no stylesheet can reach. Measured on this surface, in dark mode:
+
+     - the calendar panel of `<input type="date">` — the date of birth on the registration
+       form, which is the first form a patient ever meets. A white panel unfolding out of a
+       dark page on a cheap handset does not read as a light widget; it reads as a broken
+       page, on the screen where somebody is deciding whether to trust this clinic online.
+     - the popup a `<select>` opens: the sex field on the same form, and the day and
+       clinician filters on /book.
+     - the autofill highlight, which the browser paints pale yellow over our dark field —
+       on the sign-in password box, every single time.
+     - checkbox and radio glyphs, wherever a rule has not replaced them.
+     - the scrollbar.
+
+   None of these is a contrast failure in the WCAG sense: the browser's own light widgets
+   are internally legible. So a contrast sweep does not and cannot find them. They are found
+   by knowing the property exists.
+
+   THIS IS SCOPED TO `.site-root` AND IS THEREFORE A PARTIAL FIX, DELIBERATELY, and it is
+   the same partial fix the clinic console has just made for `.layout` in its own
+   stylesheet. Every control listed above is inside this frame and is covered. The
+   SCROLLBAR is not: it is drawn from the root element, and the portal's sign-in and
+   set-password screens are `.auth-page`, which is not inside `.site-root` and belongs to
+   tokens/auth.css. The correct home for all of it is two lines in packages/ui beside the
+   palette they belong to —
+
+       :root { color-scheme: light }
+       :root[data-theme='dark'] { color-scheme: dark }
+
+   — which is colors.css, and would cover all four apps and both frames at once. That is in
+   the report rather than done here: three apps and a shared palette is not a change to make
+   on other people's behalf from inside a sweep of one surface.
+
+   THE LIGHT ARM IS STATED rather than left to `normal`, for the reason theme-init.js gives
+   at length: light is this product's default by DECISION and not by absence, and `normal`
+   lets the browser fall back to the OS preference — so a patient whose phone is in night
+   mode would get dark widgets on our deliberately light page.
+   ------------------------------------------------------------ */
+:root:not([data-theme='dark']) .site-root { color-scheme: light; }
+:root[data-theme='dark'] .site-root { color-scheme: dark; }
+
 .site-root {
   display: flex;
   flex-direction: column;
