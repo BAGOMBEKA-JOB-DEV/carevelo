@@ -1,4 +1,5 @@
 import { ConsoleShell } from '@/components/ConsoleShell'
+import { PageHeader } from '@carevelo/ui'
 import { SECTION_IDS, SECTIONS } from '@/components/sections'
 
 /**
@@ -17,15 +18,15 @@ import { SECTION_IDS, SECTIONS } from '@/components/sections'
 export default function HomePage() {
   return (
     <ConsoleShell title="Clinic console" active={null}>
-      <div className="page-head">
-        <div className="grow">
-          <h1>Clinic console</h1>
-          <p>
+      <PageHeader
+        title="Clinic console"
+        description={
+          <>
             Six screens, none of them built yet. Each one below has a route and a place in
             the nav, and says what will live there.
-          </p>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       <div className="grid g-3">
         {SECTION_IDS.map((id) => (

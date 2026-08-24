@@ -1,5 +1,5 @@
 import { getTranslations } from 'next-intl/server'
-import { Notice } from '@carevelo/ui'
+import { Notice, Stack } from '@carevelo/ui'
 import type { RoomCredentials } from '../api/room'
 
 /**
@@ -54,13 +54,13 @@ export async function MediaPane({
   if (!credentials.configured) {
     return (
       <Notice tone="warn" icon="phone" title={t('mediaUnavailableTitle')} announce={false}>
-        <p>{t('mediaUnavailableBody', { clinic })}</p>
-        {/* A whole sentence of its own rather than a clause appended to the one above:
-            the number is the working alternative, and it should read as an instruction
-            rather than as a footnote to an apology. */}
-        <p style={{ marginTop: 'var(--space-3)' }}>
-          {phone ? t('callClinic', { clinic, phone }) : t('contactClinic', { clinic })}
-        </p>
+        <Stack gap="3">
+          <p>{t('mediaUnavailableBody', { clinic })}</p>
+          {/* A whole sentence of its own rather than a clause appended to the one above:
+              the number is the working alternative, and it should read as an instruction
+              rather than as a footnote to an apology. */}
+          <p>{phone ? t('callClinic', { clinic, phone }) : t('contactClinic', { clinic })}</p>
+        </Stack>
       </Notice>
     )
   }

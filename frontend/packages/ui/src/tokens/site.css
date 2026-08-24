@@ -85,6 +85,29 @@
   width: 100%;
 }
 
+/* THE WORKING PAGE'S BAND, AND THE 27 INLINE STYLES IT REPLACES.
+
+   `.site-wrap` is a MEASURE — 1280px and a gutter — and it deliberately owns no vertical
+   space, because the marketing sections it was written for get theirs from
+   `.site-section`'s 88px band below. A signed-in page has no `.site-section`: the patient
+   came to do something rather than to read an argument, so 88px of air above a booking
+   form is 88px of scrolling before the first control. Every one of those pages therefore
+   wrote its own band, and wrote the same one — `style={{ paddingBlock: 'var(--space-8)' }}`
+   appeared 27 times in the patient portal, by a distance the most-repeated inline style in
+   the app.
+
+   None of those 27 was careless. --space-8 was the right token every single time; there
+   was simply nowhere to put it, so it went in a style attribute, 27 times, where 27
+   chances existed to type --space-7 by mistake and no diff would have shown it. This is
+   the modifier that gives it somewhere to live. It is page CHROME — the frame every
+   working page in this app wears — and not a layout decision a screen gets to take, which
+   is exactly the distinction that makes it a class here rather than a prop on Stack.
+
+   NO MEDIA QUERY, unlike `.site-section` above it. 30px is already the small end of this
+   file's rhythm and a phone needs the content nearer the top, not further from it. The
+   gutter still tapers to 18px below 480px, from `.site-wrap` itself. */
+.site-wrap--page { padding-block: var(--space-8); }
+
 .site-section { padding-block: 88px; }
 .site-section--tint { background: var(--surface-2); border-block: 1px solid var(--hairline-soft); }
 

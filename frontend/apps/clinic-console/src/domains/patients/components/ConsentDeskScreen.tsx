@@ -1,6 +1,15 @@
 import type { ReactElement } from 'react'
 import { redirect } from 'next/navigation'
-import { Badge, Button, DateTime, Field, Icon, Input, Notice } from '@carevelo/ui'
+import {
+  Badge,
+  Button,
+    DateTime,
+  Field,
+  Icon,
+  Input,
+  Notice,
+  PageHeader,
+} from '@carevelo/ui'
 import { attempt } from '../api/http'
 import {
   consentHistory,
@@ -189,17 +198,19 @@ export async function ConsentDeskScreen({
   const returnHref = paths.consent(patient.id)
 
   const heading = (
-    <div className="page-head">
-      <div className="grow">
-        <h1>Consent</h1>
-        <p>
+    <PageHeader
+      title="Consent"
+      description={
+        <>
           {patient.given_name} {patient.family_name}
-        </p>
-      </div>
-      <Button href={recordHref} variant="quiet">
-        Back to the record
-      </Button>
-    </div>
+        </>
+      }
+      actions={
+        <Button href={recordHref} variant="quiet">
+          Back to the record
+        </Button>
+      }
+    />
   )
 
   /*
@@ -349,7 +360,7 @@ export async function ConsentDeskScreen({
               </dt>
               {/* Whole, not truncated: a shortened hash cannot be checked against anything,
                   which would make showing it theatre. */}
-              <dd style={{ wordBreak: 'break-all', fontSize: 12.5 }}>
+              <dd className="identifier">
                 <code>{policy.value.text_hash}</code>
               </dd>
             </dl>

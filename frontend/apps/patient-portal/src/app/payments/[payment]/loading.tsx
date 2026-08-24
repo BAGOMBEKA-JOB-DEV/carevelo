@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react'
 import { Card, Skeleton, Stack } from '@carevelo/ui'
+import { PageBody } from '@/components/PageBody'
 
 /**
  * A payment's state, held in place while it is read.
@@ -45,7 +46,7 @@ export default function PaymentStatusLoading(): ReactElement {
             vertical rhythm, and the layout primitives set the space BETWEEN things rather
             than around them, so there is no prop to put it in. The value is the token, so
             the scale still owns it. */}
-        <div className="site-wrap" style={{ paddingBlock: 'var(--space-8)' }}>
+        <PageBody>
           <Stack gap="6">
             {/*
              * Where the panel's own heading will be. `.title-lg` is the nearest step on the
@@ -73,7 +74,7 @@ export default function PaymentStatusLoading(): ReactElement {
             {/* The way back into the portal that every one of the six panels offers. */}
             <Skeleton lines={1} />
           </Stack>
-        </div>
+        </PageBody>
       </main>
     </div>
   )

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Button, Field, Input } from '@carevelo/ui'
+import { Button, Field, Input, Stack } from '@carevelo/ui'
 import { HEX_PATTERN } from '../model/colour'
 import { PortalPreview } from './PortalPreview'
 
@@ -168,7 +168,7 @@ export function BrandingEditor({
         </div>
       </form>
 
-      <div className="stack" style={{ gap: 'var(--space-4)' }}>
+      <Stack gap="4">
         <span className="eyebrow">What your patients will see</span>
 
         <PortalPreview
@@ -187,7 +187,7 @@ export function BrandingEditor({
           text instead of light. Until you save, this preview keeps the text colour that
           belongs to your current brand.
         </p>
-      </div>
+      </Stack>
     </div>
   )
 }

@@ -1,4 +1,20 @@
-import { Badge, Button, Card, DateTime, EmptyState, Money, Notice } from '@carevelo/ui'
+import {
+  Badge,
+  Button,
+  Card,
+  DataTable,
+  DateTime,
+  EmptyState,
+  Field,
+  Inline,
+  Input,
+  Money,
+  Notice,
+  PageHeader,
+  Stack,
+  Stat,
+  Toolbar,
+} from '@carevelo/ui'
 import type { Attempt } from '../api/http'
 import {
   RECONCILIATION_FLAGS,
@@ -77,46 +93,72 @@ export function ReconciliationScreen({
   exportProblem,
 }: ReconciliationScreenProps) {
   return (
-    <div className="grid">
-      <div className="page-head">
-        <div className="grow">
-          <h1>Reconciliation</h1>
-          <p>
+    <Stack gap="6">
+      <PageHeader
+        title="Reconciliation"
+        description={
+          <>
             Every payment attempt we recorded for one day, with the reference you need to
             find it in your own aggregator dashboard.
-          </p>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       <NonCustodialNotice />
 
-      <Card as="section">
-        <h2 className="title">Pick a day</h2>
-        <form method="get" action={selfPath} className="row-wrap" style={{ marginTop: 'var(--space-4)' }}>
-          <div className="field">
-            <label className="field__label" htmlFor="reconciliation-date">
-              Day
-            </label>
-            <input
-              className="input"
-              type="date"
-              id="reconciliation-date"
-              name="date"
-              defaultValue={date ?? ''}
-            />
-            <span className="field__hint">Leave empty for your clinic&rsquo;s today.</span>
-          </div>
-
-          <label className="row" style={{ alignSelf: 'center' }}>
-            <input type="checkbox" name="flagged" value="1" defaultChecked={flaggedOnly} />
-            <span>Only the ones needing a look</span>
-          </label>
-
+      {/*
+       * THE SAME BAR THAT SITS ABOVE EVERY LIST IN THIS CONSOLE. It used to be a full
+       * `.card` with a "Pick a day" heading over it, while the patient registry's filter was
+       * a card with no heading and the audit log's was loose on the page ground — three
+       * shapes for one idea, so "where the filters are" was something staff learned once per
+       * screen. `.console-bar` in console.css is the one shape, quieter than a card because
+       * a toolbar is furniture attached to the list under it rather than a panel with
+       * something of its own to say.
+       *
+       * The heading is not lost, it has moved into the accessibility tree: `label` is the
+       * group's accessible name, so a screen-reader user landing on the date box is told
+       * what these controls are for — which the visible <h2> never did, because a <div> of
+       * inputs beside a heading is not associated with it by anything.
+       *
+       * `as="form"` with `method="get"`: the filter navigates and the URL carries the state,
+       * so a day worth looking at can be bookmarked or mailed to a colleague. No client
+       * component, no onChange, and it works with JavaScript switched off.
+       */}
+      <Toolbar
+        as="form"
+        method="get"
+        action={selfPath}
+        label="Pick a day to reconcile"
+        className="console-bar"
+        actions={
           <Button type="submit" variant="quiet">
             Show
           </Button>
-        </form>
-      </Card>
+        }
+      >
+        <Field
+          name="date"
+          label="Day"
+          hint="Leave empty for your clinic&rsquo;s today."
+        >
+          {(control) => <Input {...control} type="date" defaultValue={date ?? ''} />}
+        </Field>
+
+        {/* A single condition rather than one option among several, so a plain checkbox and
+            not <Choice>. `.choice__input` and `.choice__text` are borrowed from the shared
+            layer so that this row is the same object as every other tickable row in the
+            product — the row is the target, not the 18px square inside it. */}
+        <label className="row">
+          <input
+            className="choice__input"
+            type="checkbox"
+            name="flagged"
+            value="1"
+            defaultChecked={flaggedOnly}
+          />
+          <span className="choice__text">Only the ones needing a look</span>
+        </label>
+      </Toolbar>
 
       {result.ok ? (
         <DayView day={result.value} flaggedOnly={flaggedOnly} />
@@ -125,7 +167,7 @@ export function ReconciliationScreen({
       )}
 
       <ExportCard exportPath={exportPath} problem={exportProblem} />
-    </div>
+    </Stack>
   )
 }
 
@@ -134,36 +176,33 @@ function DayView({ day, flaggedOnly }: { day: ReconciliationDay; flaggedOnly: bo
 
   return (
     <Card as="section">
-      <div className="row-wrap" style={{ justifyContent: 'space-between' }}>
-        <h2 className="title">
-          {/*
-           * The API returns the day it resolved as a bare `YYYY-MM-DD` in the CLINIC's
-           * timezone, and DateTime takes an instant. Midnight UTC is 03:00 the same morning
-           * in Africa/Kampala, so the rendered date is the day the administrator asked for;
-           * any earlier hour would have rolled it back a day for the whole of East Africa.
-           */}
-          {day.date === '' ? 'The clinic’s day' : <DateTime value={`${day.date}T00:00:00Z`} />}
-        </h2>
-        <div className="row-wrap">
-          {/* Counts of RECORDS. Never of money — see the header. */}
-          <span className="stat">
-            <span className="stat__label">Records</span>
-            <span className="stat__value">{day.meta.total}</span>
-          </span>
-          <span className="stat">
-            <span className="stat__label">Need a look</span>
-            <span className="stat__value">{day.meta.flagged}</span>
-          </span>
-        </div>
-      </div>
+      {/* One Stack owns the whole card's rhythm, so nothing inside it carries a margin of
+          its own. Six `marginTop`s lived here before, each stating the space BELOW the
+          element above it — which is a property of the column and not of any of them. */}
+      <Stack gap="5">
+        <Inline justify="between">
+          <h2 className="title">
+            {/*
+             * The API returns the day it resolved as a bare `YYYY-MM-DD` in the CLINIC's
+             * timezone, and DateTime takes an instant. Midnight UTC is 03:00 the same morning
+             * in Africa/Kampala, so the rendered date is the day the administrator asked for;
+             * any earlier hour would have rolled it back a day for the whole of East Africa.
+             */}
+            {day.date === '' ? 'The clinic’s day' : <DateTime value={`${day.date}T00:00:00Z`} />}
+          </h2>
+          <Inline gap="7" align="start">
+            {/* Counts of RECORDS. Never of money — see the header. */}
+            <Stat label="Records" value={day.meta.total} />
+            <Stat label="Need a look" value={day.meta.flagged} />
+          </Inline>
+        </Inline>
 
-      {day.unreadable > 0 ? (
-        /*
-         * SAID OUT LOUD RATHER THAN SWALLOWED. A reconciliation screen quietly showing
-         * eleven of twelve records is worse than one showing none: an administrator would
-         * balance the clinic's books against it and never learn a line was missing.
-         */
-        <div style={{ marginTop: 'var(--space-5)' }}>
+        {day.unreadable > 0 ? (
+          /*
+           * SAID OUT LOUD RATHER THAN SWALLOWED. A reconciliation screen quietly showing
+           * eleven of twelve records is worse than one showing none: an administrator would
+           * balance the clinic's books against it and never learn a line was missing.
+           */
           <Notice tone="bad" title="Some records could not be read">
             <p>
               {day.unreadable} record{day.unreadable === 1 ? '' : 's'} for this day came back
@@ -172,105 +211,100 @@ function DayView({ day, flaggedOnly }: { day: ReconciliationDay; flaggedOnly: bo
               source and is the safe copy to work from until this is fixed.
             </p>
           </Notice>
-        </div>
-      ) : null}
+        ) : null}
 
-      {day.meta.note === '' ? null : (
-        <p className="muted" style={{ marginTop: 'var(--space-4)' }}>
-          {day.meta.note}
-        </p>
-      )}
+        {day.meta.note === '' ? null : <p className="muted">{day.meta.note}</p>}
 
-      {rows.length === 0 ? (
-        <div style={{ marginTop: 'var(--space-5)' }}>
-          <EmptyState title={flaggedOnly ? 'Nothing needs a look' : 'No payment records for this day'}>
-            {flaggedOnly
-              ? 'Every record for this day looks the way we would expect. Untick the filter to see them all.'
-              : 'No payment was attempted at this clinic on this day, or the day has not started yet.'}
-          </EmptyState>
-        </div>
-      ) : (
-        <>
-          <div className="table-scroll" style={{ marginTop: 'var(--space-5)' }}>
-            <table className="table">
-              <caption className="fine" style={{ captionSide: 'bottom', textAlign: 'left' }}>
-                Amounts are what we asked the aggregator to collect, not what reached your
-                account.
-              </caption>
-              <thead>
-                <tr>
-                  <th scope="col">Started</th>
-                  <th scope="col">Our reference</th>
-                  <th scope="col">Aggregator reference</th>
-                  <th scope="col">How</th>
-                  <th scope="col" className="tnum">
-                    Requested
-                  </th>
-                  <th scope="col">Reported</th>
-                  <th scope="col">Needs a look</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row) => (
-                  <Row key={row.id} row={row} />
-                ))}
-              </tbody>
-            </table>
-          </div>
+        {/*
+         * The empty state lives INSIDE the table now rather than replacing it. The headings
+         * and the caption stay put, so the screen does not change shape between a day with
+         * records and a day without one — and the caption's warning about what the amounts
+         * are still reaches somebody who filtered everything away.
+         */}
+        <DataTable
+          caption="Amounts are what we asked the aggregator to collect, not what reached your account."
+          rows={rows}
+          rowKey={(row) => row.id}
+          empty={
+            <EmptyState title={flaggedOnly ? 'Nothing needs a look' : 'No payment records for this day'}>
+              {flaggedOnly
+                ? 'Every record for this day looks the way we would expect. Untick the filter to see them all.'
+                : 'No payment was attempted at this clinic on this day, or the day has not started yet.'}
+            </EmptyState>
+          }
+          columns={[
+            {
+              key: 'started',
+              header: 'Started',
+              cell: (row) =>
+                row.initiatedAt === null ? (
+                  <span className="muted">—</span>
+                ) : (
+                  <DateTime value={row.initiatedAt} format="time" />
+                ),
+            },
+            {
+              /*
+               * The reference NAMES the row and is the link, because it is what an
+               * administrator is holding when they arrive here from anywhere else. The
+               * record page is where the cash attestation and the receipt live.
+               */
+              key: 'reference',
+              header: 'Our reference',
+              rowHeader: true,
+              cell: (row) => (
+                <a className="lnk mono" href={`/payments/records/${encodeURIComponent(row.id)}`}>
+                  {row.reference}
+                </a>
+              ),
+            },
+            {
+              key: 'aggregator',
+              header: 'Aggregator reference',
+              cell: (row) => (
+                <span className="mono">
+                  {row.aggregatorReference ?? <span className="muted">—</span>}
+                </span>
+              ),
+            },
+            { key: 'method', header: 'How', cell: (row) => methodLabel(row.method) },
+            {
+              key: 'amount',
+              header: 'Requested',
+              numeric: true,
+              cell: (row) =>
+                row.amount === null ? <span className="muted">—</span> : <Money value={row.amount} />,
+            },
+            {
+              key: 'status',
+              header: 'Reported',
+              cell: (row) => <PaymentStatusBadge status={row.status} />,
+            },
+            {
+              key: 'flags',
+              header: 'Needs a look',
+              cell: (row) =>
+                row.flags.length === 0 ? (
+                  <span className="muted">—</span>
+                ) : (
+                  <Inline as="span" gap="2">
+                    {row.flags.map((flag) => (
+                      <Badge key={flag} tone={isKnownFlag(flag) ? 'warn' : 'neutral'}>
+                        {isKnownFlag(flag) ? RECONCILIATION_FLAGS[flag].label : flag}
+                      </Badge>
+                    ))}
+                  </Inline>
+                ),
+            },
+          ]}
+        />
 
-          <FlagLegend rows={rows} />
-        </>
-      )}
+        <FlagLegend rows={rows} />
+      </Stack>
     </Card>
   )
 }
 
-function Row({ row }: { row: ReconciliationRow }) {
-  return (
-    <tr>
-      <td>
-        {row.initiatedAt === null ? (
-          <span className="muted">—</span>
-        ) : (
-          <DateTime value={row.initiatedAt} format="time" />
-        )}
-      </td>
-      <td>
-        {/*
-         * The reference is the link, because it is what an administrator is holding when
-         * they come here from anywhere else. The record page is where the cash attestation
-         * and the receipt live.
-         */}
-        <a className="lnk mono" href={`/payments/records/${encodeURIComponent(row.id)}`}>
-          {row.reference}
-        </a>
-      </td>
-      <td className="mono">
-        {row.aggregatorReference ?? <span className="muted">—</span>}
-      </td>
-      <td>{methodLabel(row.method)}</td>
-      <td className="tnum">
-        {row.amount === null ? <span className="muted">—</span> : <Money value={row.amount} />}
-      </td>
-      <td>
-        <PaymentStatusBadge status={row.status} />
-      </td>
-      <td>
-        {row.flags.length === 0 ? (
-          <span className="muted">—</span>
-        ) : (
-          <span className="row-wrap">
-            {row.flags.map((flag) => (
-              <Badge key={flag} tone={isKnownFlag(flag) ? 'warn' : 'neutral'}>
-                {isKnownFlag(flag) ? RECONCILIATION_FLAGS[flag].label : flag}
-              </Badge>
-            ))}
-          </span>
-        )}
-      </td>
-    </tr>
-  )
-}
 
 /**
  * What each flag on this page actually means.
@@ -291,9 +325,14 @@ function FlagLegend({ rows }: { rows: readonly ReconciliationRow[] }) {
   }
 
   return (
-    <dl className="grid g-2" style={{ marginTop: 'var(--space-6)' }}>
+    /* A <dl> wearing `.grid g-2` rather than <Grid>: the primitive's `as` union is
+       div/section/ul/ol, and a description list is the right element for a term and its
+       meaning. The class does exactly what <Grid cols={2}> would render, including the
+       collapse to one column below 700px, and the margin that used to sit on this element
+       is now the parent Stack's gap. */
+    <dl className="grid g-2">
       {present.map((flag) => (
-        <div className="stack" key={flag}>
+        <Stack gap="2" key={flag}>
           <dt className="stat__label">
             {isKnownFlag(flag) ? RECONCILIATION_FLAGS[flag].label : flag}
           </dt>
@@ -303,7 +342,7 @@ function FlagLegend({ rows }: { rows: readonly ReconciliationRow[] }) {
               : 'This console does not have a description for this flag yet. Treat it as '
                 + 'something to check against your own aggregator dashboard.'}
           </dd>
-        </div>
+        </Stack>
       ))}
     </dl>
   )
@@ -350,39 +389,41 @@ function Refusal({ status, message }: { status: number | null; message: string |
 function ExportCard({ exportPath, problem }: { exportPath: string; problem?: string | undefined }) {
   return (
     <Card as="section">
-      <h2 className="title">Export for your books</h2>
-      <p className="muted" style={{ marginTop: 'var(--space-2)' }}>
-        A CSV of the same records over a range of days. Every line carries the
-        aggregator&rsquo;s own reference so you can match it in your dashboard. There is no
-        total column, for the reason above.
-      </p>
+      {/* Still a card and still headed, unlike the filter above it: this is not furniture
+          attached to a list, it is a panel that does something and has to explain what. */}
+      <Stack gap="4">
+        <h2 className="title">Export for your books</h2>
+        <p className="muted">
+          A CSV of the same records over a range of days. Every line carries the
+          aggregator&rsquo;s own reference so you can match it in your dashboard. There is no
+          total column, for the reason above.
+        </p>
 
-      {problem === undefined ? null : (
-        <div style={{ marginBlock: 'var(--space-4)' }}>
+        {problem === undefined ? null : (
           <Notice tone="bad" title="The export was refused" announce>
             <p>{problem}</p>
           </Notice>
-        </div>
-      )}
+        )}
 
-      <form method="get" action={exportPath} className="row-wrap" style={{ marginTop: 'var(--space-4)' }}>
-        <div className="field">
-          <label className="field__label" htmlFor="export-from">
-            From
-          </label>
-          <input className="input" type="date" id="export-from" name="from" required />
-        </div>
-        <div className="field">
-          <label className="field__label" htmlFor="export-to">
-            To
-          </label>
-          <input className="input" type="date" id="export-to" name="to" required />
-          <span className="field__hint">Up to 92 days at a time.</span>
-        </div>
-        <Button type="submit" variant="quiet">
-          Download CSV
-        </Button>
-      </form>
+        <Toolbar
+          as="form"
+          method="get"
+          action={exportPath}
+          label="Export a range of days as a CSV"
+          actions={
+            <Button type="submit" variant="quiet">
+              Download CSV
+            </Button>
+          }
+        >
+          <Field name="from" label="From">
+            {(control) => <Input {...control} type="date" required />}
+          </Field>
+          <Field name="to" label="To" hint="Up to 92 days at a time.">
+            {(control) => <Input {...control} type="date" required />}
+          </Field>
+        </Toolbar>
+      </Stack>
     </Card>
   )
 }

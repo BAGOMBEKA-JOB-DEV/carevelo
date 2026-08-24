@@ -1,4 +1,4 @@
-import { Card, Icon, Notice } from '@carevelo/ui'
+import { Card, Icon, Inline, Notice } from '@carevelo/ui'
 import { attempt, tenantHost } from '../api/http'
 import { getClinic } from '../api/clinic'
 import type { TenantPaths } from '../model/types'
@@ -86,10 +86,10 @@ export async function SettingsHub({ paths }: SettingsHubProps) {
             href={section.href(paths)}
             style={{ display: 'block' }}
           >
-            <span className="row" style={{ gap: 'var(--space-3)' }}>
+            <Inline as="span" gap="3" wrap={false}>
               <Icon name={section.icon} />
               <strong>{section.title}</strong>
-            </span>
+            </Inline>
             <p className="muted" style={{ marginTop: 'var(--space-3)' }}>
               {section.body}
             </p>

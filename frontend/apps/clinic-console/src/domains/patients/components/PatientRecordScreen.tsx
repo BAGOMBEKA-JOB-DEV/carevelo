@@ -1,5 +1,5 @@
 import type { ReactElement, ReactNode } from 'react'
-import { Badge, Button, DateTime, Icon, Notice } from '@carevelo/ui'
+import { Badge, Button, DateTime, Icon, Notice, PageHeader } from '@carevelo/ui'
 import { attempt } from '../api/http'
 import { consentHistory, latestDecisions } from '../api/consents'
 import type { Patient } from '../api/types'
@@ -81,12 +81,10 @@ export async function PatientRecordScreen({
 
   return (
     <>
-      <div className="page-head">
-        <div className="grow">
-          <h1>
-            {patient.given_name} {patient.family_name}
-          </h1>
-          <p>
+      <PageHeader
+        title={`${patient.given_name} ${patient.family_name}`}
+        description={
+            <>
             Registered{' '}
             {patient.created_at === null ? (
               'at an unrecorded time'
@@ -94,13 +92,17 @@ export async function PatientRecordScreen({
               <DateTime value={patient.created_at} format="date" />
             )}
             .
-          </p>
-        </div>
-        <Badge tone={status.tone}>{status.label}</Badge>
-        <Button href={paths.registry} variant="quiet">
-          Back to patients
-        </Button>
-      </div>
+            </>
+        }
+        actions={
+            <>
+          <Badge tone={status.tone}>{status.label}</Badge>
+          <Button href={paths.registry} variant="quiet">
+            Back to patients
+          </Button>
+            </>
+        }
+      />
 
       <div className="grid">
         {error !== undefined ? (

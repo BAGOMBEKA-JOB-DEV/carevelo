@@ -1,4 +1,4 @@
-import { Badge, DateTime, EmptyState, Notice } from '@carevelo/ui'
+import { Badge, DateTime, EmptyState, Inline, Notice } from '@carevelo/ui'
 import { asMode, asOutcome, MODE_LABEL, OUTCOME_LABEL, type Consultation, type Patient } from '../model/types'
 
 /**
@@ -79,7 +79,7 @@ export function PatientHistory({
                   )}
                 </span>
 
-                <span className="row-wrap" style={{ gap: 'var(--space-2)' }}>
+                <Inline as="span" gap="2">
                   {mode === null ? null : <Badge tone="neutral">{MODE_LABEL[mode]}</Badge>}
                   {outcome === null ? (
                     <Badge tone="info">Not yet ended</Badge>
@@ -88,7 +88,7 @@ export function PatientHistory({
                       {OUTCOME_LABEL[outcome]}
                     </Badge>
                   )}
-                </span>
+                </Inline>
               </li>
             )
           })}

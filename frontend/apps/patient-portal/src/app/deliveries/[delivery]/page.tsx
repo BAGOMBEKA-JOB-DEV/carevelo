@@ -5,6 +5,7 @@ import { resolveTenant } from '@/lib/tenant'
 import { currentUser } from '@/lib/session'
 import { DeliveryTracking, getDeliveryTracking } from '@/domains/delivery'
 import { SiteShell } from '@/components/SiteShell'
+import { PageBody } from '@/components/PageBody'
 
 /**
  * Where the package has got to.
@@ -58,13 +59,13 @@ export default async function DeliveryPage({
 
   return (
     <SiteShell tenant={tenant} signedIn>
-      <div className="site-wrap" style={{ paddingBlock: 'var(--space-8)' }}>
+      <PageBody>
         <DeliveryTracking
           result={result}
           clinic={tenant.trading_name ?? common('thisClinic')}
           clinicPhone={tenant.contact?.phone ?? undefined}
         />
-      </div>
+      </PageBody>
     </SiteShell>
   )
 }

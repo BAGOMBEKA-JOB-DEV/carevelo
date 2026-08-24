@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react'
 import { getTranslations } from 'next-intl/server'
 import { Card, Skeleton, Stack } from '@carevelo/ui'
+import { PageBody } from '@/components/PageBody'
 
 /**
  * One prescription, held in place while it is read.
@@ -49,7 +50,7 @@ export default async function PrescriptionLoading(): Promise<ReactElement> {
             wrapper, and there is no padding prop on the layout primitives to put it in —
             `Stack`, `Inline` and `Grid` decide the space BETWEEN things, not around them.
             The value is the token, so the scale still owns it. */}
-        <div className="site-wrap" style={{ paddingBlock: 'var(--space-8)' }}>
+        <PageBody>
           <Stack gap="6">
             {/* The way back to the list, rendered for real rather than reserved: this is
                 the one control a patient can use while the record is still loading, and on
@@ -100,7 +101,7 @@ export default async function PrescriptionLoading(): Promise<ReactElement> {
                 the signed document. Both are on this page every time. */}
             <Skeleton block="sm" />
           </Stack>
-        </div>
+        </PageBody>
       </main>
     </div>
   )

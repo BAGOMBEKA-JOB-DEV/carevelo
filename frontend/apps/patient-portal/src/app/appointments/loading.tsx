@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react'
 import { getTranslations } from 'next-intl/server'
 import { Card, Skeleton, Stack } from '@carevelo/ui'
+import { PageBody } from '@/components/PageBody'
 
 /**
  * What a patient has booked, held in place while it is fetched.
@@ -32,7 +33,7 @@ export default async function AppointmentsLoading(): Promise<ReactElement> {
   return (
     <div className="site-root">
       <main>
-        <div className="site-wrap" style={{ paddingBlock: 'var(--space-8)' }}>
+        <PageBody>
           {/* `gap="7"` reproduces `.page-head`'s own `margin-bottom`, so the first card
               starts where the first card starts. */}
           <Stack gap="7">
@@ -68,7 +69,7 @@ export default async function AppointmentsLoading(): Promise<ReactElement> {
               ))}
             </Stack>
           </Stack>
-        </div>
+        </PageBody>
       </main>
     </div>
   )

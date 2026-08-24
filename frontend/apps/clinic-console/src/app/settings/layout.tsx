@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { unstable_rethrow } from 'next/navigation'
+import { PageHeader } from '@carevelo/ui'
 import { ConsoleShell } from '@/components/ConsoleShell'
 import { getClinic } from '@/domains/tenant'
 
@@ -36,16 +37,16 @@ export default async function SettingsLayout({ children }: { children: ReactNode
 
   return (
     <ConsoleShell title="Settings" active="settings" logoUrl={logoUrl}>
-      <div className="page-head">
-        <div className="grow">
-          <h1>Settings</h1>
-          <p>
+      <PageHeader
+        title="Settings"
+        description={
+          <>
             Everything about this clinic that Carevelo does not decide: how it looks to
             patients, what it offers, when it opens, who works here, and where its money
             goes.
-          </p>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       {children}
     </ConsoleShell>

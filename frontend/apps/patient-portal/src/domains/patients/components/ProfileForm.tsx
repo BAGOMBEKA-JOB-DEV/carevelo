@@ -11,6 +11,7 @@ import {
   type FieldFault,
   type PatientFieldValues,
 } from './PatientFields'
+import { PageBody } from '@/components/PageBody'
 
 /**
  * A patient correcting their own details.
@@ -154,7 +155,7 @@ export async function ProfileForm({
     error === undefined ? undefined : { field: errorField ?? null, message: error }
 
   return (
-    <div className="site-wrap" style={{ paddingBlock: 'var(--space-8)' }}>
+    <PageBody>
       <div className="grid" style={{ gap: 'var(--space-7)', maxWidth: 640 }}>
         <div className="site-sec-head">
           <span className="site-eyebrow">{t('profile.eyebrow')}</span>
@@ -212,6 +213,6 @@ export async function ProfileForm({
           {t('profile.clinicalBody', { clinic })}
         </Notice>
       </div>
-    </div>
+    </PageBody>
   )
 }

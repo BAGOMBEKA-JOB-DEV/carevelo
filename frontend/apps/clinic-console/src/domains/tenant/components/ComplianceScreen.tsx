@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { Button, Card, Field, Input, Notice } from '@carevelo/ui'
+import { Button, Card, Field, Input, Notice, Stack } from '@carevelo/ui'
 import { attempt, writeFailure } from '../api/http'
 import { getClinic, omitBlank, saveClinic } from '../api/clinic'
 import type { ClinicChanges, TenantPaths } from '../model/types'
@@ -82,133 +82,140 @@ export async function ComplianceScreen(props: ComplianceScreenProps) {
       {saved === undefined ? null : <Notice tone="info">{saved}</Notice>}
 
       <Card as="section">
-        <span className="eyebrow">Contact</span>
-        <h2 className="title-sm">How patients reach {name}</h2>
-        <p className="muted">
-          These appear on the patient portal and on the receipt. The phone number is the one
-          patients are told to ring when something cannot be done online — which, in the
-          first year, is most things.
-        </p>
+        <Stack gap="6">
+          <Stack gap="none">
+            <span className="eyebrow">Contact</span>
+            <h2 className="title-sm">How patients reach {name}</h2>
+            <p className="muted">
+              These appear on the patient portal and on the receipt. The phone number is the one
+              patients are told to ring when something cannot be done online — which, in the
+              first year, is most things.
+            </p>
+          </Stack>
 
-        <form
-          action={saveContact.bind(null, { selfPath: paths.compliance })}
-          className="stack"
-          style={{ gap: 'var(--space-6)', marginTop: 'var(--space-6)' }}
-        >
-          <Field
-            name="contact_phone"
-            label="Clinic phone number"
-            hint="A Ugandan number. Patients and Carevelo's own notifications both use it."
-          >
-            {(control) => (
-              <Input
-                {...control}
-                type="tel"
-                inputMode="tel"
-                autoComplete="tel"
-                defaultValue={contact.phone ?? ''}
-              />
-            )}
-          </Field>
+          <form action={saveContact.bind(null, { selfPath: paths.compliance })}>
+            <Stack gap="6">
+              <Field
+                name="contact_phone"
+                label="Clinic phone number"
+                hint="A Ugandan number. Patients and Carevelo's own notifications both use it."
+              >
+                {(control) => (
+                  <Input
+                    {...control}
+                    type="tel"
+                    inputMode="tel"
+                    autoComplete="tel"
+                    defaultValue={contact.phone ?? ''}
+                  />
+                )}
+              </Field>
 
-          <Field name="contact_email" label="Clinic email address">
-            {(control) => (
-              <Input
-                {...control}
-                type="email"
-                autoComplete="email"
-                maxLength={255}
-                defaultValue={contact.email ?? ''}
-              />
-            )}
-          </Field>
+              <Field name="contact_email" label="Clinic email address">
+                {(control) => (
+                  <Input
+                    {...control}
+                    type="email"
+                    autoComplete="email"
+                    maxLength={255}
+                    defaultValue={contact.email ?? ''}
+                  />
+                )}
+              </Field>
 
-          <Field name="physical_address" label="Physical address">
-            {(control) => (
-              <Input {...control} type="text" maxLength={255} defaultValue={contact.physical_address ?? ''} />
-            )}
-          </Field>
+              <Field name="physical_address" label="Physical address">
+                {(control) => (
+                  <Input {...control} type="text" maxLength={255} defaultValue={contact.physical_address ?? ''} />
+                )}
+              </Field>
 
-          <Field name="district" label="District">
-            {(control) => (
-              <Input {...control} type="text" maxLength={100} defaultValue={contact.district ?? ''} />
-            )}
-          </Field>
+              <Field name="district" label="District">
+                {(control) => (
+                  <Input {...control} type="text" maxLength={100} defaultValue={contact.district ?? ''} />
+                )}
+              </Field>
 
-          <div className="row-wrap">
-            <Button type="submit" variant="primary">
-              Save contact details
-            </Button>
-            <span className="fine">Clearing a box here removes that detail from the portal.</span>
-          </div>
-        </form>
-      </Card>
+              <div className="row-wrap">
+                <Button type="submit" variant="primary">
+                  Save contact details
+                </Button>
+                <span className="fine">Clearing a box here removes that detail from the portal.</span>
+              </div>
+
+            </Stack>
+          </form>
+        </Stack>
+</Card>
 
       <Card as="section">
-        <span className="eyebrow">Compliance</span>
-        <h2 className="title-sm">Licence references, recorded as your attestation</h2>
+        <Stack gap="6">
+          <Stack gap="none">
+            <span className="eyebrow">Compliance</span>
+            <h2 className="title-sm">Licence references, recorded as your attestation</h2>
 
-        {/*
-         * ABOVE the fields, not below them. Somebody typing a licence number into a health
-         * platform reasonably assumes it is being checked; the statement has to arrive
-         * before the assumption does. `announce` is off deliberately — this is standing
-         * context on every visit, not an alert about something that just happened.
-         */}
-        <Notice tone="info" title="Carevelo does not verify these" icon="shield">
-          <p>{NOT_VERIFIED_BY_CAREVELO}</p>
-          <p className="fine">
-            They are recorded so this clinic can produce them, and they appear as the clinic&rsquo;s
-            own statement wherever they are shown. Keeping them current is the clinic&rsquo;s
-            responsibility as the licensed operator.
-          </p>
-        </Notice>
+            {/*
+             * ABOVE the fields, not below them. Somebody typing a licence number into a health
+             * platform reasonably assumes it is being checked; the statement has to arrive
+             * before the assumption does. `announce` is off deliberately — this is standing
+             * context on every visit, not an alert about something that just happened.
+             */}
+          </Stack>
 
-        <Notice tone="warn" title="These boxes always open empty">
-          <p>
-            Carevelo has no way to show you what is already recorded here — there is no
-            endpoint that reads these three fields back. A box you leave empty is left
-            untouched, so saving this form will not erase anything. To CHANGE a value, type
-            the new one. To remove one entirely, contact support: this screen cannot do it
-            without risking deleting a reference it never showed you.
-          </p>
-        </Notice>
+          <Notice tone="info" title="Carevelo does not verify these" icon="shield">
+            <p>{NOT_VERIFIED_BY_CAREVELO}</p>
+            <p className="fine">
+              They are recorded so this clinic can produce them, and they appear as the clinic&rsquo;s
+              own statement wherever they are shown. Keeping them current is the clinic&rsquo;s
+              responsibility as the licensed operator.
+            </p>
+          </Notice>
 
-        <form
-          action={saveCompliance.bind(null, { selfPath: paths.compliance })}
-          className="stack"
-          style={{ gap: 'var(--space-6)', marginTop: 'var(--space-6)' }}
-        >
-          <Field
-            name="legal_name"
-            label="Registered legal name"
-            hint="The entity on the licence, which is often not the name over the door."
-          >
-            {(control) => <Input {...control} type="text" maxLength={200} />}
-          </Field>
+          <Notice tone="warn" title="These boxes always open empty">
+            <p>
+              Carevelo has no way to show you what is already recorded here — there is no
+              endpoint that reads these three fields back. A box you leave empty is left
+              untouched, so saving this form will not erase anything. To CHANGE a value, type
+              the new one. To remove one entirely, contact support: this screen cannot do it
+              without risking deleting a reference it never showed you.
+            </p>
+          </Notice>
 
-          <Field
-            name="umdpc_facility_reference"
-            label="UMDPC facility reference"
-            hint="The supervising clinician's Uganda Medical and Dental Practitioners Council reference."
-          >
-            {(control) => <Input {...control} type="text" maxLength={64} spellCheck={false} />}
-          </Field>
+          <form action={saveCompliance.bind(null, { selfPath: paths.compliance })}>
+            <Stack gap="6">
+              <Field
+                name="legal_name"
+                label="Registered legal name"
+                hint="The entity on the licence, which is often not the name over the door."
+              >
+                {(control) => <Input {...control} type="text" maxLength={200} />}
+              </Field>
 
-          <Field
-            name="nda_licence_reference"
-            label="NDA pharmacy licence reference"
-            hint="Required before this clinic dispenses medicines. Not required to hold consultations."
-          >
-            {(control) => <Input {...control} type="text" maxLength={64} spellCheck={false} />}
-          </Field>
+              <Field
+                name="umdpc_facility_reference"
+                label="UMDPC facility reference"
+                hint="The supervising clinician's Uganda Medical and Dental Practitioners Council reference."
+              >
+                {(control) => <Input {...control} type="text" maxLength={64} spellCheck={false} />}
+              </Field>
 
-          <div>
-            <Button type="submit" variant="primary">
-              Record these references
-            </Button>
-          </div>
-        </form>
-      </Card>
+              <Field
+                name="nda_licence_reference"
+                label="NDA pharmacy licence reference"
+                hint="Required before this clinic dispenses medicines. Not required to hold consultations."
+              >
+                {(control) => <Input {...control} type="text" maxLength={64} spellCheck={false} />}
+              </Field>
+
+              <div>
+                <Button type="submit" variant="primary">
+                  Record these references
+                </Button>
+              </div>
+
+            </Stack>
+          </form>
+        </Stack>
+</Card>
 
       <Card as="section">
         <span className="eyebrow">Data protection</span>

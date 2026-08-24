@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react'
 import { getTranslations } from 'next-intl/server'
 import { Card, PageHeader, Skeleton, Stack } from '@carevelo/ui'
+import { PageBody } from '@/components/PageBody'
 
 /**
  * The catalogue, in the shape it will arrive in.
@@ -40,7 +41,7 @@ export default async function ServicesLoading(): Promise<ReactElement> {
       <main>
         {/* The same wrapper and the same block padding as ServiceCatalogue's own root, so
             the column width and the top of the first card land where they will land. */}
-        <div className="site-wrap" style={{ paddingBlock: 'var(--space-8)' }}>
+        <PageBody>
           <PageHeader eyebrow={t('catalogue.eyebrow')} title={t('catalogue.title')} />
 
           {/*
@@ -66,7 +67,7 @@ export default async function ServicesLoading(): Promise<ReactElement> {
               </Card>
             ))}
           </Stack>
-        </div>
+        </PageBody>
       </main>
     </div>
   )

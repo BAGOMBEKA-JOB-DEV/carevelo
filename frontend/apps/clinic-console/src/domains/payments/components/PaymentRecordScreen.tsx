@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Card, DateTime, Money, Notice } from '@carevelo/ui'
+import { Card, DateTime, Money, Notice, PageHeader } from '@carevelo/ui'
 import type { PaymentIntent, Receipt } from '../api/types'
 import { isCash, isSucceeded, isUnresolved, methodLabel, moneyFrom, statusOf } from '../api/types'
 import { CashAttestation } from './CashAttestation'
@@ -63,11 +63,17 @@ export function PaymentRecordScreen({
 
   return (
     <div className="grid">
-      <div className="page-head">
-        <div className="grow">
-          <span className="eyebrow">Payment record</span>
-          <h1 className="mono">{intent.reference}</h1>
-          <p>
+      <PageHeader
+        /* The title IS the aggregator's reference, and it is set in the monospaced face for
+           the reason console.css gives beside `.ref-title`: it is copied, read aloud and
+           compared character by character against another screen. `PageHeader` takes a
+           string title by construction — that is what guarantees one <h1> per page — so the
+           face is asked for on the header rather than wrapped around the words. */
+        className="ref-title"
+        eyebrow="Payment record"
+        title={intent.reference}
+        description={
+          <>
             {methodLabel(intent.method)}
             {amount === null ? null : (
               <>
@@ -75,10 +81,10 @@ export function PaymentRecordScreen({
                 <Money value={amount} />
               </>
             )}
-          </p>
-        </div>
-        <PaymentStatusBadge status={intent.status} />
-      </div>
+          </>
+        }
+        actions={<PaymentStatusBadge status={intent.status} />}
+      />
 
       {attested === true ? (
         /*

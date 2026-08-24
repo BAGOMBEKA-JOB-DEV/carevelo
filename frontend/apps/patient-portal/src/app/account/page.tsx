@@ -7,6 +7,8 @@ import { resolveTenant } from '@/lib/tenant'
 import { currentUser } from '@/lib/session'
 import { signOut } from '@/domains/identity'
 import { SiteShell } from '@/components/SiteShell'
+import { PageBody } from '@/components/PageBody'
+import { SitePageHeader } from '@/components/SitePageHeader'
 
 /**
  * Where a signed-in person lands, and the index of everything they can do here.
@@ -107,29 +109,43 @@ export default async function AccountPage() {
 
   return (
     <SiteShell tenant={tenant} signedIn>
-      <div className="site-wrap" style={{ paddingBlock: 'var(--space-8)' }}>
-        <div className="page-head">
-          <div style={{ flex: '1 1 auto' }}>
-            <span className="site-eyebrow">{t('eyebrow')}</span>
-            <h1 style={{ marginTop: 'var(--space-4)' }}>
-              {t('welcome', { firstName: firstName(user.name) })}
-            </h1>
-            <p>{t('signedInTo', { clinic })}</p>
-          </div>
+      <PageBody>
+        <SitePageHeader
+          eyebrow={t('eyebrow')}
+          title={t('welcome', { firstName: firstName(user.name) })}
+          description={t('signedInTo', { clinic })}
+          actions={
+            /*
+             * A FORM, NOT A LINK, and the distinction is not pedantry. Signing out changes
+             * state on the server; a link is a GET, and the router prefetches links it can
+             * see. A patient whose session ended because the browser looked at the page is
+             * the bug this shape makes impossible.
+             */
+            <form action={endSession}>
+              <button className="btn btn-quiet" type="submit">
+                <Icon name="lock" /> {t('signOut')}
+              </button>
+            </form>
+          }
+        />
 
-          {/*
-           * A FORM, NOT A LINK, and the distinction is not pedantry. Signing out changes
-           * state on the server; a link is a GET, and the router prefetches links it can
-           * see. A patient whose session ended because the browser looked at the page is
-           * the bug this shape makes impossible.
-           */}
-          <form action={endSession}>
-            <button className="btn btn-quiet" type="submit">
-              <Icon name="lock" /> {t('signOut')}
-            </button>
-          </form>
-        </div>
-
+        {/*
+         * SURVIVING INLINE STYLE, AND THE ONE PATTERN THE LAYOUT SWEEP COULD NOT ANSWER.
+         *
+         * `.stat__value` is 28px, sized for a COUNT — "1,240", "6", a shilling total. Both
+         * values here are a NAME, and a clinic's trading name at 28px in the display face
+         * wraps to three lines inside a `.cell` on a 360px phone. 21px is what fits, and
+         * 21px is not on the type scale: `.title` is 21px but in the BODY face at weight
+         * 600, so borrowing it would change the face as well as the size and put a stat
+         * value in a different typeface from every other stat value in the product.
+         *
+         * The right fix is a size modifier — `.stat__value--sm` and friends — in
+         * tokens/components.css beside the rule it modifies, where the console's ~15
+         * matching overrides can use it too. That file is not this sweep's to write, and
+         * inventing a second mechanism in the app to avoid one style property would be
+         * worse than the property. So it stays, with this comment, and the modifier is the
+         * follow-up.
+         */}
         <div className="cellgrid cellgrid--2">
           <div className="cell">
             <div className="stat">
@@ -152,6 +168,19 @@ export default async function AccountPage() {
           </div>
         </div>
 
+        {/*
+         * SURVIVING INLINE STYLE. This page's vertical rhythm is a BLOCK formatting
+         * context and has to stay one: `.cellgrid` carries a 52px `margin-top` of its own
+         * from the token layer, and wrapping these children in a `<Stack>` would stop that
+         * margin collapsing against `.page-head`'s 24px `margin-bottom` and add the
+         * Stack's gap on top of both — see PageBody's docblock, which is where that
+         * reasoning is kept. The four gaps down this page are 30px, 52px, 24px and 18px;
+         * no single Stack gap absorbs them, and a nest per pair would be four wrappers to
+         * retire four properties.
+         *
+         * `.site-h2` sets its own 14px `margin-top` for the marketing sections it was
+         * written for. 30px is the working page's step, and it is on the scale.
+         */}
         <h2 className="site-h2" style={{ marginTop: 'var(--space-8)' }}>
           {routes('hub.doHeading')}
         </h2>
@@ -177,7 +206,16 @@ export default async function AccountPage() {
         </div>
 
         {/* Not a card, because it is not somewhere to go. Stated plainly instead, where a
-            patient looking for their delivery will read it. */}
+            patient looking for their delivery will read it.
+
+            SURVIVING INLINE STYLES, both for the block-context reason above, and one of
+            them is load-bearing in a way that is worth flagging rather than tidying:
+            `.notice` is `display: flex` in ROW direction, so the `<strong>` and the `<p>`
+            here sit side by side as two columns and the 6px is what stops the second
+            column sitting on the first one's baseline. `<Notice tone="info" title={…}>`
+            would stack them — that component puts its title and body in a `.stack grow` —
+            and that is very probably what this markup meant. It is a LAYOUT CHANGE, not a
+            sweep, so it is reported rather than made here. */}
         <div className="notice notice-info" style={{ marginTop: 'var(--space-7)' }}>
           <strong>{routes('hub.byLinkHeading', { clinic })}</strong>
           <p style={{ marginTop: 'var(--space-2)' }}>{routes('hub.byLinkBody', { clinic })}</p>
@@ -187,10 +225,11 @@ export default async function AccountPage() {
             number goes. A translator handed "on {phone}" in isolation has no way to know
             what it attaches to, and in a language whose word order differs from English it
             may not attach there at all. */}
+        {/* SURVIVING INLINE STYLE — the block-context reason above. */}
         <p className="fine" style={{ marginTop: 'var(--space-6)' }}>
           {phone ? t('contactWithPhone', { clinic, phone }) : t('contact', { clinic })}
         </p>
-      </div>
+      </PageBody>
     </SiteShell>
   )
 }

@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Notice } from '@carevelo/ui'
+import { Notice, PageHeader } from '@carevelo/ui'
 import { ConsoleShell } from '@/components/ConsoleShell'
 import { currentStaff, PharmacyQueueScreen } from '@/domains/dispensing'
 import { DISPENSING_PATHS } from './paths'
@@ -31,16 +31,16 @@ export default async function PharmacyPage() {
 
   return (
     <ConsoleShell title="Pharmacy" active="pharmacy">
-      <div className="page-head">
-        <div className="grow">
-          <h1>Pharmacy</h1>
-          <p>
+      <PageHeader
+        title="Pharmacy"
+        description={
+          <>
             The live dispensing queue for the clinic&rsquo;s own licensed pharmacy. Carevelo
             routes the work item and records the status; the medicine is held, priced,
             dispensed and handed over by this clinic, under its own NDA licence.
-          </p>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       {viewer === null ? (
         <Notice tone="warn" title="You are not signed in">

@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { Button, Card, Notice } from '@carevelo/ui'
+import { Button, Card, Notice, Stack } from '@carevelo/ui'
 import { attempt, writeFailure } from '../api/http'
 import { getClinic, saveClinic, uploadLogo } from '../api/clinic'
 import { colourFromForm } from '../model/colour'
@@ -125,56 +125,59 @@ export async function BrandingScreen(props: BrandingScreenProps) {
       </Card>
 
       <Card as="section">
-        <span className="eyebrow">Logo</span>
-        <h2 className="title-sm">The mark on the portal, the receipt and the prescription</h2>
+        <Stack gap="5">
+          <Stack gap="none">
+            <span className="eyebrow">Logo</span>
+            <h2 className="title-sm">The mark on the portal, the receipt and the prescription</h2>
+          </Stack>
 
-        <form
-          action={saveLogo.bind(null, { selfPath: paths.branding })}
-          className="stack"
-          style={{ gap: 'var(--space-5)', marginTop: 'var(--space-5)' }}
-        >
-          <div className="field">
-            <label className="field__label" htmlFor="logo">
-              Logo image
-            </label>
-            <p className="field__hint" id="logo-hint">
-              PNG, JPEG or WebP. Between 64 and 2000 pixels on each side, and 512 KB or
-              smaller. Carevelo re-encodes it and strips everything that is not the image —
-              including the location data a phone camera writes into a photograph.
-            </p>
-            {/*
-             * A bare <input type="file">, because packages/ui has no file control and one
-             * added there would be a component built for a single call site in a single
-             * app. `accept` is a convenience for the picker and never a control: the
-             * declared type is a claim by the uploader, which is exactly why the backend
-             * decodes and re-encodes the bytes rather than trusting it.
-             */}
-            <input
-              className="input"
-              id="logo"
-              name="logo"
-              type="file"
-              accept="image/png,image/jpeg,image/webp"
-              aria-describedby="logo-hint"
-              required
-            />
-          </div>
+          <form action={saveLogo.bind(null, { selfPath: paths.branding })}>
+            <Stack gap="5">
+              <div className="field">
+                <label className="field__label" htmlFor="logo">
+                  Logo image
+                </label>
+                <p className="field__hint" id="logo-hint">
+                  PNG, JPEG or WebP. Between 64 and 2000 pixels on each side, and 512 KB or
+                  smaller. Carevelo re-encodes it and strips everything that is not the image —
+                  including the location data a phone camera writes into a photograph.
+                </p>
+                {/*
+                 * A bare <input type="file">, because packages/ui has no file control and one
+                 * added there would be a component built for a single call site in a single
+                 * app. `accept` is a convenience for the picker and never a control: the
+                 * declared type is a claim by the uploader, which is exactly why the backend
+                 * decodes and re-encodes the bytes rather than trusting it.
+                 */}
+                <input
+                  className="input"
+                  id="logo"
+                  name="logo"
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  aria-describedby="logo-hint"
+                  required
+                />
+              </div>
 
-          <div className="row-wrap">
-            <Button type="submit" variant="primary">
-              Upload logo
-            </Button>
-            {branding.logo_url ? (
-              <span className="fine">Replacing the current logo. The old file is deleted.</span>
-            ) : (
-              <span className="fine">
-                No logo yet. Until there is one, patients see your trading name as a wordmark
-                — which is a perfectly respectable place to start.
-              </span>
-            )}
-          </div>
-        </form>
-      </Card>
+              <div className="row-wrap">
+                <Button type="submit" variant="primary">
+                  Upload logo
+                </Button>
+                {branding.logo_url ? (
+                  <span className="fine">Replacing the current logo. The old file is deleted.</span>
+                ) : (
+                  <span className="fine">
+                    No logo yet. Until there is one, patients see your trading name as a wordmark
+                    — which is a perfectly respectable place to start.
+                  </span>
+                )}
+              </div>
+
+            </Stack>
+          </form>
+        </Stack>
+</Card>
     </div>
   )
 }

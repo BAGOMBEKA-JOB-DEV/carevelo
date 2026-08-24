@@ -6,10 +6,14 @@ import {
   DateTime,
   EmptyState,
   Field,
+  Grid,
   Icon,
+  Inline,
   Money,
   Notice,
+  PageHeader,
   Select,
+  Stack,
   type ChoiceOption,
 } from '@carevelo/ui'
 import { attempt, type Staff } from '../api/gateway'
@@ -273,11 +277,11 @@ export async function AssistedBooking({
       <Head />
       <Outcome problem={problem} message={message} />
 
-      <div className="grid" style={{ gap: 'var(--space-5)' }}>
-        <div className="card row-wrap between" style={{ gap: 'var(--space-4)' }}>
+      <Stack gap="5">
+        <Inline className="card" gap="4" justify="between">
           <div className="stack">
             <span className="eyebrow">Booking for</span>
-            <span style={{ fontWeight: 650, fontSize: 17 }}>
+            <span className="record-name">
               {record.given_name} {record.family_name}
             </span>
             <span className="fine tnum">{record.phone}</span>
@@ -289,7 +293,7 @@ export async function AssistedBooking({
           <Button variant="quiet" href={href(paths.book, { day: chosenDay })}>
             Someone else
           </Button>
-        </div>
+        </Inline>
 
         {/*
           * ONE FORM FOR THE THREE FILTERS, submitted with a button. Service, clinician and day
@@ -432,22 +436,22 @@ export async function AssistedBooking({
             </div>
           </form>
         ) : null}
-      </div>
+      </Stack>
     </>
   )
 }
 
 function Head() {
   return (
-    <div className="page-head">
-      <div className="grow">
-        <h1>Book for a caller</h1>
-        <p>
+    <PageHeader
+      title="Book for a caller"
+      description={
+        <>
           Most appointments are made this way. Work down the screen in the order of the
           conversation; every step is a page you can go back to.
-        </p>
-      </div>
-    </div>
+        </>
+      }
+    />
   )
 }
 
@@ -472,7 +476,7 @@ function SlotPicker({
     <fieldset className="stack" style={{ gap: 'var(--space-4)' }}>
       <legend className="field__label">Times</legend>
 
-      <div className="grid g-4" style={{ gap: 'var(--space-3)' }}>
+      <Grid cols={4} gap="3">
         {slots.map((slot) => {
           const value = encodeSlot(slot)
           const clinician = clinicians.find((person) => person.id === slot.clinician_id)
@@ -495,7 +499,7 @@ function SlotPicker({
             </label>
           )
         })}
-      </div>
+      </Grid>
 
       {total > slots.length ? (
         <p className="fine">

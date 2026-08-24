@@ -110,9 +110,9 @@ export async function WorkingHoursScreen(props: WorkingHoursScreenProps) {
 
                   return (
                     <tr key={day.value}>
-                      <th scope="row" style={{ fontWeight: 600 }}>
-                        {day.label}
-                      </th>
+                      {/* `.table tbody th` in console.css already sets the weight a row's
+                          name wants; it used to be stated inline on every one of these. */}
+                      <th scope="row">{day.label}</th>
                       <td>
                         {/* A label for every control, even in a table. A column header is
                             not a label: a screen reader reading the row announces "Opens",

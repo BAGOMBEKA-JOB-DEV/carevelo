@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Badge, Button, DateTime, Field, Icon, Input, Textarea } from '@carevelo/ui'
+import { Badge, Button, DateTime, Field, Icon, Inline, Input, Textarea } from '@carevelo/ui'
 import { clinicTime } from '../model/day'
 import { asStatus, isEnterable, isUnpaidHold, STATUS_LABEL, STATUS_NOTE, STATUS_TONE } from '../model/status'
 import type { Appointment, Clinician, Patient, SchedulePaths, Service } from '../model/types'
@@ -78,19 +78,19 @@ export function AppointmentRow({
       }}
       aria-label={`${clinicTime(appointment.scheduled_start_at)} — ${describe(patient)}`}
     >
-      <div className="row-wrap between" style={{ gap: 'var(--space-5)' }}>
-        <div className="row" style={{ gap: 'var(--space-5)' }}>
+      <Inline gap="5" justify="between">
+        <Inline gap="5" wrap={false}>
           {/* Tabular figures, because a column of times that shifts width as digits change is
               hard to scan and this screen is nothing but times. */}
-          <span className="head-font tnum" style={{ fontSize: 20, fontWeight: 700 }}>
+          <span className="head-font tnum slot-time">
             <DateTime value={appointment.scheduled_start_at} format="time" />
           </span>
           <span className="fine tnum">
             to <DateTime value={appointment.scheduled_end_at} format="time" />
           </span>
-        </div>
+        </Inline>
 
-        <div className="row-wrap" style={{ gap: 'var(--space-3)' }}>
+        <Inline gap="3">
           {status === null ? (
             // A status the contract does not know about. Saying nothing is better than
             // asserting something wrong about a booking.
@@ -101,11 +101,11 @@ export function AppointmentRow({
           <Badge tone="neutral" icon="activity">
             {MODE_LABEL[appointment.mode_booked] ?? appointment.mode_booked}
           </Badge>
-        </div>
-      </div>
+        </Inline>
+      </Inline>
 
       <div className="stack">
-        <p style={{ fontWeight: 600, fontSize: 16 }}>{describe(patient)}</p>
+        <p className="record-name">{describe(patient)}</p>
         <p className="muted" style={{ fontSize: 14 }}>
           {service?.name ?? 'Service could not be resolved'}
           {clinician ? ` · ${clinician.name}` : null}
@@ -117,7 +117,7 @@ export function AppointmentRow({
         <p className="fine" style={{ color: 'var(--ink-muted)' }}>{STATUS_NOTE[status]}</p>
       ) : null}
 
-      <div className="row-wrap" style={{ gap: 'var(--space-3)' }}>
+      <Inline gap="3">
         {/*
           * THE ROOM IS OFFERED ONLY TO A CLINICIAN, AND ONLY WHEN THE STATUS ALLOWS IT.
           * `AppointmentPolicy::join` admits the clinician and the patient and deliberately
@@ -153,7 +153,7 @@ export function AppointmentRow({
         {status !== null && (status === 'awaiting_payment' || status === 'confirmed' || status === 'payment_failed') ? (
           <CancelBooking appointment={appointment} action={cancelAction} />
         ) : null}
-      </div>
+      </Inline>
     </article>
   )
 }
@@ -208,7 +208,7 @@ function CancelBooking({
 }): ReactNode {
   return (
     <details>
-      <summary className="lnk" style={{ minHeight: 'var(--touch-min)', display: 'inline-flex', alignItems: 'center' }}>
+      <summary className="lnk disclose">
         <Icon name="x" /> Cancel this appointment
       </summary>
 
@@ -259,14 +259,14 @@ function ConfirmOnAuthority({
 }): ReactNode {
   return (
     <details>
-      <summary className="lnk" style={{ minHeight: 'var(--touch-min)', display: 'inline-flex', alignItems: 'center' }}>
+      <summary className="lnk disclose">
         <Icon name="check" /> Confirm without payment
       </summary>
 
       <form action={action} className="stack" style={{ gap: 'var(--space-4)', marginTop: 'var(--space-4)' }}>
         <input type="hidden" name="appointment_id" value={appointment.id} />
 
-        <p className="fine" style={{ maxWidth: '52ch' }}>
+        <p className="fine measure">
           You are vouching that this patient will settle at the desk, or that the clinic has
           seen a transfer Carevelo has not. The appointment becomes confirmed and the slot
           stops being a hold. This is recorded against your name.

@@ -1,4 +1,4 @@
-import { Badge, Card, DateTime, EmptyState, Notice } from '@carevelo/ui'
+import { Badge, Card, DataTable, DateTime, EmptyState, Inline, Notice, Stack } from '@carevelo/ui'
 import { failureReason, present } from '../model/status'
 import { MAX_PER_PAGE, type Lane } from '../api/deliveries'
 import type { Attempt } from '../api/http'
@@ -40,18 +40,18 @@ export function BoardLane({
 
   return (
     <Card as="section" aria-labelledby={headingId}>
-      <div className="row-wrap">
-        <div className="grow stack">
+      <Inline>
+        <Stack className="grow" gap="2">
           <h2 id={headingId}>{definition.heading}</h2>
           <p className="muted">{definition.lede}</p>
-        </div>
+        </Stack>
 
         {lane.ok ? (
           <Badge tone={lane.value.deliveries.length > 0 ? 'info' : 'neutral'}>
             {lane.value.total} here
           </Badge>
         ) : null}
-      </div>
+      </Inline>
 
       {!lane.ok ? (
         /*
@@ -65,10 +65,6 @@ export function BoardLane({
             ?? 'The console could not reach the API. The other lanes may still be current; '
               + 'this one is not, and it will try again on its own.'}
         </Notice>
-      ) : lane.value.deliveries.length === 0 ? (
-        <EmptyState title="Nothing here" icon="check">
-          {definition.empty}
-        </EmptyState>
       ) : (
         <>
           {lane.value.overflowed ? (
@@ -80,69 +76,85 @@ export function BoardLane({
             </Notice>
           ) : null}
 
-          <div className="table-scroll">
-            <table className="table">
-              <caption className="muted">
-                Oldest first. The delivery that has waited longest is the patient wondering.
-              </caption>
-              <thead>
-                <tr>
-                  <th scope="col">Reference</th>
-                  <th scope="col">Recipient</th>
-                  <th scope="col">District</th>
-                  <th scope="col">State</th>
-                  <th scope="col">When</th>
-                  <th scope="col">
-                    <span className="sr-only">Open</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {lane.value.deliveries.map((delivery) => {
+          {/* `className="queue"` bounds the scroll region so the column headings can stick
+              to something. See console.css rule 6: a dispatcher reading down a lane of forty
+              references with "Recipient" and "District" scrolled off the top is counting
+              columns instead of reading them. */}
+          <DataTable
+            className="queue"
+            caption="Oldest first. The delivery that has waited longest is the patient wondering."
+            rows={lane.value.deliveries}
+            rowKey={(delivery) => delivery.id}
+            empty={
+              <EmptyState title="Nothing here" icon="check">
+                {definition.empty}
+              </EmptyState>
+            }
+            columns={[
+              {
+                key: 'reference',
+                header: 'Reference',
+                rowHeader: true,
+                cell: (delivery) => (
+                  <a href={paths.delivery(delivery.id)} className="lnk">
+                    {delivery.reference}
+                  </a>
+                ),
+              },
+              { key: 'recipient', header: 'Recipient', cell: (delivery) => delivery.recipient_name },
+              {
+                key: 'district',
+                header: 'District',
+                cell: (delivery) =>
+                  delivery.district ?? <span className="muted">Not recorded</span>,
+              },
+              {
+                key: 'state',
+                header: 'State',
+                cell: (delivery) => {
                   const status = present(delivery.status)
                   const failed = failureReason(delivery.failure_reason)
 
                   return (
-                    <tr key={delivery.id}>
-                      <td>
-                        <a href={paths.delivery(delivery.id)} className="lnk">
-                          {delivery.reference}
-                        </a>
-                      </td>
-                      <td>{delivery.recipient_name}</td>
-                      <td>{delivery.district ?? <span className="muted">Not recorded</span>}</td>
-                      <td>
-                        <Badge tone={status.tone}>{status.label}</Badge>
-                        {failed ? (
-                          <>
-                            {' '}
-                            {/* The reason, in English, from the fixed list. A dispatcher
-                                deciding whether to send it out again needs to know whether
-                                the address was wrong or the recipient simply out. */}
-                            <span className="muted">{failed}</span>
-                          </>
-                        ) : null}
-                      </td>
-                      <td>
-                        {delivery.delivered_at ? (
-                          <DateTime value={delivery.delivered_at} format="datetime" />
-                        ) : delivery.assigned_at ? (
-                          <DateTime value={delivery.assigned_at} format="datetime" />
-                        ) : (
-                          <span className="muted">Not assigned</span>
-                        )}
-                      </td>
-                      <td>
-                        <a href={paths.delivery(delivery.id)} className="lnk">
-                          Open<span className="sr-only"> delivery {delivery.reference}</span>
-                        </a>
-                      </td>
-                    </tr>
+                    <>
+                      <Badge tone={status.tone}>{status.label}</Badge>
+                      {failed ? (
+                        <>
+                          {' '}
+                          {/* The reason, in English, from the fixed list. A dispatcher
+                              deciding whether to send it out again needs to know whether
+                              the address was wrong or the recipient simply out. */}
+                          <span className="muted">{failed}</span>
+                        </>
+                      ) : null}
+                    </>
                   )
-                })}
-              </tbody>
-            </table>
-          </div>
+                },
+              },
+              {
+                key: 'when',
+                header: 'When',
+                cell: (delivery) =>
+                  delivery.delivered_at ? (
+                    <DateTime value={delivery.delivered_at} format="datetime" />
+                  ) : delivery.assigned_at ? (
+                    <DateTime value={delivery.assigned_at} format="datetime" />
+                  ) : (
+                    <span className="muted">Not assigned</span>
+                  ),
+              },
+              {
+                key: 'open',
+                header: 'Open delivery',
+                headerHidden: true,
+                cell: (delivery) => (
+                  <a href={paths.delivery(delivery.id)} className="lnk">
+                    Open<span className="sr-only"> delivery {delivery.reference}</span>
+                  </a>
+                ),
+              },
+            ]}
+          />
         </>
       )}
     </Card>

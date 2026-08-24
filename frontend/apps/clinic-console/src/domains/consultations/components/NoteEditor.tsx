@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Button, DateTime, Notice, Textarea } from '@carevelo/ui'
+import { Button, DateTime, Notice, Stack, Textarea } from '@carevelo/ui'
 import { saveNoteSection } from '../api/actions'
 import {
   draftKey,
@@ -86,7 +86,7 @@ export function NoteEditor({ consultationId, userId, seeds, closed }: NoteEditor
   }, [])
 
   return (
-    <div className="stack" style={{ gap: 'var(--space-6)' }}>
+    <Stack gap="6">
       {storageBroken ? (
         <Notice tone="warn" icon="shield" title="This browser is not keeping a local copy">
           Private browsing, or a setting that blocks site data, stops the draft being saved on
@@ -113,7 +113,7 @@ export function NoteEditor({ consultationId, userId, seeds, closed }: NoteEditor
           seed={seeds[section]}
         />
       ))}
-    </div>
+    </Stack>
   )
 }
 
@@ -434,7 +434,7 @@ function StatusLine({
       {status.kind === 'conflict' ? 'Not saved — this section was also written elsewhere.' : null}
       {status.kind === 'failed' ? (
         <>
-          <span style={{ color: 'var(--bad)' }}>
+          <span className="note-bad">
             Not saved to the clinic. {status.message} Your text is safe on this device.
           </span>{' '}
           <button type="button" className="lnk" onClick={onRetry}>

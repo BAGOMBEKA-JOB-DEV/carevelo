@@ -2,6 +2,7 @@ import type { ReactElement } from 'react'
 import { getTranslations } from 'next-intl/server'
 import { Button, Card, Notice } from '@carevelo/ui'
 import type { Tenant } from '@/lib/tenant'
+import { PageBody } from '@/components/PageBody'
 
 /**
  * What a patient sees after declining.
@@ -36,7 +37,7 @@ export async function ConsentDeclined({
   const phone = tenant.contact?.phone
 
   return (
-    <div className="site-wrap" style={{ paddingBlock: 'var(--space-8)' }}>
+    <PageBody>
       <div className="grid" style={{ gap: 'var(--space-7)' }}>
         <div className="site-sec-head">
           <span className="site-eyebrow">{t('declined.eyebrow')}</span>
@@ -71,6 +72,6 @@ export async function ConsentDeclined({
           </Button>
         </div>
       </div>
-    </div>
+    </PageBody>
   )
 }

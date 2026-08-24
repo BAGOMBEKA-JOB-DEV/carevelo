@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { Badge, Button, Card, Choice, DateTime, Field, Input, Notice } from '@carevelo/ui'
+import { Badge, Button, Card, Choice, DateTime, Field, Input, Notice, Stack } from '@carevelo/ui'
 import { attempt, writeFailure } from '../api/http'
 import {
   getAggregatorAccount,
@@ -233,106 +233,109 @@ export async function PaymentConnectionScreen(props: PaymentConnectionScreenProp
       </Card>
 
       <Card as="section">
-        <span className="eyebrow">Credentials</span>
-        <h2 className="title-sm">
-          {connected ? 'Replace the stored credentials' : 'Connect your merchant account'}
-        </h2>
+        <Stack gap="6">
+          <Stack gap="none">
+            <span className="eyebrow">Credentials</span>
+            <h2 className="title-sm">
+              {connected ? 'Replace the stored credentials' : 'Connect your merchant account'}
+            </h2>
+          </Stack>
 
-        <Notice tone="info" title="These boxes always open empty" icon="lock">
-          <p>
-            Credentials are write-only. Once stored they are never returned by anything —
-            not to you, not to Carevelo, not to a Carevelo operator with an emergency access
-            grant, and not into a log line. There is nothing here to show you and no way to
-            build a control that would.
-          </p>
-          <p className="fine">
-            That means saving replaces the whole set at once. Have the secret key to hand
-            before you start: a half-rotated key pair fails at the aggregator hours later,
-            in production, on a live collection.
-          </p>
-        </Notice>
+          <Notice tone="info" title="These boxes always open empty" icon="lock">
+            <p>
+              Credentials are write-only. Once stored they are never returned by anything —
+              not to you, not to Carevelo, not to a Carevelo operator with an emergency access
+              grant, and not into a log line. There is nothing here to show you and no way to
+              build a control that would.
+            </p>
+            <p className="fine">
+              That means saving replaces the whole set at once. Have the secret key to hand
+              before you start: a half-rotated key pair fails at the aggregator hours later,
+              in production, on a live collection.
+            </p>
+          </Notice>
 
-        <form
-          action={saveCredentials.bind(null, { selfPath: paths.payments })}
-          className="stack"
-          style={{ gap: 'var(--space-6)', marginTop: 'var(--space-6)' }}
-        >
-          <Choice
-            name="provider"
-            id="aggregator-provider"
-            legend="Your aggregator"
-            required
-            options={PROVIDERS.map((provider) => ({
-              value: provider.value,
-              label: provider.label,
-              note: provider.note,
-            }))}
-            defaultValue={connected ? account.provider : 'flutterwave'}
-          />
+          <form action={saveCredentials.bind(null, { selfPath: paths.payments })}>
+            <Stack gap="6">
+              <Choice
+                name="provider"
+                id="aggregator-provider"
+                legend="Your aggregator"
+                required
+                options={PROVIDERS.map((provider) => ({
+                  value: provider.value,
+                  label: provider.label,
+                  note: provider.note,
+                }))}
+                defaultValue={connected ? account.provider : 'flutterwave'}
+              />
 
-          <Choice
-            name="environment"
-            id="aggregator-environment"
-            legend="Which of their environments"
-            required
-            options={ENVIRONMENTS.map((environment) => ({
-              value: environment.value,
-              label: environment.label,
-              note: environment.note,
-            }))}
-            defaultValue={connected ? account.environment : 'sandbox'}
-          />
+              <Choice
+                name="environment"
+                id="aggregator-environment"
+                legend="Which of their environments"
+                required
+                options={ENVIRONMENTS.map((environment) => ({
+                  value: environment.value,
+                  label: environment.label,
+                  note: environment.note,
+                }))}
+                defaultValue={connected ? account.environment : 'sandbox'}
+              />
 
-          <Field
-            name="secret_key"
-            label="Secret key"
-            hint="From your own aggregator dashboard. Required — it is what actually authorises a collection."
-          >
-            {/*
-             * type="password" so it is not readable over a shoulder at a busy front desk,
-             * and autoComplete="off" so no browser or password manager keeps a copy of a
-             * merchant credential in a profile that syncs.
-             */}
-            {(control) => (
-              <Input {...control} type="password" autoComplete="off" minLength={8} maxLength={255} required />
-            )}
-          </Field>
+              <Field
+                name="secret_key"
+                label="Secret key"
+                hint="From your own aggregator dashboard. Required — it is what actually authorises a collection."
+              >
+                {/*
+                 * type="password" so it is not readable over a shoulder at a busy front desk,
+                 * and autoComplete="off" so no browser or password manager keeps a copy of a
+                 * merchant credential in a profile that syncs.
+                 */}
+                {(control) => (
+                  <Input {...control} type="password" autoComplete="off" minLength={8} maxLength={255} required />
+                )}
+              </Field>
 
-          <Field name="public_key" label="Public key" hint="Optional, depending on your aggregator.">
-            {(control) => (
-              <Input {...control} type="password" autoComplete="off" maxLength={255} />
-            )}
-          </Field>
+              <Field name="public_key" label="Public key" hint="Optional, depending on your aggregator.">
+                {(control) => (
+                  <Input {...control} type="password" autoComplete="off" maxLength={255} />
+                )}
+              </Field>
 
-          <Field
-            name="webhook_secret"
-            label="Webhook secret"
-            hint="How Carevelo proves an incoming payment notification really came from your aggregator. Without it, notifications from them cannot be trusted and are ignored."
-          >
-            {(control) => (
-              <Input {...control} type="password" autoComplete="off" maxLength={255} />
-            )}
-          </Field>
+              <Field
+                name="webhook_secret"
+                label="Webhook secret"
+                hint="How Carevelo proves an incoming payment notification really came from your aggregator. Without it, notifications from them cannot be trusted and are ignored."
+              >
+                {(control) => (
+                  <Input {...control} type="password" autoComplete="off" maxLength={255} />
+                )}
+              </Field>
 
-          <Field
-            name="merchant_reference"
-            label="Your merchant reference"
-            hint="Optional. Your own reference at the aggregator, so you can match a collection to a line on their dashboard unaided."
-          >
-            {(control) => <Input {...control} type="text" autoComplete="off" maxLength={64} />}
-          </Field>
+              <Field
+                name="merchant_reference"
+                label="Your merchant reference"
+                hint="Optional. Your own reference at the aggregator, so you can match a collection to a line on their dashboard unaided."
+              >
+                {(control) => <Input {...control} type="text" autoComplete="off" maxLength={64} />}
+              </Field>
 
-          <div className="row-wrap">
-            <Button type="submit" variant="primary">
-              Save and verify
-            </Button>
-            <span className="fine">
-              Saving marks the connection unverified until it has been checked — even if only
-              the webhook secret changed.
-            </span>
-          </div>
-        </form>
-      </Card>
+              <div className="row-wrap">
+                <Button type="submit" variant="primary">
+                  Save and verify
+                </Button>
+                <span className="fine">
+                  Saving marks the connection unverified until it has been checked — even if only
+                  the webhook secret changed.
+                </span>
+              </div>
+
+            </Stack>
+          </form>
+        </Stack>
+</Card>
     </div>
   )
 }

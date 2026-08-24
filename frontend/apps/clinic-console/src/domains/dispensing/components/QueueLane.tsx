@@ -1,4 +1,4 @@
-import { Badge, Card, DateTime, EmptyState, Money, Notice } from '@carevelo/ui'
+import { Badge, Card, DataTable, DateTime, EmptyState, Inline, Money, Notice, Stack } from '@carevelo/ui'
 import { present } from '../model/status'
 import type { Lane } from '../api/queue'
 import { MAX_PER_PAGE } from '../api/queue'
@@ -46,11 +46,11 @@ export function QueueLane({
 
   return (
     <Card as="section" aria-labelledby={headingId}>
-      <div className="row-wrap">
-        <div className="grow stack">
+      <Inline>
+        <Stack className="grow" gap="2">
           <h2 id={headingId}>{definition.heading}</h2>
           <p className="muted">{definition.lede}</p>
-        </div>
+        </Stack>
 
         {/* The count as a word beside a number, not a bare badge: "4" alone next to a
             heading is ambiguous between "four waiting" and "four of something else". */}
@@ -59,7 +59,7 @@ export function QueueLane({
             {lane.value.total} waiting
           </Badge>
         ) : null}
-      </div>
+      </Inline>
 
       {!lane.ok ? (
         /*
@@ -75,10 +75,6 @@ export function QueueLane({
             ?? 'The console could not reach the API. The other lanes may still be current; '
               + 'this one is not, and it will try again on its own.'}
         </Notice>
-      ) : lane.value.orders.length === 0 ? (
-        <EmptyState title="Nothing here" icon="check">
-          {definition.empty}
-        </EmptyState>
       ) : (
         <>
           {lane.value.overflowed ? (
@@ -90,66 +86,89 @@ export function QueueLane({
             </Notice>
           ) : null}
 
-          <div className="table-scroll">
-            <table className="table">
-              <caption className="muted">
-                Oldest first. The order that has waited longest is the patient wondering.
-              </caption>
-              <thead>
-                <tr>
-                  <th scope="col">Reference</th>
-                  <th scope="col">State</th>
-                  <th scope="col">Arrived</th>
-                  <th scope="col" className="tnum">Total</th>
-                  <th scope="col">
-                    {/* A header for the action column: an empty <th> is announced as
-                        nothing at all, which leaves a screen-reader user without a name
-                        for the column they have just landed in. */}
-                    <span className="sr-only">Open</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {lane.value.orders.map((order) => {
+          {/*
+           * `className="queue"` is what makes the column headings stick. See console.css
+           * rule 6: `.table-scroll` is already a scroll container in both axes, so the
+           * headings have nothing to stick TO until the container is given a height, and
+           * that height is what the class supplies. A lane can hold MAX_PER_PAGE rows —
+           * a hundred references with the words "Reference", "State" and "Total" scrolled
+           * off the top is a pharmacist counting columns.
+           */}
+          <DataTable
+            className="queue"
+            caption="Oldest first. The order that has waited longest is the patient wondering."
+            rows={lane.value.orders}
+            rowKey={(order) => order.id}
+            empty={
+              <EmptyState title="Nothing here" icon="check">
+                {definition.empty}
+              </EmptyState>
+            }
+            columns={[
+              {
+                /*
+                 * The reference NAMES the row, so it is the `<th scope="row">` and a screen
+                 * reader says "DX-4471, State, Awaiting payment" rather than reading a
+                 * status with nothing attached to it. `.table tbody th` in console.css
+                 * dresses it as the body cell it sits among; it is not a column heading.
+                 */
+                key: 'reference',
+                header: 'Reference',
+                rowHeader: true,
+                cell: (order) => (
+                  <a href={paths.order(order.id)} className="lnk">
+                    {order.reference}
+                  </a>
+                ),
+              },
+              {
+                key: 'state',
+                header: 'State',
+                cell: (order) => {
                   const status = present(order.status)
 
-                  return (
-                    <tr key={order.id}>
-                      <td>
-                        <a href={paths.order(order.id)} className="lnk">
-                          {order.reference}
-                        </a>
-                      </td>
-                      <td>
-                        <Badge tone={status.tone}>{status.label}</Badge>
-                      </td>
-                      <td>
-                        {/*
-                         * `dispensed_at` is the only instant on this resource, and it is
-                         * null for everything in an actionable lane. So the column shows
-                         * it where it exists and says so plainly where it does not,
-                         * rather than inventing an arrival time the API never sent.
-                         */}
-                        {order.dispensed_at ? (
-                          <DateTime value={order.dispensed_at} format="datetime" />
-                        ) : (
-                          <span className="muted">In the queue</span>
-                        )}
-                      </td>
-                      <td className="tnum">
-                        <Money value={order.total} />
-                      </td>
-                      <td>
-                        <a href={paths.order(order.id)} className="lnk">
-                          Open<span className="sr-only"> order {order.reference}</span>
-                        </a>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
+                  return <Badge tone={status.tone}>{status.label}</Badge>
+                },
+              },
+              {
+                key: 'arrived',
+                header: 'Arrived',
+                /*
+                 * `dispensed_at` is the only instant on this resource, and it is null for
+                 * everything in an actionable lane. So the column shows it where it exists
+                 * and says so plainly where it does not, rather than inventing an arrival
+                 * time the API never sent.
+                 */
+                cell: (order) =>
+                  order.dispensed_at ? (
+                    <DateTime value={order.dispensed_at} format="datetime" />
+                  ) : (
+                    <span className="muted">In the queue</span>
+                  ),
+              },
+              {
+                key: 'total',
+                header: 'Total',
+                numeric: true,
+                cell: (order) => <Money value={order.total} />,
+              },
+              {
+                /*
+                 * `headerHidden` rather than an empty `<th>`: an empty header is announced
+                 * as nothing at all, which leaves a screen-reader user without a name for
+                 * the column they have just landed in.
+                 */
+                key: 'open',
+                header: 'Open order',
+                headerHidden: true,
+                cell: (order) => (
+                  <a href={paths.order(order.id)} className="lnk">
+                    Open<span className="sr-only"> order {order.reference}</span>
+                  </a>
+                ),
+              },
+            ]}
+          />
         </>
       )}
     </Card>

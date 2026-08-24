@@ -1,4 +1,4 @@
-import { Badge, Button, Card, DateTime, Money, Notice } from '@carevelo/ui'
+import { Badge, Button, Card, DateTime, Money, Notice, PageHeader } from '@carevelo/ui'
 import { attempt } from '../api/http'
 import { getOrder } from '../api/queue'
 import {
@@ -87,13 +87,11 @@ export async function OrderScreen({
 
   return (
     <div className="grid">
-      <div className="page-head">
-        <div className="grow stack">
-          <h1>{order.reference}</h1>
-          <p>{status.meaning}</p>
-        </div>
-        <Badge tone={status.tone}>{status.label}</Badge>
-      </div>
+      <PageHeader
+        title={order.reference}
+        description={status.meaning}
+        actions={<Badge tone={status.tone}>{status.label}</Badge>}
+      />
 
       {controlled.length > 0 ? (
         /*

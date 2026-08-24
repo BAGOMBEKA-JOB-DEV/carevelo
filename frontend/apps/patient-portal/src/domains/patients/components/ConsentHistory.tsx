@@ -1,9 +1,10 @@
 import type { ReactElement } from 'react'
 import { getTranslations } from 'next-intl/server'
-import { Badge, Button, Card, DateTime, EmptyState, Notice } from '@carevelo/ui'
+import { Badge, Button, Card, DateTime, EmptyState, Inline, Notice, Stack } from '@carevelo/ui'
 import type { Tenant } from '@/lib/tenant'
 import { latestDecisions, withdrawConsent, type ConsentHistoryPage } from '../api/consents'
 import type { ConsentType } from '../api/types'
+import { PageBody } from '@/components/PageBody'
 
 /**
  * What a patient has agreed to, when, and to which wording — and how to take it back.
@@ -124,8 +125,8 @@ export async function ConsentHistory({
   ).filter((type) => latest[type]?.action === 'granted')
 
   return (
-    <div className="site-wrap" style={{ paddingBlock: 'var(--space-8)' }}>
-      <div className="grid" style={{ gap: 'var(--space-7)' }}>
+    <PageBody>
+      <Stack gap="7">
         <div className="site-sec-head">
           <span className="site-eyebrow">{t('history.eyebrow')}</span>
           <h1 className="site-h1">{t('history.title')}</h1>
@@ -147,60 +148,96 @@ export async function ConsentHistory({
             </EmptyState>
           </Card>
         ) : (
-          <ul className="grid" style={{ gap: 'var(--space-5)', listStyle: 'none' }}>
+          /* `<Stack as="ul">` rather than `<ul className="grid">` with a hand-set gap and a
+             `listStyle: 'none'`. The hand-rolled version turned the marker off and left the
+             user agent's 40px indent and 1em block margins behind, and it removed the list
+             SEMANTICS along with the marker in Safari. Stack resets all three and puts
+             `role="list"` back. */
+          <Stack as="ul" gap="5">
             {page.records.map((record) => (
               <Card as="li" key={record.id} padding="tight">
-                <div className="row between">
-                  <span className="title-sm grow">{label(typeLabels, record.consent_type)}</span>
+                {/* Three nested columns for three different distances, which is what the
+                    three `marginTop`s here were: 12px from the record down to the evidence
+                    disclosure, 8px from the title row to the timestamp, and 6px between the
+                    timestamp and the guardian line. Written as margins they had to be
+                    repeated on every sibling and re-checked whenever one was added; written
+                    as gaps each distance is stated once, in the column that owns it. */}
+                <Stack gap="4">
+                  <Stack gap="3">
+                    <Inline gap="4" justify="between" wrap={false}>
+                      <span className="title-sm grow">{label(typeLabels, record.consent_type)}</span>
 
-                  {/*
-                    The word carries the state, never the colour alone. `warn` for a
-                    withdrawal rather than `bad`: withdrawing is a right being exercised
-                    correctly, not a failure, and painting it red would tell a patient they
-                    had done something wrong.
-                  */}
-                  <Badge tone={badgeTone(record.action)}>{label(actionLabels, record.action)}</Badge>
-                </div>
+                      {/*
+                        The word carries the state, never the colour alone. `warn` for a
+                        withdrawal rather than `bad`: withdrawing is a right being exercised
+                        correctly, not a failure, and painting it red would tell a patient they
+                        had done something wrong.
+                      */}
+                      <Badge tone={badgeTone(record.action)}>
+                        {label(actionLabels, record.action)}
+                      </Badge>
+                    </Inline>
 
-                <p className="subtitle" style={{ marginTop: 'var(--space-3)', fontSize: 13.5 }}>
-                  {record.occurred_at === null ? null : (
-                    <DateTime value={record.occurred_at} format="datetime" />
-                  )}
-                </p>
+                    <Stack gap="2">
+                      {/* SURVIVING INLINE STYLE, here and on the guardian line below: 13.5px
+                          is not a step on the type scale — `.subtitle` is 16px and `.fine` is
+                          12px — and there is no class between them. See account/page.tsx. */}
+                      <p className="subtitle" style={{ fontSize: 13.5 }}>
+                        {record.occurred_at === null ? null : (
+                          <DateTime value={record.occurred_at} format="datetime" />
+                        )}
+                      </p>
 
-                {record.granted_by === 'guardian' && record.guardian_name !== null ? (
-                  <p className="subtitle" style={{ marginTop: 'var(--space-2)', fontSize: 13.5 }}>
-                    {t('history.byGuardian', {
-                      name: record.guardian_name,
-                      relationship: record.guardian_relationship ?? t('history.unstatedRelationship'),
-                    })}
-                  </p>
-                ) : null}
+                      {record.granted_by === 'guardian' && record.guardian_name !== null ? (
+                        <p className="subtitle" style={{ fontSize: 13.5 }}>
+                          {t('history.byGuardian', {
+                            name: record.guardian_name,
+                            relationship:
+                              record.guardian_relationship ?? t('history.unstatedRelationship'),
+                          })}
+                        </p>
+                      ) : null}
+                    </Stack>
+                  </Stack>
 
-                <details style={{ marginTop: 'var(--space-4)' }}>
-                  <summary style={SUMMARY}>{t('history.evidenceSummary')}</summary>
+                  {/* SURVIVING INLINE STYLES inside this disclosure, and the reason is
+                      structural rather than a shortfall in the layer. The first distance in
+                      here is between the `<summary>` and the note under it, and a `<summary>`
+                      is not something a `<Stack>` can hold: Stack renders a `div`, `<details>`
+                      is the only legal parent for a summary, and a gap only exists BETWEEN a
+                      column's own children. Wrapping just the body would silently delete that
+                      first 8px. The `<dl>` has the same problem from the other end — `Stack`
+                      has no `as="dl"`, deliberately, because a description list's dt/dd
+                      pairing is a semantic contract and not a column. */}
+                  <details>
+                    <summary style={SUMMARY}>{t('history.evidenceSummary')}</summary>
 
-                  <p className="subtitle" style={{ marginTop: 'var(--space-3)', fontSize: 13 }}>
-                    {t('history.evidenceNote')}
-                  </p>
+                    <p className="subtitle" style={{ marginTop: 'var(--space-3)', fontSize: 13 }}>
+                      {t('history.evidenceNote')}
+                    </p>
 
-                  <dl className="stack" style={{ marginTop: 'var(--space-4)' }}>
-                    <dt className="field__label">{t('history.versionLabel')}</dt>
-                    <dd className="tnum">{record.policy_version}</dd>
+                    <dl className="stack" style={{ marginTop: 'var(--space-4)' }}>
+                      <dt className="field__label">{t('history.versionLabel')}</dt>
+                      <dd className="tnum">{record.policy_version}</dd>
 
-                    <dt className="field__label" style={{ marginTop: 'var(--space-3)' }}>
-                      {t('history.fingerprintLabel')}
-                    </dt>
-                    {/* Whole, not truncated: a shortened hash cannot be checked against
-                        anything, which would make showing it theatre. */}
-                    <dd style={{ wordBreak: 'break-all', fontSize: 12.5 }}>
-                      <code>{record.policy_text_hash}</code>
-                    </dd>
-                  </dl>
-                </details>
+                      {/* The 8px here is a GROUP separation on top of the list's own 6px —
+                          14px, which is not on the scale and is why it cannot be a gap. */}
+                      <dt className="field__label" style={{ marginTop: 'var(--space-3)' }}>
+                        {t('history.fingerprintLabel')}
+                      </dt>
+                      {/* Whole, not truncated: a shortened hash cannot be checked against
+                          anything, which would make showing it theatre. `wordBreak` is what
+                          stops a 64-character hash pushing the card wider than the phone, and
+                          the token layer has no utility for it. */}
+                      <dd style={{ wordBreak: 'break-all', fontSize: 12.5 }}>
+                        <code>{record.policy_text_hash}</code>
+                      </dd>
+                    </dl>
+                  </details>
+                </Stack>
               </Card>
             ))}
-          </ul>
+          </Stack>
         )}
 
         {page.nextCursor === null ? null : (
@@ -226,43 +263,45 @@ export async function ConsentHistory({
             --------------------------------------------------------------- */}
         {withdrawable.length === 0 ? null : (
           <Card as="section" aria-labelledby="withdraw-heading">
-            <h2 className="title" id="withdraw-heading">
-              {t('history.withdrawHeading')}
-            </h2>
+            <Stack gap="6">
+              <Stack gap="4">
+                <h2 className="title" id="withdraw-heading">
+                  {t('history.withdrawHeading')}
+                </h2>
 
-            {/*
-              THE SENTENCE THAT MUST NOT OVERPROMISE. Read the retention document before
-              editing a word of it: withdrawal halts new processing and does not delete a
-              record the clinic is obliged to keep, and the clinic will say plainly which
-              parts can be removed and which cannot.
-            */}
-            <p className="subtitle" style={{ marginTop: 'var(--space-4)' }}>
-              {t('history.withdrawStops', { clinic })}
-            </p>
-            <p className="subtitle" style={{ marginTop: 'var(--space-4)' }}>
-              {t('history.withdrawDoesNotDelete', { clinic })}
-            </p>
+                {/*
+                  THE SENTENCE THAT MUST NOT OVERPROMISE. Read the retention document before
+                  editing a word of it: withdrawal halts new processing and does not delete a
+                  record the clinic is obliged to keep, and the clinic will say plainly which
+                  parts can be removed and which cannot.
+                */}
+                <p className="subtitle">{t('history.withdrawStops', { clinic })}</p>
+                <p className="subtitle">{t('history.withdrawDoesNotDelete', { clinic })}</p>
+              </Stack>
 
-            <div className="row-wrap" style={{ marginTop: 'var(--space-6)' }}>
-              {withdrawable.map((type) => (
-                <form
-                  key={type}
-                  action={submitWithdrawal.bind(null, {
-                    patientId,
-                    consentType: type,
-                    returnHref,
-                  })}
-                >
-                  <Button variant="quiet" type="submit">
-                    {t('history.withdrawButton', { consent: label(typeLabels, type) })}
-                  </Button>
-                </form>
-              ))}
-            </div>
+              {/* `Inline`'s default gap is 12px, which is `.row-wrap`'s own — adopting it
+                  here changes nothing but where the number lives. */}
+              <Inline>
+                {withdrawable.map((type) => (
+                  <form
+                    key={type}
+                    action={submitWithdrawal.bind(null, {
+                      patientId,
+                      consentType: type,
+                      returnHref,
+                    })}
+                  >
+                    <Button variant="quiet" type="submit">
+                      {t('history.withdrawButton', { consent: label(typeLabels, type) })}
+                    </Button>
+                  </form>
+                ))}
+              </Inline>
+            </Stack>
           </Card>
         )}
-      </div>
-    </div>
+      </Stack>
+    </PageBody>
   )
 }
 

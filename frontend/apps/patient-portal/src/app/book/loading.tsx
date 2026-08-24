@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react'
 import { Card, Skeleton, Stack } from '@carevelo/ui'
+import { PageBody } from '@/components/PageBody'
 
 /**
  * Booking, held in place while the slots are read.
@@ -29,7 +30,7 @@ export default function BookLoading(): ReactElement {
   return (
     <div className="site-root">
       <main>
-        <div className="site-wrap" style={{ paddingBlock: 'var(--space-8)' }}>
+        <PageBody>
           <Stack gap="7">
             {/* Eyebrow and heading together — both unknown, so both reserved. */}
             <Stack gap="4">
@@ -66,7 +67,7 @@ export default function BookLoading(): ReactElement {
               </Stack>
             </Card>
           </Stack>
-        </div>
+        </PageBody>
       </main>
     </div>
   )

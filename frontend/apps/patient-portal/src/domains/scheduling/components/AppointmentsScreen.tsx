@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { getTranslations } from 'next-intl/server'
-import { Button, EmptyState, Icon, Notice } from '@carevelo/ui'
+import { Button, EmptyState, Icon, Notice, Stack } from '@carevelo/ui'
 import type { Tenant } from '@/lib/tenant'
 import { cancelAppointment, listAppointments } from '../api/appointments'
 import { byId, listClinicians, listServices } from '../api/catalogue'
@@ -17,6 +17,8 @@ import type {
 } from '../model/types'
 import { AppointmentRow } from './AppointmentRow'
 import { modeText, statusText } from './strings'
+import { PageBody } from '@/components/PageBody'
+import { SitePageHeader } from '@/components/SitePageHeader'
 
 /**
  * WHAT THE PATIENT HAS BOOKED: two lists, split at the clinic's midnight.
@@ -155,108 +157,108 @@ export async function AppointmentsScreen({
   }
 
   return (
-    <div className="site-wrap" style={{ paddingBlock: 'var(--space-8)' }}>
-      <div className="page-head">
-        <div style={{ flex: '1 1 auto' }}>
-          <span className="site-eyebrow">{t('appointments.eyebrow')}</span>
-          <h1 style={{ marginTop: 'var(--space-4)' }}>
-            {past ? t('appointments.titlePast') : t('appointments.titleUpcoming')}
-          </h1>
-          <p>
-            {past
-              ? t('appointments.ledePast', { clinic })
-              : t('appointments.ledeUpcoming', { clinic })}
-          </p>
+    <PageBody>
+      <SitePageHeader
+        eyebrow={t('appointments.eyebrow')}
+        title={past ? t('appointments.titlePast') : t('appointments.titleUpcoming')}
+        description={
+          past ? t('appointments.ledePast', { clinic }) : t('appointments.ledeUpcoming', { clinic })
+        }
+        actions={
+          <Button variant="brand" href={paths.browse}>
+            <Icon name="calendar" /> {t('appointments.bookOne')}
+          </Button>
+        }
+      />
+
+      {/* The 24px that used to be a `marginBottom` on the tab row is this Stack's gap. It
+          was never a property of the row — it was the distance between the row and the
+          list, which belongs to the column that holds both. */}
+      <Stack gap="7">
+        {/*
+         * Two buttons rather than `.tab`, and the reason is the brand rule: the token
+         * layer's active tab paints with `--primary`, which is CAREVELO's colour. On a
+         * patient surface the accent is the CLINIC's, and `variant="brand"` takes its
+         * foreground from `--brand-primary-fg` — the value the API computed for WCAG AA.
+         */}
+        <div className="site-btn-row">
+          <Button
+            variant={past ? 'quiet' : 'brand'}
+            href={paths.appointments}
+            aria-current={past ? undefined : 'page'}
+          >
+            {t('appointments.tabUpcoming')}
+          </Button>
+          <Button
+            variant={past ? 'brand' : 'quiet'}
+            href={href(paths.appointments, { past: '1' })}
+            aria-current={past ? 'page' : undefined}
+          >
+            {t('appointments.tabPast')}
+          </Button>
         </div>
 
-        <Button variant="brand" href={paths.browse}>
-          <Icon name="calendar" /> {t('appointments.bookOne')}
-        </Button>
-      </div>
+        <Stack gap="6">
+          {booked ? (
+            <Notice tone="info" icon="check" title={t('appointments.bookedTitle')}>
+              {t('appointments.bookedBody', { reference: booked })}
+            </Notice>
+          ) : null}
 
-      {/*
-       * Two buttons rather than `.tab`, and the reason is the brand rule: the token
-       * layer's active tab paints with `--primary`, which is CAREVELO's colour. On a
-       * patient surface the accent is the CLINIC's, and `variant="brand"` takes its
-       * foreground from `--brand-primary-fg` — the value the API computed for WCAG AA.
-       */}
-      <div className="site-btn-row" style={{ marginBottom: 'var(--space-7)' }}>
-        <Button
-          variant={past ? 'quiet' : 'brand'}
-          href={paths.appointments}
-          aria-current={past ? undefined : 'page'}
-        >
-          {t('appointments.tabUpcoming')}
-        </Button>
-        <Button
-          variant={past ? 'brand' : 'quiet'}
-          href={href(paths.appointments, { past: '1' })}
-          aria-current={past ? 'page' : undefined}
-        >
-          {t('appointments.tabPast')}
-        </Button>
-      </div>
+          {cancelled ? (
+            <Notice tone="info" icon="check" title={t('appointments.cancelledTitle')}>
+              {t('appointments.cancelledBody')}
+            </Notice>
+          ) : null}
 
-      <div className="stack" style={{ gap: 'var(--space-6)' }}>
-        {booked ? (
-          <Notice tone="info" icon="check" title={t('appointments.bookedTitle')}>
-            {t('appointments.bookedBody', { reference: booked })}
-          </Notice>
-        ) : null}
+          {problem === 'cancel_failed' ? (
+            <Notice tone="bad" title={t('appointments.cancelFailedTitle')}>
+              {message ?? t('appointments.cancelFailedBody')}
+            </Notice>
+          ) : null}
 
-        {cancelled ? (
-          <Notice tone="info" icon="check" title={t('appointments.cancelledTitle')}>
-            {t('appointments.cancelledBody')}
-          </Notice>
-        ) : null}
-
-        {problem === 'cancel_failed' ? (
-          <Notice tone="bad" title={t('appointments.cancelFailedTitle')}>
-            {message ?? t('appointments.cancelFailedBody')}
-          </Notice>
-        ) : null}
-
-        {!loaded.ok ? (
-          /* NOT an empty state. "You have no appointments" would be a statement of fact
-             about the patient's care, and what actually happened is that the request did
-             not answer. */
-          <Notice tone="bad" title={t('appointments.unavailableTitle')}>
-            {loaded.message ?? t('appointments.unavailableGeneric', { clinic })}{' '}
-            {t('appointments.unavailableBody')}
-          </Notice>
-        ) : loaded.value[0].data.length === 0 ? (
-          <EmptyState
-            icon="calendar"
-            title={past ? t('appointments.emptyPastTitle') : t('appointments.emptyUpcomingTitle')}
-            action={
-              past ? undefined : (
-                <Button variant="brand" href={paths.browse}>
-                  {t('appointments.bookOne')}
-                </Button>
-              )
-            }
-          >
-            {past
-              ? t('appointments.emptyPastBody')
-              : t('appointments.emptyUpcomingBody', { clinic })}
-          </EmptyState>
-        ) : (
-          <List
-            page={loaded.value[0]}
-            services={byId(loaded.value[1])}
-            clinicians={byId(loaded.value[2])}
-            clinic={clinic}
-            modes={modes}
-            statuses={statuses}
-            paths={paths}
-            cancelBooking={cancelBooking}
-            past={past}
-            showMore={t('appointments.showMore')}
-            showStart={t('appointments.showStart')}
-          />
-        )}
-      </div>
-    </div>
+          {!loaded.ok ? (
+            /* NOT an empty state. "You have no appointments" would be a statement of fact
+               about the patient's care, and what actually happened is that the request did
+               not answer. */
+            <Notice tone="bad" title={t('appointments.unavailableTitle')}>
+              {loaded.message ?? t('appointments.unavailableGeneric', { clinic })}{' '}
+              {t('appointments.unavailableBody')}
+            </Notice>
+          ) : loaded.value[0].data.length === 0 ? (
+            <EmptyState
+              icon="calendar"
+              title={past ? t('appointments.emptyPastTitle') : t('appointments.emptyUpcomingTitle')}
+              action={
+                past ? undefined : (
+                  <Button variant="brand" href={paths.browse}>
+                    {t('appointments.bookOne')}
+                  </Button>
+                )
+              }
+            >
+              {past
+                ? t('appointments.emptyPastBody')
+                : t('appointments.emptyUpcomingBody', { clinic })}
+            </EmptyState>
+          ) : (
+            <List
+              page={loaded.value[0]}
+              services={byId(loaded.value[1])}
+              clinicians={byId(loaded.value[2])}
+              clinic={clinic}
+              modes={modes}
+              statuses={statuses}
+              paths={paths}
+              cancelBooking={cancelBooking}
+              past={past}
+              showMore={t('appointments.showMore')}
+              showStart={t('appointments.showStart')}
+            />
+          )}
+        </Stack>
+      </Stack>
+    </PageBody>
   )
 }
 
@@ -296,7 +298,11 @@ function List({
 
   return (
     <>
-      <ul className="stack" style={{ gap: 'var(--space-5)' }}>
+      {/* `<Stack as="ul">`: the hand-rolled `<ul className="stack">` never reset the
+          list, so this ran with the user agent's disc bullets and a 40px indent beside
+          every appointment card. Stack strips both and restores `role="list"`, which
+          Safari drops along with the marker. */}
+      <Stack as="ul" gap="5">
         {page.data.map((appointment) => {
           const status = knownStatus(appointment.status)
 
@@ -316,7 +322,7 @@ function List({
             />
           )
         })}
-      </ul>
+      </Stack>
 
       {page.meta.next_cursor !== null || page.meta.prev_cursor !== null ? (
         <div className="site-btn-row">

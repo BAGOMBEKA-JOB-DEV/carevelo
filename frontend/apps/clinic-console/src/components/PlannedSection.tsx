@@ -1,3 +1,4 @@
+import { Badge, PageHeader } from '@carevelo/ui'
 import { ConsoleShell } from './ConsoleShell'
 import { SECTIONS, type SectionId } from './sections'
 
@@ -30,16 +31,15 @@ export function PlannedSection({ id }: { id: SectionId }) {
 
   return (
     <ConsoleShell title={section.label} active={id}>
-      <div className="page-head">
-        <div className="grow">
-          <h1>{section.label}</h1>
-          <p>{section.lede}</p>
-        </div>
-        {/* A word, not a colour. The badge convention in components.css exists because a
-            coloured dot is unreadable to a colour-blind pharmacist and invisible to a
-            screen reader. */}
-        <span className="badge badge-warn">Not built yet</span>
-      </div>
+      <PageHeader
+        title={section.label}
+        description={section.lede}
+        // A word, not a colour. The badge convention in components.css exists because a
+        // coloured dot is unreadable to a colour-blind pharmacist and invisible to a screen
+        // reader. Line comments rather than a JSX one: a curly-brace comment is an
+        // attribute position's child, and there are no children inside an opening tag.
+        actions={<Badge tone="warn">Not built yet</Badge>}
+      />
 
       {/* A bare `.grid` is a single column with the standard gap, which is the only
           spacing this page needs. No new CSS: packages/ui belongs to another change. */}

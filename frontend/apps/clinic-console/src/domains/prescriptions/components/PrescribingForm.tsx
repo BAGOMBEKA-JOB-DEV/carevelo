@@ -1,7 +1,18 @@
 'use client'
 
 import { useState } from 'react'
-import { Badge, Button, Field, Icon, Input, Notice, Textarea } from '@carevelo/ui'
+import {
+  Badge,
+  Button,
+  Field,
+  Grid,
+  Icon,
+  Inline,
+  Input,
+  Notice,
+  Stack,
+  Textarea,
+} from '@carevelo/ui'
 import { issue } from '../api/actions'
 import {
   documentLine,
@@ -133,7 +144,7 @@ export function PrescribingForm({ consultationId, prescriber, patientName }: Pre
   }
 
   return (
-    <div className="stack" style={{ gap: 'var(--space-5)' }}>
+    <Stack gap="5">
       <noscript>
         <Notice tone="warn" icon="help" title="Prescribing needs JavaScript on this screen">
           The confirmation step has to show you exactly what will be printed before you sign it,
@@ -164,7 +175,7 @@ export function PrescribingForm({ consultationId, prescriber, patientName }: Pre
         />
       ))}
 
-      <div className="row-wrap" style={{ gap: 'var(--space-3)' }}>
+      <Inline gap="3">
         {items.length < MAX_ITEMS ? (
           <Button variant="quiet" type="button" onClick={() => setItems((current) => [...current, emptyItem()])}>
             <Icon name="file" /> Add another medicine
@@ -189,8 +200,8 @@ export function PrescribingForm({ consultationId, prescriber, patientName }: Pre
         >
           <Icon name="arrowRight" /> Review before issuing
         </Button>
-      </div>
-    </div>
+      </Inline>
+    </Stack>
   )
 }
 
@@ -224,7 +235,7 @@ function ItemRow({
 
       {/* Three short fields on one line above 700px, stacked below it. A clinician on a phone
           gets full-width targets; one at a desk does not lose half the screen to them. */}
-      <div className="grid g-3" style={{ gap: 'var(--space-4)' }}>
+      <Grid cols={3} gap="4">
         <Field name={id('strength')} label="Strength" hint="e.g. 500 mg">
           {(control) => (
             <Input
@@ -261,7 +272,7 @@ function ItemRow({
             />
           )}
         </Field>
-      </div>
+      </Grid>
 
       <Field name={id('unit')} label="Unit" hint="e.g. tablets, ml. Leave blank if it does not apply.">
         {(control) => (
@@ -345,25 +356,25 @@ function Confirmation({
   onConfirm: () => void
 }) {
   return (
-    <div className="stack" style={{ gap: 'var(--space-5)' }}>
+    <Stack gap="5">
       <Notice tone="warn" icon="shield" title="Check this. Once issued it cannot be changed.">
         A prescription is never edited — not by you, not by an administrator, not by Carevelo. A
         mistake is corrected by cancelling this one, with a reason, and issuing another. The
         document may already be on the patient&rsquo;s phone by then.
       </Notice>
 
-      <article className="card stack" style={{ gap: 'var(--space-5)' }}>
+      <Stack as="article" className="card" gap="5">
         <div className="stack">
           <span className="eyebrow">Prescription for</span>
-          <span style={{ fontWeight: 650, fontSize: 17 }}>{patientName}</span>
+          <span className="record-name">{patientName}</span>
         </div>
 
         <ul className="stack" style={{ gap: 'var(--space-4)', listStyle: 'none' }}>
           {items.map((item, index) => (
-            <li key={index} className="stack" style={{ gap: 'var(--space-2)' }}>
+            <Stack as="li" key={index} gap="2">
               <span style={{ fontSize: 15.5 }}>{documentLine(item)}</span>
               {item.isControlled ? <Badge tone="warn">Controlled — in person only</Badge> : null}
-            </li>
+            </Stack>
           ))}
         </ul>
 
@@ -371,7 +382,7 @@ function Confirmation({
           <span className="eyebrow">Issued by</span>
           <PrescriberBlock prescriber={prescriber} />
         </div>
-      </article>
+      </Stack>
 
       {failure !== null ? (
         <Notice tone="bad" title="Nothing was issued">
@@ -379,15 +390,15 @@ function Confirmation({
         </Notice>
       ) : null}
 
-      <div className="row-wrap" style={{ gap: 'var(--space-3)' }}>
+      <Inline gap="3">
         <Button variant="primary" size="lg" type="button" onClick={onConfirm} disabled={sending}>
           <Icon name="check" /> {sending ? 'Issuing…' : 'Issue this prescription'}
         </Button>
         <Button variant="quiet" type="button" onClick={onBack} disabled={sending}>
           Go back and change it
         </Button>
-      </div>
-    </div>
+      </Inline>
+    </Stack>
   )
 }
 
@@ -407,7 +418,7 @@ function Confirmation({
 function PrescriberBlock({ prescriber }: { prescriber: Prescriber }) {
   if (prescriber.kind === 'known') {
     return (
-      <div className="stack" style={{ gap: 'var(--space-1)' }}>
+      <Stack gap="1">
         <span style={{ fontWeight: 600 }}>{prescriber.profile.name}</span>
         <span className="tnum">
           {prescriber.profile.registration_body.toUpperCase()}{' '}
@@ -419,7 +430,7 @@ function PrescriberBlock({ prescriber }: { prescriber: Prescriber }) {
            * currency is the clinic's regulatory responsibility, not ours. Blocking care on our
            * possibly-stale copy would be the worse error."
            */
-          <span className="fine" style={{ color: 'var(--warn)' }}>
+          <span className="fine note-warn">
             The practising licence the clinic recorded has expired. Carevelo records what the
             clinic told it and verifies nothing — check your own registration.
           </span>
@@ -428,21 +439,21 @@ function PrescriberBlock({ prescriber }: { prescriber: Prescriber }) {
           Recorded by the clinic and never verified. Carevelo has no access to the UMDPC, AHPC
           or Nurses &amp; Midwives registers.
         </span>
-      </div>
+      </Stack>
     )
   }
 
   return (
-    <div className="stack" style={{ gap: 'var(--space-1)' }}>
+    <Stack gap="1">
       <span style={{ fontWeight: 600 }}>
         {prescriber.kind === 'unreadable' ? prescriber.name : 'You'}
       </span>
-      <span className="fine" style={{ color: 'var(--warn)' }}>
+      <span className="fine note-warn">
         The document will carry the registration body and number the clinic recorded for you.
         This console cannot read them back — that endpoint is open to administrators only — so
         it cannot show you the exact line before you sign it. If you are not certain what the
         clinic has on file, ask an administrator before issuing.
       </span>
-    </div>
+    </Stack>
   )
 }

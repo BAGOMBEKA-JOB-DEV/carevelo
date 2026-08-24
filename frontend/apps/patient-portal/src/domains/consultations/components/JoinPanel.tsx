@@ -1,9 +1,11 @@
 import { getTranslations } from 'next-intl/server'
-import { Button, Card, DateTime, Icon, Notice, formatInstant } from '@carevelo/ui'
+import { Button, Card, DateTime, Icon, Notice, Stack, formatInstant } from '@carevelo/ui'
 import type { Tenant } from '@/lib/tenant'
 import { enterConsultation } from '../api/actions'
 import type { ConsultationEntry, ConsultationMode } from '../api/consultations'
 import { EmergencyGuidance } from './EmergencyGuidance'
+import { PageBody } from '@/components/PageBody'
+import { SitePageHeader } from '@/components/SitePageHeader'
 
 /**
  * The join screen: the lobby, and every honest reason there is no door today.
@@ -91,17 +93,24 @@ export async function JoinPanel({
   const bookedMode = 'bookedMode' in state ? state.bookedMode : null
 
   return (
-    <div className="site-wrap" style={{ paddingBlock: 'var(--space-8)' }}>
-      <div className="page-head">
-        <div style={{ flex: '1 1 auto' }}>
-          <span className="site-eyebrow">{t('eyebrow')}</span>
-          <h1 style={{ marginTop: 'var(--space-4)' }}>{t('joinTitle')}</h1>
-          <p>{t('joinLede')}</p>
-        </div>
-      </div>
+    <PageBody>
+      <SitePageHeader eyebrow={t('eyebrow')} title={t('joinTitle')} description={t('joinLede')} />
 
-      <div style={{ display: 'grid', gap: 'var(--space-5)' }}>
+      <Stack gap="5">
         <Card tone="brand" padding="tight">
+          {/*
+           * SURVIVING INLINE STYLE, three of them, and the same one every stat block in
+           * this app carries. `.stat__value` is 28px because it was sized for a COUNT; the
+           * three values here are a date and time, a reference and a clinician's name, and
+           * at 28px in the display face any of them takes three lines inside a third of a
+           * `.cellgrid` on a phone. 19px is what fits, and 19px is not on the type scale —
+           * `.title-sm` is the nearest step at 17.5px and it is a different weight.
+           *
+           * The right home is a `.stat__value--sm` modifier in tokens/components.css,
+           * beside the rule it modifies and shared with the console's matching overrides.
+           * That file is outside this sweep, so the property stays and the modifier is the
+           * follow-up. See the identical note in src/app/account/page.tsx.
+           */}
           <div className="cellgrid cellgrid--3">
             <div className="stat">
               <span className="stat__label">{t('scheduledLabel')}</span>
@@ -136,16 +145,21 @@ export async function JoinPanel({
 
         {entryError ? (
           <Notice tone="bad" title={t(FAILURE_TITLE[entryError])}>
-            <p>{t(FAILURE_BODY[entryError], { clinic })}</p>
-            <p style={{ marginTop: 'var(--space-3)' }}>
-              {phone ? t('callClinic', { clinic, phone }) : t('contactClinic', { clinic })}
-            </p>
+            <Stack gap="3">
+              <p>{t(FAILURE_BODY[entryError], { clinic })}</p>
+              <p>{phone ? t('callClinic', { clinic, phone }) : t('contactClinic', { clinic })}</p>
+            </Stack>
           </Notice>
         ) : null}
 
         {state.kind === 'lobby' ? (
           <Card as="section" aria-labelledby="what-happens">
-            <h2 className="title" id="what-happens" style={{ marginBottom: 'var(--space-4)' }}>
+            {/* No `marginBottom` here, and there used to be one. `.ticklist` in the token
+                layer carries `margin: 24px 0 0`, and this Card is a block container, so the
+                heading's 12px collapsed against that 24px and never rendered — a value
+                somebody set, nobody saw, and a reviewer would have had to read two
+                stylesheets to know was dead. The 24px below is the ticklist's. */}
+            <h2 className="title" id="what-happens">
               {t('whatHappensTitle')}
             </h2>
 
@@ -174,6 +188,12 @@ export async function JoinPanel({
               </li>
             </ul>
 
+            {/* SURVIVING INLINE STYLES, here and on the note below it. This Card is a
+                BLOCK container and has to stay one, because `.ticklist` above brings its
+                own 24px `margin-top` from the token layer: inside a `<Stack>` that margin
+                would be added to the Stack's gap instead of standing in for it, and the
+                list would drift away from its heading. The three gaps down this card are
+                24px, 18px and 12px, so no single gap absorbs them either. */}
             <form action={enterConsultation} style={{ marginTop: 'var(--space-6)' }}>
               {/*
                * The identifier travels in the form because a Server Action takes FormData,
@@ -201,10 +221,10 @@ export async function JoinPanel({
 
         {state.kind === 'not-confirmed' ? (
           <Notice tone="warn" icon="card" title={t('notConfirmedTitle')} announce={false}>
-            <p>{t('notConfirmedBody', { clinic })}</p>
-            <p style={{ marginTop: 'var(--space-3)' }}>
-              {phone ? t('callClinic', { clinic, phone }) : t('contactClinic', { clinic })}
-            </p>
+            <Stack gap="3">
+              <p>{t('notConfirmedBody', { clinic })}</p>
+              <p>{phone ? t('callClinic', { clinic, phone }) : t('contactClinic', { clinic })}</p>
+            </Stack>
           </Notice>
         ) : null}
 
@@ -216,15 +236,15 @@ export async function JoinPanel({
 
         {state.kind === 'closed' ? (
           <Notice tone="neutral" icon="x" title={t('closedTitle')}>
-            <p>{t('closedBody')}</p>
-            <p style={{ marginTop: 'var(--space-3)' }}>
-              {phone ? t('callClinic', { clinic, phone }) : t('contactClinic', { clinic })}
-            </p>
+            <Stack gap="3">
+              <p>{t('closedBody')}</p>
+              <p>{phone ? t('callClinic', { clinic, phone }) : t('contactClinic', { clinic })}</p>
+            </Stack>
           </Notice>
         ) : null}
 
         <EmergencyGuidance clinic={clinic} phone={phone} guidance={emergencyGuidance} />
-      </div>
-    </div>
+      </Stack>
+    </PageBody>
   )
 }

@@ -1,4 +1,4 @@
-import { Badge, Card, Icon, Notice } from '@carevelo/ui'
+import { Badge, Card, Icon, Inline, Notice } from '@carevelo/ui'
 import { attempt } from '../api/http'
 import { getChecklist } from '../api/clinic'
 import type { ChecklistItem, TenantPaths } from '../model/types'
@@ -134,12 +134,12 @@ export async function OnboardingChecklist({ paths, compact = false }: Onboarding
 function ChecklistLine({ item, href }: { item: ChecklistItem; href: string | null }) {
   return (
     <li className="row" style={{ alignItems: 'flex-start' }}>
-      <span aria-hidden="true" style={{ marginTop: 2 }}>
+      <span aria-hidden="true" className="li-mark">
         {item.is_complete ? <Icon name="check" /> : <Icon name="clock" />}
       </span>
 
       <span className="grow stack">
-        <span className="row-wrap" style={{ gap: 'var(--space-3)' }}>
+        <Inline as="span" gap="3">
           {href === null ? (
             <span>{item.label}</span>
           ) : (
@@ -155,7 +155,7 @@ function ChecklistLine({ item, href }: { item: ChecklistItem; href: string | nul
           ) : (
             <Badge tone="neutral">Optional</Badge>
           )}
-        </span>
+        </Inline>
 
         {item.detail === null ? null : <span className="fine">{item.detail}</span>}
       </span>

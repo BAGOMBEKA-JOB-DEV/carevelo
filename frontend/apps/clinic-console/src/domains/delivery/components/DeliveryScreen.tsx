@@ -1,4 +1,4 @@
-import { Badge, Card, DateTime, Notice } from '@carevelo/ui'
+import { Badge, Card, DateTime, Notice, PageHeader } from '@carevelo/ui'
 import { attempt } from '../api/http'
 import { abilitiesOf, getDelivery, getTracking, listRiders } from '../api/deliveries'
 import { assignRider } from '../api/actions'
@@ -81,13 +81,11 @@ export async function DeliveryScreen({
 
   return (
     <div className="grid">
-      <div className="page-head">
-        <div className="grow stack">
-          <h1>{delivery.reference}</h1>
-          <p>{status.meaning}</p>
-        </div>
-        <Badge tone={status.tone}>{status.label}</Badge>
-      </div>
+      <PageHeader
+        title={delivery.reference}
+        description={status.meaning}
+        actions={<Badge tone={status.tone}>{status.label}</Badge>}
+      />
 
       {failed ? (
         <Notice tone="bad" title="This delivery failed">

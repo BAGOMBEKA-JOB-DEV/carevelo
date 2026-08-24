@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react'
 import { getTranslations } from 'next-intl/server'
 import { Card, PageHeader, Skeleton, Stack } from '@carevelo/ui'
+import { PageBody } from '@/components/PageBody'
 
 /**
  * The prescription list, held in place while it is read.
@@ -26,7 +27,7 @@ export default async function PrescriptionsLoading(): Promise<ReactElement> {
   return (
     <div className="site-root">
       <main>
-        <div className="site-wrap" style={{ paddingBlock: 'var(--space-8)' }}>
+        <PageBody>
           <PageHeader eyebrow={t('detailEyebrow')} title={t('listTitle')} />
 
           <Stack gap="6">
@@ -48,7 +49,7 @@ export default async function PrescriptionsLoading(): Promise<ReactElement> {
                 resolves under it. */}
             <Skeleton lines={1} />
           </Stack>
-        </div>
+        </PageBody>
       </main>
     </div>
   )

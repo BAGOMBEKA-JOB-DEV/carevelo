@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { Button, Card, Notice } from '@carevelo/ui'
+import { Button, Card, Notice, PageHeader } from '@carevelo/ui'
 import { NonCustodialNotice } from './NonCustodialNotice'
 import { RevenuePlaceholder } from './RevenuePlaceholder'
 
@@ -42,15 +42,15 @@ export function MoneyDeskScreen({
 }) {
   return (
     <div className="grid">
-      <div className="page-head">
-        <div className="grow">
-          <h1>Money desk</h1>
-          <p>
+      <PageHeader
+        title="Money desk"
+        description={
+          <>
             Cash taken at the counter, the day&rsquo;s records, what the clinic sent to
             patients, and who did what.
-          </p>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       <NonCustodialNotice />
 

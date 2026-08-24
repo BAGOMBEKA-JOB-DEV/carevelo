@@ -1,4 +1,4 @@
-import { Badge, Button, DateTime, Field, Icon, Textarea } from '@carevelo/ui'
+import { Badge, Button, DateTime, Field, Icon, Inline, Stack, Textarea } from '@carevelo/ui'
 import type { Prescription } from '../model/types'
 
 /**
@@ -46,7 +46,7 @@ export function IssuedPrescriptions({
   }
 
   return (
-    <div className="stack" style={{ gap: 'var(--space-5)' }}>
+    <Stack gap="5">
       <p className="fine">
         This patient&rsquo;s recent prescriptions at this clinic — not only the ones from this
         consultation. The API cannot narrow the list to one encounter; check the date before
@@ -54,8 +54,8 @@ export function IssuedPrescriptions({
       </p>
 
       {prescriptions.map((prescription) => (
-        <article key={prescription.id} className="card stack" style={{ gap: 'var(--space-4)' }}>
-          <div className="row-wrap between" style={{ gap: 'var(--space-4)' }}>
+        <Stack as="article" key={prescription.id} className="card" gap="4">
+          <Inline gap="4" justify="between">
             <span className="tnum">
               {prescription.issued_at === null ? (
                 'Date not recorded'
@@ -66,7 +66,7 @@ export function IssuedPrescriptions({
             <Badge tone={STATUS_TONE[prescription.status] ?? 'neutral'}>
               {STATUS_LABEL[prescription.status] ?? prescription.status}
             </Badge>
-          </div>
+          </Inline>
 
           <ul className="stack" style={{ gap: 'var(--space-2)', listStyle: 'none' }}>
             {(prescription.items ?? []).map((item) => (
@@ -87,7 +87,7 @@ export function IssuedPrescriptions({
             verified by Carevelo.
           </p>
 
-          <div className="row-wrap" style={{ gap: 'var(--space-3)' }}>
+          <Inline gap="3">
             {/*
               * THE LINK IS MINTED WHEN IT IS ASKED FOR, NOT WHEN THE PAGE RENDERS. The document
               * never sits at a public or guessable path; this endpoint is the only way to reach
@@ -104,10 +104,10 @@ export function IssuedPrescriptions({
             {prescription.status === 'issued' ? (
               <CancelPrescription id={prescription.id} action={cancelAction} />
             ) : null}
-          </div>
-        </article>
+          </Inline>
+        </Stack>
       ))}
-    </div>
+    </Stack>
   )
 }
 
@@ -132,7 +132,7 @@ function CancelPrescription({
 }) {
   return (
     <details>
-      <summary className="lnk" style={{ minHeight: 'var(--touch-min)', display: 'inline-flex', alignItems: 'center' }}>
+      <summary className="lnk disclose">
         <Icon name="x" /> Cancel this prescription
       </summary>
 

@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react'
+import { Stack } from '@carevelo/ui'
 import { parsePolicyText } from './policyDocument'
 
 /**
@@ -71,9 +72,9 @@ export function ConsentPolicyText({
          * use instead, and inventing one from the heading would collide the moment a policy
          * repeated a word.
          */
-        <section key={sectionIndex} className="stack" style={{ gap: 'var(--space-3)' }}>
+        <Stack as="section" key={sectionIndex} gap="3">
           {section.heading ? (
-            <h4 className="field__label" style={{ letterSpacing: '0.04em' }}>
+            <h4 className="field__label policy-heading">
               {section.heading}
             </h4>
           ) : null}
@@ -82,14 +83,14 @@ export function ConsentPolicyText({
             block.kind === 'paragraph' ? (
               <p key={blockIndex}>{block.text}</p>
             ) : (
-              <ul key={blockIndex} style={{ paddingLeft: 'var(--space-6)', listStyle: 'disc' }}>
+              <ul key={blockIndex} className="policy-list">
                 {block.items.map((item, itemIndex) => (
                   <li key={itemIndex}>{item}</li>
                 ))}
               </ul>
             ),
           )}
-        </section>
+        </Stack>
       ))}
     </div>
   )

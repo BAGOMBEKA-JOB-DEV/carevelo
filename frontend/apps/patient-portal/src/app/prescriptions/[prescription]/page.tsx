@@ -5,6 +5,7 @@ import { resolveTenant } from '@/lib/tenant'
 import { currentUser } from '@/lib/session'
 import { getPrescription, PrescriptionDetail } from '@/domains/prescriptions'
 import { SiteShell } from '@/components/SiteShell'
+import { PageBody } from '@/components/PageBody'
 
 /**
  * One prescription: what was prescribed, how to take it, and the written document.
@@ -65,7 +66,7 @@ export default async function PrescriptionPage({
 
   return (
     <SiteShell tenant={tenant} signedIn>
-      <div className="site-wrap" style={{ paddingBlock: 'var(--space-8)' }}>
+      <PageBody>
         <PrescriptionDetail
           result={result}
           clinic={tenant.trading_name ?? common('thisClinic')}
@@ -77,7 +78,7 @@ export default async function PrescriptionPage({
               : undefined
           }
         />
-      </div>
+      </PageBody>
     </SiteShell>
   )
 }

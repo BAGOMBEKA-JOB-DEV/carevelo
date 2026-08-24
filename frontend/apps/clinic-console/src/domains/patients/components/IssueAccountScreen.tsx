@@ -1,5 +1,5 @@
 import type { ReactElement, ReactNode } from 'react'
-import { Button, Icon, Notice } from '@carevelo/ui'
+import { Button, Icon, Notice, PageHeader } from '@carevelo/ui'
 import { issueAccount } from '../api/account'
 import type { Patient } from '../api/types'
 import { isFinalised, statusDisplay } from '../model/status'
@@ -153,15 +153,15 @@ export function IssueAccountScreen({ paths, patient }: IssueAccountScreenProps):
   const patientName = `${patient.given_name} ${patient.family_name}`
 
   const heading = (
-    <div className="page-head">
-      <div className="grow">
-        <h1>Portal account</h1>
-        <p>{patientName}</p>
-      </div>
-      <Button href={recordHref} variant="quiet">
-        Back to the record
-      </Button>
-    </div>
+    <PageHeader
+      title="Portal account"
+      description={patientName}
+      actions={
+        <Button href={recordHref} variant="quiet">
+          Back to the record
+        </Button>
+      }
+    />
   )
 
   if (patient.merged_into_patient_id !== null) {

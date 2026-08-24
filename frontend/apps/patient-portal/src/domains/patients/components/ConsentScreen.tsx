@@ -11,6 +11,7 @@ import type {
   ConsentType,
 } from '../api/types'
 import { ConsentPolicyText } from './ConsentPolicyText'
+import { PageBody } from '@/components/PageBody'
 
 /**
  * THE CONSENT SCREEN.
@@ -230,7 +231,7 @@ export async function ConsentScreen({
      * A grid gap states the spacing once and applies it to every child including the ones
      * added later.
      */
-    <div className="site-wrap" style={{ paddingBlock: 'var(--space-8)' }}>
+    <PageBody>
       <div className="grid" style={{ gap: 'var(--space-8)' }}>
         <div className="site-sec-head">
           <span className="site-eyebrow">{t('consent.eyebrow')}</span>
@@ -440,7 +441,7 @@ export async function ConsentScreen({
           </>
         )}
       </div>
-    </div>
+    </PageBody>
   )
 }
 

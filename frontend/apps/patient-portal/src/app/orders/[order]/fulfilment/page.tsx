@@ -5,6 +5,7 @@ import { resolveTenant } from '@/lib/tenant'
 import { currentUser } from '@/lib/session'
 import { FulfilmentChoice, getDispenseOrder } from '@/domains/delivery'
 import { SiteShell } from '@/components/SiteShell'
+import { PageBody } from '@/components/PageBody'
 
 /**
  * Collecting your medicines, or having them brought to you.
@@ -92,7 +93,7 @@ export default async function FulfilmentPage({
 
   return (
     <SiteShell tenant={tenant} signedIn>
-      <div className="site-wrap" style={{ paddingBlock: 'var(--space-8)' }}>
+      <PageBody>
         <FulfilmentChoice
           result={result}
           clinic={clinic}
@@ -105,7 +106,7 @@ export default async function FulfilmentPage({
           }}
           error={query.fulfilmentError}
         />
-      </div>
+      </PageBody>
     </SiteShell>
   )
 }

@@ -11,6 +11,7 @@ import {
   IdentityFields,
   type FieldFault,
 } from './PatientFields'
+import { PageBody } from '@/components/PageBody'
 
 /**
  * Self-registration on the clinic's own portal.
@@ -173,7 +174,7 @@ export async function RegistrationForm({
     error === undefined ? undefined : { field: errorField ?? null, message: error }
 
   return (
-    <div className="site-wrap" style={{ paddingBlock: 'var(--space-8)' }}>
+    <PageBody>
       <div className="grid" style={{ gap: 'var(--space-7)', maxWidth: 640 }}>
         <div className="site-sec-head">
           <span className="site-eyebrow">{t('register.eyebrow')}</span>
@@ -251,7 +252,7 @@ export async function RegistrationForm({
           {t('register.nextBody', { clinic })}
         </Notice>
       </div>
-    </div>
+    </PageBody>
   )
 }
 

@@ -100,7 +100,7 @@ export function IssueAccountForm({
 
         <div className="card stack">
           <span className="field__label">Signs in with</span>
-          <p className="tnum" style={{ fontSize: 17, wordBreak: 'break-all' }}>
+          <p className="tnum credential">
             {state.email}
           </p>
 
@@ -114,20 +114,7 @@ export function IssueAccountForm({
             together; `word-break: break-all` on the address above is right for an email and
             deliberately absent here.
           */}
-          <p
-            className="mono"
-            style={{
-              fontSize: 26,
-              fontWeight: 700,
-              letterSpacing: '0.04em',
-              padding: 'var(--space-5)',
-              borderRadius: 'var(--r-md)',
-              background: 'var(--surface-sunken)',
-              userSelect: 'all',
-            }}
-          >
-            {state.password}
-          </p>
+          <p className="mono password-once">{state.password}</p>
 
           <p className="muted" style={{ marginTop: 'var(--space-4)' }}>
             Tell them they must change it the first time they sign in — until they do, their
@@ -159,7 +146,7 @@ export function IssueAccountForm({
 
       <div className="card stack">
         <span className="field__label">The patient will sign in with</span>
-        <p className="tnum" style={{ fontSize: 17, wordBreak: 'break-all' }}>
+        <p className="tnum credential">
           {email}
         </p>
         <p className="muted">

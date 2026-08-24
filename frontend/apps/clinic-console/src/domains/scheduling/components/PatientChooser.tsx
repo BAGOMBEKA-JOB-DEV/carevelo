@@ -1,4 +1,4 @@
-import { Button, EmptyState, Field, Icon, Input, Notice } from '@carevelo/ui'
+import { Button, EmptyState, Field, Icon, Input, Notice, Stack } from '@carevelo/ui'
 import { href } from '../model/links'
 import type { Patient, SchedulePaths } from '../model/types'
 
@@ -56,8 +56,8 @@ export function PatientChooser({
   const matches = term === '' ? patients : patients.filter((patient) => matchesTerm(patient, term))
 
   return (
-    <div className="grid" style={{ gap: 'var(--space-5)' }}>
-      <div className="card stack" style={{ gap: 'var(--space-4)' }}>
+    <Stack gap="5">
+      <Stack className="card" gap="4">
         <h2 className="title">Who is calling?</h2>
 
         {/* A GET form. Submitting navigates, so the result is a URL a colleague can be sent,
@@ -92,7 +92,7 @@ export function PatientChooser({
             <Icon name="user" /> Find
           </Button>
         </form>
-      </div>
+      </Stack>
 
       {truncated ? (
         <Notice tone="warn" title="Only part of the registry was read" announce={false}>
@@ -118,7 +118,7 @@ export function PatientChooser({
             style={{ gap: 'var(--space-2)', minHeight: 'var(--touch-min)' }}
             href={href(paths.book, { ...carry, patient: patient.id })}
           >
-            <span style={{ fontWeight: 650 }}>
+            <span className="record-name">
               {patient.given_name} {patient.family_name}
             </span>
             <span className="fine tnum">{patient.phone}</span>
@@ -129,14 +129,14 @@ export function PatientChooser({
               * opens the consultation needs to have known before they were in the room.
               */}
             {patient.status !== 'active' ? (
-              <span className="fine" style={{ color: 'var(--warn)' }}>
+              <span className="fine note-warn">
                 {patient.status.replace(/_/g, ' ')}
               </span>
             ) : null}
           </a>
         ))}
       </div>
-    </div>
+    </Stack>
   )
 }
 

@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react'
 import { redirect } from 'next/navigation'
-import { Button, Notice } from '@carevelo/ui'
+import { Button, Notice, PageHeader } from '@carevelo/ui'
 import { updatePatient } from '../api/patients'
 import type { Patient, ProfileInput, Sex } from '../api/types'
 import { isFinalised } from '../model/status'
@@ -161,17 +161,19 @@ export function PatientDetailsScreen({
   if (isFinalised(patient.status)) {
     return (
       <>
-        <div className="page-head">
-          <div className="grow">
-            <h1>Details cannot be changed</h1>
-            <p>
+        <PageHeader
+          title="Details cannot be changed"
+          description={
+            <>
               {patient.given_name} {patient.family_name}
-            </p>
-          </div>
-          <Button href={paths.record(patient.id)} variant="quiet">
-            Back to the record
-          </Button>
-        </div>
+            </>
+          }
+          actions={
+            <Button href={paths.record(patient.id)} variant="quiet">
+              Back to the record
+            </Button>
+          }
+        />
 
         <Notice tone="warn" icon="shield" title="This registration ended when consent was declined">
           The record is kept only to explain why service could not proceed, and it is purged on
@@ -184,17 +186,19 @@ export function PatientDetailsScreen({
 
   return (
     <>
-      <div className="page-head">
-        <div className="grow">
-          <h1>Correct details</h1>
-          <p>
+      <PageHeader
+        title="Correct details"
+        description={
+          <>
             {patient.given_name} {patient.family_name}
-          </p>
-        </div>
-        <Button href={paths.record(patient.id)} variant="quiet">
-          Back to the record
-        </Button>
-      </div>
+          </>
+        }
+        actions={
+          <Button href={paths.record(patient.id)} variant="quiet">
+            Back to the record
+          </Button>
+        }
+      />
 
       <div className="grid">
         {fault !== undefined ? (

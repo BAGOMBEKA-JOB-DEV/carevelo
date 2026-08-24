@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { Notice } from '@carevelo/ui'
+import { Notice, Stack } from '@carevelo/ui'
 import { cancelPrescription, documentLink, listPrescriptions, readPrescriber } from '../api/prescriptions'
 import { prescribingBlock, type PrescribingPaths } from '../model/types'
 import { IssuedPrescriptions } from './IssuedPrescriptions'
@@ -184,14 +184,14 @@ export async function PrescribingPanel({
         </Notice>
       ) : null}
 
-      <div className="stack" style={{ gap: 'var(--space-4)' }}>
+      <Stack gap="4">
         <h3 className="eyebrow">Recent prescriptions</h3>
         <IssuedPrescriptions
           prescriptions={prescriptions}
           cancelAction={cancel}
           documentAction={openDocument}
         />
-      </div>
+      </Stack>
     </section>
   )
 }

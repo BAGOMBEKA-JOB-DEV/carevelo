@@ -6,6 +6,7 @@ import { PaymentMethodChooser } from '@/domains/payments'
 import { getDispenseOrder } from '@/domains/delivery'
 import { SiteShell } from '@/components/SiteShell'
 import { PAYMENT_STATUS_TEMPLATE } from '../../../paths'
+import { PageBody } from '@/components/PageBody'
 
 /**
  * Paying for a dispensed order.
@@ -62,7 +63,7 @@ export default async function PayForOrderPage({
 
   return (
     <SiteShell tenant={tenant} signedIn>
-      <div className="site-wrap" style={{ paddingBlock: 'var(--space-8)' }}>
+      <PageBody>
         <PaymentMethodChooser
           tenant={tenant}
           payable={{ type: 'dispense_order', id: result.order.id }}
@@ -72,7 +73,7 @@ export default async function PayForOrderPage({
           after={query.after}
           error={query.error}
         />
-      </div>
+      </PageBody>
     </SiteShell>
   )
 }

@@ -1,5 +1,5 @@
 import { getTranslations } from 'next-intl/server'
-import { Card, Notice } from '@carevelo/ui'
+import { Card, Notice, Stack } from '@carevelo/ui'
 
 /**
  * Messages inside the consultation — the place they belong, and the truth about it today.
@@ -29,13 +29,15 @@ export async function ChatPanel({ clinic }: { clinic: string }) {
 
   return (
     <Card as="section" aria-labelledby="consultation-chat">
-      <h2 className="title" id="consultation-chat" style={{ marginBottom: 'var(--space-4)' }}>
-        {t('chatTitle')}
-      </h2>
+      <Stack gap="4">
+        <h2 className="title" id="consultation-chat">
+          {t('chatTitle')}
+        </h2>
 
-      <Notice tone="neutral" icon="mail" title={t('chatUnavailableTitle')}>
-        {t('chatUnavailableBody', { clinic })}
-      </Notice>
+        <Notice tone="neutral" icon="mail" title={t('chatUnavailableTitle')}>
+          {t('chatUnavailableBody', { clinic })}
+        </Notice>
+      </Stack>
     </Card>
   )
 }

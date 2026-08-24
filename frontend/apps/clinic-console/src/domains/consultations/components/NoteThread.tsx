@@ -1,4 +1,4 @@
-import { Badge, Button, DateTime, Field, Icon, Textarea } from '@carevelo/ui'
+import { Badge, Button, DateTime, Field, Icon, Inline, Stack, Textarea } from '@carevelo/ui'
 import { NOTE_SECTIONS, SECTION_LABEL, isNoteSection, type NoteSection } from '../model/drafts'
 import type { ClinicalNote } from '../model/types'
 
@@ -119,7 +119,7 @@ function SectionRecord({
   addendumAction: (formData: FormData) => Promise<void>
 }) {
   return (
-    <div className="stack" style={{ gap: 'var(--space-4)' }}>
+    <Stack gap="4">
       <h3 className="eyebrow">{SECTION_LABEL[section]}</h3>
 
       <Entry note={current} tone="current" />
@@ -130,7 +130,7 @@ function SectionRecord({
 
       {earlier.length > 0 ? (
         <details>
-          <summary className="lnk" style={{ minHeight: 'var(--touch-min)', display: 'inline-flex', alignItems: 'center' }}>
+          <summary className="lnk disclose">
             {earlier.length} earlier {earlier.length === 1 ? 'save' : 'saves'} of this section
           </summary>
 
@@ -155,7 +155,7 @@ function SectionRecord({
         * JavaScript at all.
         */}
       <details>
-        <summary className="lnk" style={{ minHeight: 'var(--touch-min)', display: 'inline-flex', alignItems: 'center' }}>
+        <summary className="lnk disclose">
           <Icon name="file" /> Add an addendum to this section
         </summary>
 
@@ -177,7 +177,7 @@ function SectionRecord({
           </div>
         </form>
       </details>
-    </div>
+    </Stack>
   )
 }
 
@@ -193,7 +193,7 @@ function Entry({
       className={tone === 'current' ? 'card card-tight stack' : 'stack'}
       style={{ gap: 'var(--space-2)' }}
     >
-      <div className="row-wrap" style={{ gap: 'var(--space-3)' }}>
+      <Inline gap="3">
         {tone === 'addendum' ? <Badge tone="info">Addendum</Badge> : null}
         {tone === 'earlier' ? <Badge tone="neutral">Earlier save</Badge> : null}
         {!isNoteSection(note.note_type) && tone !== 'addendum' ? (
@@ -206,7 +206,7 @@ function Entry({
             <DateTime value={note.created_at} format="datetime" />
           )}
         </span>
-      </div>
+      </Inline>
 
       {/* `pre` with wrapping, not a paragraph: a clinician's line breaks are part of what they
           wrote, and collapsing them changes the note. */}

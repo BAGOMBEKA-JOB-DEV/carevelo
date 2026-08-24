@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { Button, EmptyState, Icon, Notice, Select } from '@carevelo/ui'
+import { Button, EmptyState, Icon, Inline, Notice, PageHeader, Select, Stack } from '@carevelo/ui'
 import { attempt, type Staff } from '../api/gateway'
 import { cancelAppointment, confirmDeferred, listAppointments } from '../api/appointments'
 import { byId, getPatient, listClinicians, listServices } from '../api/catalogue'
@@ -158,24 +158,25 @@ export async function DayView({
 
   return (
     <>
-      <div className="page-head">
-        <div className="grow">
-          <h1>{isToday(chosenDay) ? 'Today' : readableDay(chosenDay)}</h1>
-          <p>
+      <PageHeader
+        title={isToday(chosenDay) ? 'Today' : readableDay(chosenDay)}
+        description={
+          <>
             {isToday(chosenDay) ? `${readableDay(chosenDay)} · ` : null}
             {occupied.length === 1
               ? '1 appointment holding time'
               : `${occupied.length} appointments holding time`}
             {rows.length !== occupied.length ? ` · ${rows.length - occupied.length} closed` : null}
-          </p>
-        </div>
+          </>
+        }
+        actions={
+          <Button variant="primary" href={href(paths.book, { day: chosenDay, clinician: clinicianId })}>
+            <Icon name="calendar" /> Book for a caller
+          </Button>
+        }
+      />
 
-        <Button variant="primary" href={href(paths.book, { day: chosenDay, clinician: clinicianId })}>
-          <Icon name="calendar" /> Book for a caller
-        </Button>
-      </div>
-
-      <div className="grid" style={{ gap: 'var(--space-5)' }}>
+      <Stack gap="5">
         <Outcome problem={problem} message={message} done={done} />
 
         <DayNavigation
@@ -234,7 +235,7 @@ export async function DayView({
           clinicianId={clinicianId ?? null}
           signature={signatureOf(rows)}
         />
-      </div>
+      </Stack>
     </>
   )
 }
@@ -287,8 +288,8 @@ function DayNavigation({
   clinicians: readonly Clinician[]
 }) {
   return (
-    <div className="card row-wrap between" style={{ gap: 'var(--space-5)' }}>
-      <div className="row" style={{ gap: 'var(--space-3)' }}>
+    <Inline className="card" gap="5" justify="between">
+      <Inline gap="3" wrap={false}>
         <Button variant="quiet" href={href(paths.day, { day: shiftDay(day, -1), clinician: clinicianId })}>
           <Icon name="chevLeft" className="ico" /> Previous
         </Button>
@@ -298,7 +299,7 @@ function DayNavigation({
         <Button variant="quiet" href={href(paths.day, { day: shiftDay(day, 1), clinician: clinicianId })}>
           Next <Icon name="chevRight" className="ico" />
         </Button>
-      </div>
+      </Inline>
 
       {/*
         * A GET form, so the result is a URL. Submitting navigates; the day travels in a
@@ -327,7 +328,7 @@ function DayNavigation({
           Show
         </Button>
       </form>
-    </div>
+    </Inline>
   )
 }
 

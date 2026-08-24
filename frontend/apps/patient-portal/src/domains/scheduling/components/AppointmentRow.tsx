@@ -6,7 +6,9 @@ import {
   DateTime,
   Field,
   Icon,
+  Inline,
   Notice,
+  Stack,
   Textarea,
   formatInstant,
 } from '@carevelo/ui'
@@ -80,8 +82,8 @@ export async function AppointmentRow({
 
   return (
     <Card as="li">
-      <div className="stack" style={{ gap: 'var(--space-4)' }}>
-        <div className="row-wrap between" style={{ gap: 'var(--space-4)' }}>
+      <Stack gap="4">
+        <Inline gap="4" justify="between">
           <Badge tone={status ? STATUS_TONE[status] : 'neutral'} icon={statusIcon}>
             {status ? statuses.known[status] : statuses.unknown}
           </Badge>
@@ -91,33 +93,41 @@ export async function AppointmentRow({
           <span className="fine tnum">
             {t('appointments.referenceLabel')} {appointment.reference}
           </span>
-        </div>
+        </Inline>
 
+        {/* SURVIVING INLINE STYLE. 18px at weight 650 is a list-row heading and no step on
+            the type scale is at that size — `.title` is 21px/600, `.title-sm` 17.5px/700 in
+            the display face. One of the two or three heading modifiers that belong in
+            tokens/components.css; see the note in src/app/account/page.tsx. */}
         <h2 style={{ fontSize: 18, fontWeight: 650 }}>
           {serviceName ?? t('appointments.serviceUnknown')}
         </h2>
 
-        <p className="row-wrap" style={{ gap: 'var(--space-2)', fontSize: 14.5 }}>
+        {/* The three metadata lines below were `<p className="row-wrap">` with a hand-set
+            gap; `Inline`'s docblock names exactly this case. The `fontSize: 14.5` that used
+            to sit on the first of them was `--text-base-size` restated, so it is gone with
+            nothing to replace it. */}
+        <Inline gap="2">
           <Icon name="calendar" size={16} />
           {/* UTC on the wire, Africa/Kampala on the screen, 24-hour — all of which
               `<DateTime>` owns so that no screen has to remember it. */}
           <DateTime value={appointment.scheduled_start_at} format="datetime" />
           <span aria-hidden="true">–</span>
           <DateTime value={appointment.scheduled_end_at} format="time" />
-        </p>
+        </Inline>
 
-        <p className="row-wrap fine" style={{ gap: 'var(--space-2)' }}>
+        <Inline gap="2" className="fine">
           <Icon name="user" size={16} />
           {clinicianName
             ? t('appointments.withClinician', { clinician: clinicianName })
             : t('appointments.clinicianUnknown')}
-        </p>
+        </Inline>
 
         {mode ? (
-          <p className="row-wrap fine" style={{ gap: 'var(--space-2)' }}>
+          <Inline gap="2" className="fine">
             <Icon name={MODE_ICON[mode]} size={16} />
             {modes[mode].label}
-          </p>
+          </Inline>
         ) : null}
 
         {expiresAt ? (
@@ -129,7 +139,7 @@ export async function AppointmentRow({
            * this surface that needs a browser.
            */
           <Notice tone="warn" icon="clock" title={t('appointments.holdTitle')}>
-            <div className="stack" style={{ gap: 'var(--space-3)' }}>
+            <Stack gap="3">
               <span>
                 {t('appointments.holdBody', {
                   time: formatInstant(expiresAt, 'time'),
@@ -137,7 +147,7 @@ export async function AppointmentRow({
                 })}
               </span>
 
-              <div className="row-wrap" style={{ gap: 'var(--space-3)' }}>
+              <Inline gap="3">
                 <HoldCountdown
                   expiresAt={expiresAt}
                   labels={Array.from({ length: UNPAID_HOLD_MINUTES + 1 }, (_, minutes) =>
@@ -154,8 +164,8 @@ export async function AppointmentRow({
                     <Icon name="coins" /> {t('appointments.payNow')}
                   </Button>
                 ) : null}
-              </div>
-            </div>
+              </Inline>
+            </Stack>
           </Notice>
         ) : null}
 
@@ -167,6 +177,13 @@ export async function AppointmentRow({
            * the wrong tap on a cracked screen.
            */
           <details>
+            {/* SURVIVING INLINE STYLE, and the third variant of it in this app — the other
+                two are the `SUMMARY` constant duplicated in ConsentHistory.tsx and
+                RegistrationForm.tsx. A `<details>` marker row is a CONTROL: it wants a
+                pointer, a touch-sized band and its own ink, and the token layer has no class
+                that says so, so every screen that opens one has written the geometry out by
+                hand. `.disclosure` in tokens/components.css is the fix and it retires all
+                three at once; that file is outside this sweep. */}
             <summary
               style={{
                 cursor: 'pointer',
@@ -179,34 +196,39 @@ export async function AppointmentRow({
               {t('appointments.cancelSummary')}
             </summary>
 
-            <form action={cancelAction} className="stack" style={{ gap: 'var(--space-4)' }}>
-              <input type="hidden" name="appointment_id" value={appointment.id} />
+            <form action={cancelAction}>
+              {/* The column is a Stack inside the form: `Stack` renders a `div` and has no
+                  `as="form"`, on purpose. Every child here was already a flex item of the
+                  same column, so a block form around a full-width Stack lays out the same. */}
+              <Stack gap="4">
+                <input type="hidden" name="appointment_id" value={appointment.id} />
 
-              {/* `id` rather than `name` made unique: several of these forms share one
-                  document, so the label/control wiring needs distinct ids while the POSTed
-                  field stays `reason`, which is what the API validates. */}
-              <Field
-                name="reason"
-                id={`cancel-reason-${appointment.id}`}
-                label={t('appointments.cancelReasonLabel')}
-                hint={t('appointments.cancelReasonHint')}
-              >
-                {(control) => (
-                  /* The API requires three characters and stores this on the appointment.
-                     It is deliberately never copied into the audit trail, because free
-                     text typed by a patient routinely names a condition — which is also
-                     why the hint asks them not to write one. */
-                  <Textarea {...control} required minLength={3} maxLength={255} rows={3} />
-                )}
-              </Field>
+                {/* `id` rather than `name` made unique: several of these forms share one
+                    document, so the label/control wiring needs distinct ids while the POSTed
+                    field stays `reason`, which is what the API validates. */}
+                <Field
+                  name="reason"
+                  id={`cancel-reason-${appointment.id}`}
+                  label={t('appointments.cancelReasonLabel')}
+                  hint={t('appointments.cancelReasonHint')}
+                >
+                  {(control) => (
+                    /* The API requires three characters and stores this on the appointment.
+                       It is deliberately never copied into the audit trail, because free
+                       text typed by a patient routinely names a condition — which is also
+                       why the hint asks them not to write one. */
+                    <Textarea {...control} required minLength={3} maxLength={255} rows={3} />
+                  )}
+                </Field>
 
-              <Button type="submit" variant="danger">
-                {t('appointments.cancelSubmit')}
-              </Button>
+                <Button type="submit" variant="danger">
+                  {t('appointments.cancelSubmit')}
+                </Button>
+              </Stack>
             </form>
           </details>
         ) : null}
-      </div>
+      </Stack>
     </Card>
   )
 }

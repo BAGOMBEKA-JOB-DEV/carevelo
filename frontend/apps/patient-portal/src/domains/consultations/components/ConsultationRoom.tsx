@@ -1,5 +1,5 @@
 import { getTranslations } from 'next-intl/server'
-import { Badge, Button, Card, DateTime, Notice } from '@carevelo/ui'
+import { Badge, Button, Card, DateTime, Notice, Stack } from '@carevelo/ui'
 import type { Tenant } from '@/lib/tenant'
 import { leaveConsultation } from '../api/actions'
 import { consultationHref } from '../api/paths'
@@ -10,6 +10,8 @@ import { EmergencyGuidance } from './EmergencyGuidance'
 import { MediaPane } from './MediaPane'
 import { ModeStrip } from './ModeStrip'
 import { RoomLive } from './RoomLive'
+import { PageBody } from '@/components/PageBody'
+import { SitePageHeader } from '@/components/SitePageHeader'
 
 /**
  * The patient's consultation room.
@@ -64,50 +66,55 @@ export async function ConsultationRoom({
   const href = consultationHref(appointment.id)
 
   return (
-    <div className="site-wrap" style={{ paddingBlock: 'var(--space-8)' }}>
-      <div className="page-head">
-        <div style={{ flex: '1 1 auto' }}>
-          <span className="site-eyebrow">{t('eyebrow')}</span>
-          <h1 style={{ marginTop: 'var(--space-4)' }}>{t('roomTitle')}</h1>
-          <p>{t('roomLede', { clinic })}</p>
-        </div>
+    <PageBody>
+      <SitePageHeader
+        eyebrow={t('eyebrow')}
+        title={t('roomTitle')}
+        description={t('roomLede', { clinic })}
+        actions={
+          /* The word carries the state; the colour is a second opinion. A badge that said
+             it in colour alone would say nothing to a colour-blind patient and less to a
+             screen reader. */
+          ended ? (
+            <Badge tone="neutral" icon="check">
+              {t('statusEnded')}
+            </Badge>
+          ) : consultation ? (
+            <Badge tone="good" icon="activity">
+              {t('statusInProgress')}
+            </Badge>
+          ) : (
+            <Badge tone="warn" icon="clock">
+              {t('statusWaiting')}
+            </Badge>
+          )
+        }
+      />
 
-        {/* The word carries the state; the colour is a second opinion. A badge that said
-            it in colour alone would say nothing to a colour-blind patient and less to a
-            screen reader. */}
-        {ended ? (
-          <Badge tone="neutral" icon="check">
-            {t('statusEnded')}
-          </Badge>
-        ) : consultation ? (
-          <Badge tone="good" icon="activity">
-            {t('statusInProgress')}
-          </Badge>
-        ) : (
-          <Badge tone="warn" icon="clock">
-            {t('statusWaiting')}
-          </Badge>
-        )}
-      </div>
-
-      <div style={{ display: 'grid', gap: 'var(--space-5)' }}>
+      <Stack gap="5">
         {consultation ? (
           <ModeStrip clinic={clinic} bookedMode={bookedMode} consultation={consultation} />
         ) : (
           <Notice tone="info" icon="clock" title={t('notStartedTitle')} announce={false}>
-            <p>{t('notStartedBody')}</p>
+            <Stack gap="4">
+              <p>{t('notStartedBody')}</p>
 
-            <p style={{ marginTop: 'var(--space-4)' }}>
-              {/*
-               * A PLAIN ANCHOR, not next/link. This is the no-JavaScript way to see what
-               * has changed, and a soft navigation could serve the router's cached render
-               * of the very page the patient is trying to get past. A full document load
-               * re-runs the server component and cannot be stale.
-               */}
-              <Button variant="quiet" href={href}>
-                {t('checkNow')}
-              </Button>
-            </p>
+              {/* The button keeps its own block wrapper rather than becoming a direct child
+                  of the Stack: `.btn` is `inline-flex`, so as a flex item it would be
+                  stretched the full width of the notice by the column's default `stretch`,
+                  and a full-bleed "Check now" reads as the page's primary action. */}
+              <p>
+                {/*
+                 * A PLAIN ANCHOR, not next/link. This is the no-JavaScript way to see what
+                 * has changed, and a soft navigation could serve the router's cached render
+                 * of the very page the patient is trying to get past. A full document load
+                 * re-runs the server component and cannot be stale.
+                 */}
+                <Button variant="quiet" href={href}>
+                  {t('checkNow')}
+                </Button>
+              </p>
+            </Stack>
           </Notice>
         )}
 
@@ -119,21 +126,24 @@ export async function ConsultationRoom({
         />
 
         <Card as="section" aria-labelledby="consultation-media">
-          <h2
-            className="title"
-            id="consultation-media"
-            style={{ marginBottom: 'var(--space-4)' }}
-          >
-            {t('mediaTitle')}
-          </h2>
+          <Stack gap="4">
+            <h2 className="title" id="consultation-media">
+              {t('mediaTitle')}
+            </h2>
 
-          <MediaPane clinic={clinic} phone={phone} credentials={credentials} />
+            <MediaPane clinic={clinic} phone={phone} credentials={credentials} />
+          </Stack>
         </Card>
 
         {/* Always present, in every mode. Chat is not a fallback. */}
         <ChatPanel clinic={clinic} />
 
         <Card tone="brand" padding="tight">
+          {/* SURVIVING INLINE STYLE, three of them — `.stat__value` is 28px, sized for a
+              count, and a date, a reference and a name at 28px in the display face wrap to
+              three lines inside a third of a `.cellgrid` on a phone. The full argument, and
+              the `.stat__value--sm` modifier that should retire it, is written out at the
+              same block in JoinPanel.tsx. */}
           <div className="cellgrid cellgrid--3">
             <div className="stat">
               <span className="stat__label">{t('scheduledLabel')}</span>
@@ -169,15 +179,20 @@ export async function ConsultationRoom({
          * the page is the bug this shape makes impossible.
          */}
         <form action={leaveConsultation}>
-          <input type="hidden" name="appointment_id" value={appointment.id} />
-          <Button variant="quiet" type="submit">
-            {t('leave')}
-          </Button>
-          <p className="fine" style={{ marginTop: 'var(--space-3)' }}>
-            {t('leaveNote')}
-          </p>
+          <Stack gap="3">
+            <input type="hidden" name="appointment_id" value={appointment.id} />
+            {/* The button in its own block wrapper, for the reason given above: `.btn` is
+                `inline-flex` and a bare flex item would be stretched across the card, so a
+                quiet "Leave" would come out looking like the primary action. */}
+            <div>
+              <Button variant="quiet" type="submit">
+                {t('leave')}
+              </Button>
+            </div>
+            <p className="fine">{t('leaveNote')}</p>
+          </Stack>
         </form>
-      </div>
-    </div>
+      </Stack>
+    </PageBody>
   )
 }

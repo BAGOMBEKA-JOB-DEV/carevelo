@@ -9,8 +9,10 @@ import {
   Field,
   Icon,
   Money,
+  Inline,
   Notice,
   Select,
+  Stack,
   formatInstant,
   type ChoiceOption,
 } from '@carevelo/ui'
@@ -31,6 +33,8 @@ import {
 } from '../model/slots'
 import type { BookingProblem, SchedulingPaths } from '../model/types'
 import { modeText } from './strings'
+import { PageBody } from '@/components/PageBody'
+import { SitePageHeader } from '@/components/SitePageHeader'
 
 /**
  * CHOOSE AND BOOK: one service, one mode, one time, one way of paying.
@@ -316,16 +320,23 @@ export async function BookingScreen({
       {/* The clinic speaking about its own service, in the clinic's own tint. ONE brand
           card on the screen — a page of tinted cards is a page with no emphasis left. */}
       <Card tone="brand" as="section" aria-labelledby="booking-service">
-        <div className="stack" style={{ gap: 'var(--space-4)' }}>
+        <Stack gap="4">
+          {/* SURVIVING INLINE STYLES on this card, three of them, all the same shortfall:
+              there is no 19px heading step and no small `.stat__value` on the scale. 28px
+              is `.stat__value`'s size because it was written for a COUNT; "UGX 30,000" and
+              "30 minutes" at 28px in the display face wrap inside a half-width stat on a
+              phone. The two or three modifier classes that retire these belong in
+              tokens/components.css, beside the rules they modify and shared with the
+              console's matching overrides — see the note in src/app/account/page.tsx. */}
           <h2 id="booking-service" style={{ fontSize: 19, fontWeight: 650 }}>
             {service.name}
           </h2>
 
-          {service.description ? (
-            <p style={{ color: 'var(--ink-muted)', fontSize: 14.5 }}>{service.description}</p>
-          ) : null}
+          {/* `.muted` and no size: the 14.5px this used to state IS `--text-base-size`,
+              which the `<p>` inherits from `body` regardless. */}
+          {service.description ? <p className="muted">{service.description}</p> : null}
 
-          <div className="row-wrap" style={{ gap: 'var(--space-7)' }}>
+          <Inline gap="7">
             <span className="stat">
               <span className="stat__label">{t('booking.priceLabel')}</span>
               <span className="stat__value" style={{ fontSize: 22 }}>
@@ -339,8 +350,8 @@ export async function BookingScreen({
                 {t('catalogue.duration', { minutes: service.duration_minutes })}
               </span>
             </span>
-          </div>
-        </div>
+          </Inline>
+        </Stack>
       </Card>
 
       {problem === 'slot_taken' ? (
@@ -375,46 +386,53 @@ export async function BookingScreen({
       {/* ---- Narrowing the times. A GET, so the result is a URL the patient can go back
               to, reload, or send to somebody. ---- */}
       <Card as="section" aria-labelledby="booking-narrow">
-        <form method="get" action={paths.book} className="stack" style={{ gap: 'var(--space-5)' }}>
-          <span className="field__label" id="booking-narrow">
-            {t('booking.narrowLegend')}
-          </span>
+        <form method="get" action={paths.book}>
+          {/* The column lives INSIDE the form rather than on it: `Stack` renders a `div`
+              and there is no `as="form"`, deliberately — a layout primitive that could
+              become a form is one that can silently change what a submit does. A block
+              `<form>` wrapping a full-width Stack lays out identically, because every
+              child was already a flex item of the same column. */}
+          <Stack gap="5">
+            <span className="field__label" id="booking-narrow">
+              {t('booking.narrowLegend')}
+            </span>
 
-          {/* A GET form replaces the query string entirely, so the service has to be
-              carried across or the submit would lose what is being booked. */}
-          <input type="hidden" name="service" value={service.id} />
+            {/* A GET form replaces the query string entirely, so the service has to be
+                carried across or the submit would lose what is being booked. */}
+            <input type="hidden" name="service" value={service.id} />
 
-          <Field name="clinician" label={t('booking.clinicianLabel')}>
-            {(control) => (
-              <Select {...control} defaultValue={clinician ?? ''}>
-                <option value="">{t('booking.anyClinician')}</option>
-                {clinicians.map((candidate) => (
-                  <option key={candidate.id} value={candidate.id}>
-                    {candidate.specialty
-                      ? `${candidate.name} — ${candidate.specialty}`
-                      : candidate.name}
-                  </option>
-                ))}
-              </Select>
-            )}
-          </Field>
+            <Field name="clinician" label={t('booking.clinicianLabel')}>
+              {(control) => (
+                <Select {...control} defaultValue={clinician ?? ''}>
+                  <option value="">{t('booking.anyClinician')}</option>
+                  {clinicians.map((candidate) => (
+                    <option key={candidate.id} value={candidate.id}>
+                      {candidate.specialty
+                        ? `${candidate.name} — ${candidate.specialty}`
+                        : candidate.name}
+                    </option>
+                  ))}
+                </Select>
+              )}
+            </Field>
 
-          <Field name="day" label={t('booking.dayLabel')}>
-            {(control) => (
-              <Select {...control} defaultValue={chosenDay ?? ''}>
-                <option value="">{t('booking.anyDay')}</option>
-                {windowDays(tenant.timezone).map((date) => (
-                  <option key={date} value={date}>
-                    {formatInstant(middayOn(date), 'date')}
-                  </option>
-                ))}
-              </Select>
-            )}
-          </Field>
+            <Field name="day" label={t('booking.dayLabel')}>
+              {(control) => (
+                <Select {...control} defaultValue={chosenDay ?? ''}>
+                  <option value="">{t('booking.anyDay')}</option>
+                  {windowDays(tenant.timezone).map((date) => (
+                    <option key={date} value={date}>
+                      {formatInstant(middayOn(date), 'date')}
+                    </option>
+                  ))}
+                </Select>
+              )}
+            </Field>
 
-          <Button type="submit" variant="quiet">
-            <Icon name="clock" /> {t('booking.showTimes')}
-          </Button>
+            <Button type="submit" variant="quiet">
+              <Icon name="clock" /> {t('booking.showTimes')}
+            </Button>
+          </Stack>
         </form>
       </Card>
 
@@ -428,65 +446,69 @@ export async function BookingScreen({
           {t('booking.noSlotsBody', { anyClinician: t('booking.anyClinician') })}
         </EmptyState>
       ) : (
-        <form action={confirmBooking} className="stack" style={{ gap: 'var(--space-7)' }}>
-          <Choice
-            name="mode"
-            legend={t('booking.modeLegend')}
-            hint={t('booking.modeHint')}
-            options={modeOptions}
-            required
-            // Pre-selected only when the clinic offers exactly one way to have this
-            // service, where a "choice" of one is a tap that asks nothing.
-            defaultValue={modeOptions.length === 1 ? modeOptions[0]?.value : undefined}
-          />
-
-          <Choice
-            name="slot"
-            legend={t('booking.slotLegend')}
-            hint={t('booking.slotHint')}
-            options={slotOptions}
-            required
-          />
-
-          {slots.length > shown.length ? (
-            <Notice tone="info" icon="help">
-              {t('booking.truncated', { count: shown.length })}
-            </Notice>
-          ) : null}
-
-          {allowPrepaid ? (
+        <form action={confirmBooking}>
+          {/* Same shape as the GET form above: the column is a Stack inside the form,
+              because `Stack` renders a `div` and never a `form`. */}
+          <Stack gap="7">
             <Choice
-              name="payment_expectation"
-              legend={t('booking.paymentLegend')}
+              name="mode"
+              legend={t('booking.modeLegend')}
+              hint={t('booking.modeHint')}
+              options={modeOptions}
               required
-              options={[
-                {
-                  value: 'prepaid',
-                  label: t('booking.payNowLabel'),
-                  note: t('booking.payNowNote', { minutes: UNPAID_HOLD_MINUTES }),
-                },
-                {
-                  value: 'pay_at_clinic',
-                  label: t('booking.payAtClinicLabel'),
-                  note: t('booking.payAtClinicNote', { clinic }),
-                },
-              ]}
+              // Pre-selected only when the clinic offers exactly one way to have this
+              // service, where a "choice" of one is a tap that asks nothing.
+              defaultValue={modeOptions.length === 1 ? modeOptions[0]?.value : undefined}
             />
-          ) : (
-            /* Not a radio group of one. Where there is no decision to make, saying what
-               will happen is more useful than asking a question with one answer. */
-            <Notice tone="info" icon="coins" title={t('booking.payAtClinicOnlyTitle')}>
-              {t('booking.payAtClinicOnlyBody', { clinic })}
-            </Notice>
-          )}
 
-          <Button type="submit" variant="brand" size="lg" block>
-            {t('booking.submit')}
-          </Button>
+            <Choice
+              name="slot"
+              legend={t('booking.slotLegend')}
+              hint={t('booking.slotHint')}
+              options={slotOptions}
+              required
+            />
 
-          {/* Every shilling is the clinic's, and the patient is told so before they
-              commit rather than in a footer they will not read. */}
-          <p className="fine">{t('booking.priceNote', { service: service.name, clinic })}</p>
+            {slots.length > shown.length ? (
+              <Notice tone="info" icon="help">
+                {t('booking.truncated', { count: shown.length })}
+              </Notice>
+            ) : null}
+
+            {allowPrepaid ? (
+              <Choice
+                name="payment_expectation"
+                legend={t('booking.paymentLegend')}
+                required
+                options={[
+                  {
+                    value: 'prepaid',
+                    label: t('booking.payNowLabel'),
+                    note: t('booking.payNowNote', { minutes: UNPAID_HOLD_MINUTES }),
+                  },
+                  {
+                    value: 'pay_at_clinic',
+                    label: t('booking.payAtClinicLabel'),
+                    note: t('booking.payAtClinicNote', { clinic }),
+                  },
+                ]}
+              />
+            ) : (
+              /* Not a radio group of one. Where there is no decision to make, saying what
+                 will happen is more useful than asking a question with one answer. */
+              <Notice tone="info" icon="coins" title={t('booking.payAtClinicOnlyTitle')}>
+                {t('booking.payAtClinicOnlyBody', { clinic })}
+              </Notice>
+            )}
+
+            <Button type="submit" variant="brand" size="lg" block>
+              {t('booking.submit')}
+            </Button>
+
+            {/* Every shilling is the clinic's, and the patient is told so before they
+                commit rather than in a footer they will not read. */}
+            <p className="fine">{t('booking.priceNote', { service: service.name, clinic })}</p>
+          </Stack>
         </form>
       )}
     </Frame>
@@ -513,18 +535,10 @@ function Frame({
   children: ReactNode
 }) {
   return (
-    <div className="site-wrap" style={{ paddingBlock: 'var(--space-8)' }}>
-      <div className="page-head">
-        <div style={{ flex: '1 1 auto' }}>
-          <span className="site-eyebrow">{eyebrow}</span>
-          <h1 style={{ marginTop: 'var(--space-4)' }}>{title}</h1>
-        </div>
-        {action}
-      </div>
+    <PageBody>
+      <SitePageHeader eyebrow={eyebrow} title={title} actions={action} />
 
-      <div className="stack" style={{ gap: 'var(--space-7)' }}>
-        {children}
-      </div>
-    </div>
+      <Stack gap="7">{children}</Stack>
+    </PageBody>
   )
 }

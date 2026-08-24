@@ -1,4 +1,4 @@
-import { Button, Card, DateTime, EmptyState, Notice } from '@carevelo/ui'
+import { Button, Card, DateTime, EmptyState, Notice, PageHeader } from '@carevelo/ui'
 import type { Attempt } from '../api/http'
 import { actionLabel, type AuditEvent, type AuditFilters, type AuditPage } from '../api/types'
 
@@ -53,12 +53,14 @@ export type AuditLogScreenProps = {
 export function AuditLogScreen({ page, filters, selfPath }: AuditLogScreenProps) {
   return (
     <div className="grid">
-      <div className="page-head">
-        <div className="grow">
-          <h1>Audit log</h1>
-          <p>Who did what, when, and to which record.</p>
-        </div>
-      </div>
+      <PageHeader
+        title="Audit log"
+        description={
+          <>
+            Who did what, when, and to which record.
+          </>
+        }
+      />
 
       <Notice tone="info" title="Nothing here can be changed or removed">
         <p>

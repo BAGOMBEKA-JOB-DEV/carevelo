@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react'
 import { getTranslations } from 'next-intl/server'
 import { Card, Grid, Skeleton, Stack } from '@carevelo/ui'
+import { PageBody } from '@/components/PageBody'
 
 /**
  * The care hub, held in place while the session and the clinic are resolved.
@@ -25,7 +26,7 @@ export default async function AccountLoading(): Promise<ReactElement> {
   return (
     <div className="site-root">
       <main>
-        <div className="site-wrap" style={{ paddingBlock: 'var(--space-8)' }}>
+        <PageBody>
           <Stack gap="7">
             <Stack gap="4">
               <span className="site-eyebrow">{t('eyebrow')}</span>
@@ -53,7 +54,7 @@ export default async function AccountLoading(): Promise<ReactElement> {
             {/* The "opened from a link the clinic sends you" note under the cards. */}
             <Skeleton lines={3} />
           </Stack>
-        </div>
+        </PageBody>
       </main>
     </div>
   )

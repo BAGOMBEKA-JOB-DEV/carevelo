@@ -1,5 +1,19 @@
 import type { ReactElement } from 'react'
-import { Badge, Button, DateTime, EmptyState, Field, Icon, Input, Notice, Select } from '@carevelo/ui'
+import {
+  Badge,
+  Button,
+  DataTable,
+  DateTime,
+  EmptyState,
+  Field,
+  Icon,
+  Input,
+  Notice,
+  PageHeader,
+  Select,
+  Stack,
+  Toolbar,
+} from '@carevelo/ui'
 import { attempt } from '../api/http'
 import { listPatients } from '../api/patients'
 import type { Patient, PatientStatus } from '../api/types'
@@ -91,20 +105,22 @@ export async function RegistryScreen({
 
   return (
     <>
-      <div className="page-head">
-        <div className="grow">
-          <h1>Patients</h1>
-          <p>
+      <PageHeader
+        title="Patients"
+        description={
+          <>
             Everyone this clinic may treat. There is no cross-clinic patient search and there
             will not be one — the boundary between clinics is absolute.
-          </p>
-        </div>
-        <Button href={paths.register}>
-          <Icon name="user" /> Register a patient
-        </Button>
-      </div>
+          </>
+        }
+        actions={
+          <Button href={paths.register}>
+            <Icon name="user" /> Register a patient
+          </Button>
+        }
+      />
 
-      <div className="grid">
+      <Stack gap="6">
         {done === 'merged' ? (
           <Notice tone="info" icon="check" announce title="Duplicate merged">
             The duplicate registration now points at this record and its history moved across.
@@ -116,46 +132,58 @@ export async function RegistryScreen({
         {/* ---- Filter and find ------------------------------------------------
             A plain GET form. Submitting it puts the values in the URL, which is what makes
             the filtered view a link a receptionist can keep open in a second tab. It also
-            drops the cursor, which is correct: a new filter starts at the first page. */}
-        <form method="get" action={paths.registry} className="card">
-          <div className="grid g-2">
-            <Field
-              name="status"
-              label="Status"
-              hint="Applied by the API across the whole register."
-            >
-              {(control) => (
-                <Select {...control} defaultValue={activeStatus ?? ''}>
-                  <option value="">Every status</option>
-                  {STATUS_OPTIONS.map((option) => (
-                    <option key={option} value={option}>
-                      {statusDisplay(option).label}
-                    </option>
-                  ))}
-                </Select>
-              )}
-            </Field>
+            drops the cursor, which is correct: a new filter starts at the first page.
 
-            <Field
-              name="find"
-              label="Find on this page"
-              hint="Name or phone number. Narrows the 25 rows below — not the whole register."
-            >
-              {(control) => (
-                <Input {...control} type="search" autoComplete="off" defaultValue={term} />
-              )}
-            </Field>
-          </div>
+            `<Toolbar>` rather than a `.card` full of inputs, and `.console-bar` rather than
+            `.card`: this is the same bar that sits above the reconciliation table and the
+            audit log, so the answer to "where are the filters" is learned once for the whole
+            console. It is also the first time this group has had an accessible NAME — a
+            <div> of two controls announces nothing, so a screen-reader user landing on the
+            status select heard "Status, combo box" with no way to know what it narrowed. */}
+        <Toolbar
+          as="form"
+          method="get"
+          action={paths.registry}
+          label="Filter the patient registry"
+          className="console-bar"
+          actions={
+            <>
+              <Button type="submit">Apply</Button>
+              {activeStatus !== undefined || term !== '' ? (
+                <Button href={paths.registry} variant="quiet">
+                  Clear
+                </Button>
+              ) : null}
+            </>
+          }
+        >
+          <Field
+            name="status"
+            label="Status"
+            hint="Applied by the API across the whole register."
+          >
+            {(control) => (
+              <Select {...control} defaultValue={activeStatus ?? ''}>
+                <option value="">Every status</option>
+                {STATUS_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {statusDisplay(option).label}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </Field>
 
-          <div className="row-wrap" style={{ marginTop: 'var(--space-5)' }}>
-            <Button type="submit">Apply</Button>
-            {activeStatus !== undefined || term !== '' ? (
-              <Button href={paths.registry} variant="quiet">
-                Clear
-              </Button>
-            ) : null}
-          </div>
-        </form>
+          <Field
+            name="find"
+            label="Find on this page"
+            hint="Name or phone number. Narrows the 25 rows below — not the whole register."
+          >
+            {(control) => (
+              <Input {...control} type="search" autoComplete="off" defaultValue={term} />
+            )}
+          </Field>
+        </Toolbar>
 
         <Notice tone="info" icon="help" title="Looking for one person?">
           This console cannot yet search the whole register by name or number — the API offers
@@ -169,96 +197,108 @@ export async function RegistryScreen({
             {page.message
               ?? 'The request did not reach the API. Check the connection and try again; nothing has been changed.'}
           </Notice>
-        ) : rows.length === 0 ? (
-          <div className="card">
-            <EmptyState
-              icon="users"
-              title={emptyTitle(page.value.patients.length, term, activeStatus)}
-              action={
-                <Button href={paths.register}>
-                  <Icon name="user" /> Register a patient
-                </Button>
-              }
-            >
-              {emptyBody(page.value.patients.length, term)}
-            </EmptyState>
-          </div>
         ) : (
-          <div className="card" style={{ padding: 0 }}>
-            <div className="table-scroll">
-              <table className="table">
-                <caption className="sr-only">
-                  Patients registered at this clinic, by family name
-                </caption>
-                <thead>
-                  <tr>
-                    <th scope="col">Name</th>
-                    <th scope="col">Phone</th>
-                    <th scope="col">Status</th>
-                    <th scope="col">Portal account</th>
-                    <th scope="col">Registered</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((patient) => (
-                    <PatientRow key={patient.id} patient={patient} paths={paths} />
-                  ))}
-                </tbody>
-              </table>
-            </div>
+          /*
+           * `.card .panel-table` is the wrapper and `.queue` is on the scroll region inside
+           * it: the card supplies the border and the rounded corner, `.panel-table` removes
+           * the 24px of padding that would otherwise frame a table which already has its own
+           * cell padding, and `.queue` bounds the height so the column headings have
+           * something to stick to. See console.css rules 6 and 8 — a `position: sticky`
+           * heading inside a container whose height equals its content never moves.
+           *
+           * The empty state is now the table's own `empty` slot rather than a card that
+           * replaced the table. The headings and the caption stay put, so the page does not
+           * change shape when a filter empties it, and the receptionist can see which
+           * columns they are looking at nothing in.
+           */
+          <div className="card panel-table">
+            <DataTable
+              className="queue"
+              caption="Patients registered at this clinic, by family name"
+              captionHidden
+              rows={rows}
+              rowKey={(patient) => patient.id}
+              empty={
+                <EmptyState
+                  icon="users"
+                  title={emptyTitle(page.value.patients.length, term, activeStatus)}
+                  action={
+                    <Button href={paths.register}>
+                      <Icon name="user" /> Register a patient
+                    </Button>
+                  }
+                >
+                  {emptyBody(page.value.patients.length, term)}
+                </EmptyState>
+              }
+              columns={[
+                {
+                  /*
+                   * The name NAMES the row and is the link, because it is the thing a
+                   * receptionist is looking at when they decide to open a record.
+                   */
+                  key: 'name',
+                  header: 'Name',
+                  rowHeader: true,
+                  cell: (patient) => (
+                    <a href={paths.record(patient.id)}>
+                      {patient.family_name}, {patient.given_name}
+                    </a>
+                  ),
+                },
+                {
+                  /* tnum so a column of numbers lines up and a transposed digit is visible. */
+                  key: 'phone',
+                  header: 'Phone',
+                  cell: (patient) => <span className="tnum">{patient.phone}</span>,
+                },
+                {
+                  key: 'status',
+                  header: 'Status',
+                  cell: (patient) => {
+                    const display = statusDisplay(patient.status)
+
+                    return <Badge tone={display.tone}>{display.label}</Badge>
+                  },
+                },
+                {
+                  /*
+                   * `has_account` is derived and carries no address and no user identifier —
+                   * front desk needs to know whether to offer to create one, and nothing
+                   * more. "No" is the ordinary answer and is written as plain text rather
+                   * than as a warning badge: not having a portal account is not a problem
+                   * with a patient record.
+                   */
+                  key: 'account',
+                  header: 'Portal account',
+                  cell: (patient) =>
+                    patient.has_account ? (
+                      <Badge tone="info">Yes</Badge>
+                    ) : (
+                      <span className="muted">No</span>
+                    ),
+                },
+                {
+                  key: 'registered',
+                  header: 'Registered',
+                  cell: (patient) =>
+                    patient.created_at === null ? (
+                      <span className="muted">—</span>
+                    ) : (
+                      <DateTime value={patient.created_at} format="date" />
+                    ),
+                },
+              ]}
+            />
           </div>
         )}
 
         {page.ok ? <Pager page={page.value} paths={paths} status={activeStatus} /> : null}
-      </div>
+      </Stack>
     </>
   )
 }
 
-/**
- * One row. The name is the link, because it is the thing a receptionist is looking at when
- * they decide to open a record.
- */
-function PatientRow({
-  patient,
-  paths,
-}: {
-  patient: Patient
-  paths: PatientsPaths
-}): ReactElement {
-  const display = statusDisplay(patient.status)
-
-  return (
-    <tr>
-      <td>
-        <a href={paths.record(patient.id)}>
-          {patient.family_name}, {patient.given_name}
-        </a>
-      </td>
-      {/* tnum so a column of numbers lines up and a transposed digit is visible. */}
-      <td className="tnum">{patient.phone}</td>
-      <td>
-        <Badge tone={display.tone}>{display.label}</Badge>
-      </td>
-      <td>
-        {/*
-          `has_account` is derived and carries no address and no user identifier — front desk
-          needs to know whether to offer to create one, and nothing more. "No" is the ordinary
-          answer and is written as plain text rather than as a warning badge: not having a
-          portal account is not a problem with a patient record.
-        */}
-        {patient.has_account ? <Badge tone="info">Yes</Badge> : <span className="muted">No</span>}
-      </td>
-      <td>
-        {patient.created_at === null ? (
-          <span className="muted">—</span>
-        ) : (
-          <DateTime value={patient.created_at} format="date" />
-        )}
-      </td>
-    </tr>
-  )
-}
 
 /**
  * Previous and next, as links.

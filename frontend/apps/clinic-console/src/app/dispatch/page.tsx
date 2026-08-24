@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Notice } from '@carevelo/ui'
+import { Notice, PageHeader } from '@carevelo/ui'
 import { ConsoleShell } from '@/components/ConsoleShell'
 import { listLane } from '@/domains/dispensing'
 import { attempt, currentStaff, DispatchBoardScreen } from '@/domains/delivery'
@@ -41,16 +41,16 @@ export default async function DispatchPage() {
 
   return (
     <ConsoleShell title="Dispatch" active="dispatch">
-      <div className="page-head">
-        <div className="grow">
-          <h1>Dispatch</h1>
-          <p>
+      <PageHeader
+        title="Dispatch"
+        description={
+          <>
             The delivery board, and the rider each dispensed order is handed to. Riders are
             the clinic&rsquo;s own arrangement — Carevelo dispatches and tracks, and operates
             no fleet.
-          </p>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       {viewer === null ? (
         <Notice tone="warn" title="You are not signed in">

@@ -7,6 +7,7 @@ import { PaymentMethodChooser } from '@/domains/payments'
 import { byId, getAppointment, listServices } from '@/domains/scheduling'
 import { SiteShell } from '@/components/SiteShell'
 import { PAYMENT_STATUS_TEMPLATE } from '../../paths'
+import { PageBody } from '@/components/PageBody'
 
 /**
  * Paying for an appointment: choose how, then watch it.
@@ -88,7 +89,7 @@ export default async function PayForAppointmentPage({
 
   return (
     <SiteShell tenant={tenant} signedIn>
-      <div className="site-wrap" style={{ paddingBlock: 'var(--space-8)' }}>
+      <PageBody>
         <PaymentMethodChooser
           tenant={tenant}
           payable={{ type: 'appointment', id: appointmentId }}
@@ -98,7 +99,7 @@ export default async function PayForAppointmentPage({
           after={params.after}
           error={params.error}
         />
-      </div>
+      </PageBody>
     </SiteShell>
   )
 }

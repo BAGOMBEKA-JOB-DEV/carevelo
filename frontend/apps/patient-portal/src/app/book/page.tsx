@@ -8,6 +8,7 @@ import { BookingScreen } from '@/domains/scheduling'
 import { readRegistrationHandoff } from '@/domains/patients'
 import { SiteShell } from '@/components/SiteShell'
 import { SCHEDULING_PATHS } from '../paths'
+import { PageBody } from '@/components/PageBody'
 
 /**
  * Booking: a service, a clinician, a day, a slot and a mode, in one screen.
@@ -148,7 +149,7 @@ async function CannotIdentifyRecord({ tenant }: { tenant: Tenant }) {
 
   return (
     <SiteShell tenant={tenant} signedIn>
-      <div className="site-wrap" style={{ paddingBlock: 'var(--space-8)' }}>
+      <PageBody>
         <EmptyState
           icon="calendar"
           title={t('booking.noRecordTitle')}
@@ -165,7 +166,7 @@ async function CannotIdentifyRecord({ tenant }: { tenant: Tenant }) {
             ? t('booking.noRecordBodyWithPhone', { clinic, phone })
             : t('booking.noRecordBody', { clinic })}
         </EmptyState>
-      </div>
+      </PageBody>
     </SiteShell>
   )
 }

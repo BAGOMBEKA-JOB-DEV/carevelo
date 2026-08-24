@@ -1,6 +1,6 @@
 import type { ReactElement, ReactNode } from 'react'
 import { redirect } from 'next/navigation'
-import { Badge, Button, DateTime, EmptyState, Icon, Notice } from '@carevelo/ui'
+import { Badge, Button, DateTime, EmptyState, Icon, Notice, PageHeader } from '@carevelo/ui'
 import { attempt } from '../api/http'
 import { listPatients, mergePatient, tryReadPatient } from '../api/patients'
 import type { Patient } from '../api/types'
@@ -113,17 +113,19 @@ export async function MergeScreen({
   const returnHref = paths.merge(survivor.id)
 
   const heading = (
-    <div className="page-head">
-      <div className="grow">
-        <h1>Merge a duplicate</h1>
-        <p>
+    <PageHeader
+      title="Merge a duplicate"
+      description={
+        <>
           Into {survivor.given_name} {survivor.family_name} — the record that survives.
-        </p>
-      </div>
-      <Button href={paths.record(survivor.id)} variant="quiet">
-        Back to the record
-      </Button>
-    </div>
+        </>
+      }
+      actions={
+        <Button href={paths.record(survivor.id)} variant="quiet">
+          Back to the record
+        </Button>
+      }
+    />
   )
 
   /*
@@ -248,7 +250,7 @@ async function ChooseStep({
           </EmptyState>
         </div>
       ) : (
-        <div className="card" style={{ padding: 0 }}>
+        <div className="card panel-table">
           <div className="table-scroll">
             <table className="table">
               <caption className="sr-only">

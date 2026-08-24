@@ -1,5 +1,5 @@
 import { getTranslations } from 'next-intl/server'
-import { Badge, Button, Card, EmptyState, Icon, Money, Notice } from '@carevelo/ui'
+import { Badge, Button, Card, EmptyState, Icon, Inline, Money, Notice, Stack } from '@carevelo/ui'
 import type { Tenant } from '@/lib/tenant'
 import { listServices } from '../api/catalogue'
 import { attempt } from '../api/http'
@@ -7,6 +7,8 @@ import { href } from '../model/links'
 import { bookableModes } from '../model/slots'
 import type { SchedulingPaths } from '../model/types'
 import { modeText } from './strings'
+import { PageBody } from '@/components/PageBody'
+import { SitePageHeader } from '@/components/SitePageHeader'
 
 /**
  * BROWSE: what the clinic offers, and what it costs.
@@ -50,14 +52,12 @@ export async function ServiceCatalogue({
   const loaded = await attempt(listServices())
 
   return (
-    <div className="site-wrap" style={{ paddingBlock: 'var(--space-8)' }}>
-      <div className="page-head">
-        <div style={{ flex: '1 1 auto' }}>
-          <span className="site-eyebrow">{t('catalogue.eyebrow')}</span>
-          <h1 style={{ marginTop: 'var(--space-4)' }}>{t('catalogue.title')}</h1>
-          <p>{t('catalogue.lede', { clinic })}</p>
-        </div>
-      </div>
+    <PageBody>
+      <SitePageHeader
+        eyebrow={t('catalogue.eyebrow')}
+        title={t('catalogue.title')}
+        description={t('catalogue.lede', { clinic })}
+      />
 
       {!loaded.ok ? (
         /* The API's own sentence where it gave one, and our own where the request never
@@ -77,21 +77,32 @@ export async function ServiceCatalogue({
       ) : (
         /* A list, because it is one: a screen reader is told how many services there are
            before it starts reading them, which is the difference between choosing and
-           discovering. `Card as="li"` is why that element prop exists. */
-        <ul className="stack" style={{ gap: 'var(--space-5)' }}>
+           discovering. `Card as="li"` is why that element prop exists.
+
+           `<Stack as="ul">` and not `<ul className="stack">`, and it is worth naming what
+           that changes: the hand-rolled version never reset the list, so this catalogue
+           was rendering with the user agent's disc bullets and a 40px indent down the left
+           of every service card. Stack strips both by construction and puts `role="list"`
+           back on — Safari drops list semantics from an element whose `list-style` is
+           `none`, so removing the marker without restoring the role would cost the "list,
+           6 items" a screen reader announces before it starts reading. */
+        <Stack as="ul" gap="5">
           {loaded.value.map((service) => (
             <Card as="li" key={service.id}>
-              <div
-                className="row-wrap between"
-                style={{ alignItems: 'flex-start', gap: 'var(--space-6)' }}
-              >
-                <div className="stack grow" style={{ gap: 'var(--space-3)' }}>
+              <Inline gap="6" justify="between" align="start">
+                <Stack gap="3" className="grow">
+                  {/* SURVIVING INLINE STYLE. 19px at weight 650 is a card heading and there
+                      is no step on the type scale at that size: `.title` is 21px/600 and
+                      `.title-sm` is 17.5px/700 in the display face. One of the two or three
+                      heading modifiers that belong in tokens/components.css, which is not
+                      this sweep's file — see the note in src/app/account/page.tsx. */}
                   <h2 style={{ fontSize: 19, fontWeight: 650 }}>{service.name}</h2>
 
                   {service.description ? (
-                    <p style={{ color: 'var(--ink-muted)', fontSize: 14.5 }}>
-                      {service.description}
-                    </p>
+                    /* `.muted` and no size: the 14.5px that used to be written here IS
+                       `--text-base-size`, which a `<p>` inherits from `body` anyway. The
+                       property was restating the default. */
+                    <p className="muted">{service.description}</p>
                   ) : null}
 
                   <p className="row fine">
@@ -99,17 +110,19 @@ export async function ServiceCatalogue({
                     {t('catalogue.duration', { minutes: service.duration_minutes })}
                   </p>
 
-                  <div className="stack" style={{ gap: 'var(--space-2)' }}>
+                  <Stack gap="2">
                     <span className="field__label">{t('catalogue.modesLabel')}</span>
-                    <div className="row-wrap" style={{ gap: 'var(--space-2)' }}>
+                    <Inline gap="2">
                       {bookableModes(service.modes).map((mode) => (
                         <Badge key={mode}>{modes[mode].label}</Badge>
                       ))}
-                    </div>
-                  </div>
-                </div>
+                    </Inline>
+                  </Stack>
+                </Stack>
 
-                <div className="stack" style={{ gap: 'var(--space-4)', alignItems: 'flex-end' }}>
+                <Stack gap="4" align="end">
+                  {/* SURVIVING INLINE STYLE — a price, not a count, and `.stat__value`'s
+                      28px puts "UGX 30,000" onto two lines beside the button on a phone. */}
                   <span className="stat__value" style={{ fontSize: 22 }}>
                     <Money value={service.price} />
                   </span>
@@ -123,12 +136,12 @@ export async function ServiceCatalogue({
                   >
                     {t('catalogue.choose')}
                   </Button>
-                </div>
-              </div>
+                </Stack>
+              </Inline>
             </Card>
           ))}
-        </ul>
+        </Stack>
       )}
-    </div>
+    </PageBody>
   )
 }

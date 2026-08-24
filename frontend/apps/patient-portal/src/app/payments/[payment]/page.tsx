@@ -4,6 +4,7 @@ import { resolveTenant } from '@/lib/tenant'
 import { currentUser } from '@/lib/session'
 import { getPaymentIntent, PaymentStatusPanel } from '@/domains/payments'
 import { SiteShell } from '@/components/SiteShell'
+import { PageBody } from '@/components/PageBody'
 
 /**
  * One payment attempt, for as long as it is unresolved — and the receipt once it is not.
@@ -86,13 +87,13 @@ export default async function PaymentStatusPage({
 
   return (
     <SiteShell tenant={tenant} signedIn>
-      <div className="site-wrap" style={{ paddingBlock: 'var(--space-8)' }}>
+      <PageBody>
         {/* `checkAgainHref` is deliberately not passed: it defaults to the empty string,
             which re-requests THIS url, query string and all — precisely "ask the server
             again", with no JavaScript and no knowledge inside the domain of what this
             route calls itself. */}
         <PaymentStatusPanel tenant={tenant} intent={intent} retryHref={retryHref} />
-      </div>
+      </PageBody>
     </SiteShell>
   )
 }

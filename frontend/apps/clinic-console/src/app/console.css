@@ -170,7 +170,40 @@
 }
 
 /* ------------------------------------------------------------
-   4. TABLE DENSITY
+   4. THE THEME TOGGLE, WHICH SITS ON A BAND THAT IS DARK IN BOTH THEMES
+
+   `.site-theme-btn` in the shared layer was drawn for the patient portal's header, which
+   sits on `--canvas`. It takes `--hairline` for its border and `--ink-2` for its glyph,
+   and both of those are near-black in the light theme. The console puts the control in
+   `.topbar`, whose ground is `--topbar-bg` #0d3d33 — a constant dark band, present in the
+   light theme and the dark one, because that is what makes a console feel like one product
+   rather than a set of pages. So in the LIGHT theme the button arrived as a dark glyph in
+   an all-but-invisible dark box on a dark green band:
+
+     --ink-2 #3c4340 on --topbar-bg #0d3d33  =  1.19:1   FAILS, and is close to unseeable
+     --topbar-ink #e9f2f0 on #0d3d33         =  10.63:1  passes
+
+   The band already owns three tokens for exactly this, put there by whoever wrote the
+   topbar and until now spent only on `.topbar__meta`. This is what they are for: the ink
+   the band was measured against, its hairline, and the translucent white it lifts a
+   surface with. Nothing here is a new colour.
+
+   Scoped to `.topbar` rather than to `.layout`, so that if this control is ever added to
+   the sign-in screen — which is `.auth-page` on `--canvas`, where the shared rule is
+   already correct — it does not inherit a band's colours onto a page that has no band.
+   ------------------------------------------------------------ */
+.layout .topbar .site-theme-btn {
+  color: var(--topbar-ink);
+  border-color: var(--topbar-line);
+}
+
+.layout .topbar .site-theme-btn:hover {
+  background: var(--topbar-surface);
+  color: var(--topbar-ink);
+}
+
+/* ------------------------------------------------------------
+   5. TABLE DENSITY
 
    The shared `.table` is set for a document: 12px above and below every cell, which on a
    patient's booking confirmation is right and on a dispensing queue is four rows fewer per
@@ -193,8 +226,25 @@
   padding: var(--space-3) var(--space-4);
 }
 
+/* The caption reads as part of the table, on the left, where the first column starts.
+
+   `<caption>` centres by default in every engine, which is a hangover from the days when a
+   table was a figure with a title over it. On these screens the caption is a sentence about
+   how the rows are ordered or what the numbers are NOT — "Oldest first", "Amounts are what
+   we asked the aggregator to collect, not what reached your account" — and a sentence
+   floating in the middle above a left-aligned grid reads as a page heading rather than as
+   the table's own note. Three screens were writing `style={{ textAlign: 'left' }}` on the
+   caption for exactly this, two of them alongside `captionSide: 'bottom'`.
+
+   DataTable renders the caption at the top, which is where the element belongs: it is the
+   accessible NAME of the scroll region as well as of the table, so a screen-reader user
+   reaching the region hears it before the columns rather than after forty rows. */
+.layout .table caption {
+  text-align: left;
+}
+
 /* ------------------------------------------------------------
-   5. STICKY COLUMN HEADINGS ON THE LONG QUEUES
+   6. STICKY COLUMN HEADINGS ON THE LONG QUEUES
 
    Applied by passing `className="queue"` to DataTable on the pharmacy queue, the dispatch
    board and the patient registry — the three lists long enough that the headings scroll
@@ -238,7 +288,7 @@
 }
 
 /* ------------------------------------------------------------
-   6. THE TOOLBAR ABOVE A LIST
+   7. THE TOOLBAR ABOVE A LIST
 
    One shape above every list in the console, so that "where the filters are" is a thing
    staff learn once. Before this each screen invented its own: some put the filters in a
@@ -262,7 +312,7 @@
 }
 
 /* ------------------------------------------------------------
-   7. A CARD WHOSE ENTIRE CONTENT IS ONE TABLE
+   8. A CARD WHOSE ENTIRE CONTENT IS ONE TABLE
 
    `.card` pads by 24px, which puts a 24px margin of surface around a table that already
    has its own cell padding and looks like a mistake. Two screens were writing
@@ -278,7 +328,7 @@
 }
 
 /* ------------------------------------------------------------
-   8. A `<details>` WHOSE SUMMARY IS A CONTROL
+   9. A `<details>` WHOSE SUMMARY IS A CONTROL
 
    Six screens open a form from a `<summary className="lnk">` — cancel an appointment,
    confirm one without payment, amend a note, correct an order, withdraw a consent. Every
@@ -305,7 +355,7 @@
 }
 
 /* ------------------------------------------------------------
-   9. THE NAME OF THE THING A BLOCK IS ABOUT
+   10. THE NAME OF THE THING A BLOCK IS ABOUT
 
    The patient on an appointment card, the person chosen in assisted booking, the prescriber
    signing a prescription, the patient a prescription is for. Five screens, and before the
@@ -331,7 +381,7 @@
 }
 
 /* ------------------------------------------------------------
-   10. A VALUE THAT MUST BE READ CHARACTER BY CHARACTER
+   11. A VALUE THAT MUST BE READ CHARACTER BY CHARACTER
 
    The one-time password issued with a portal account, and the policy identifier under a
    consent record. Both are read off the screen and typed or spoken somewhere else, and
@@ -351,8 +401,54 @@
   word-break: break-all;
 }
 
+/* The one-time password issued with a portal account, which is a THIRD thing and not a
+   larger `.credential`.
+
+   `.credential` above is for a value read off the screen and typed somewhere else, and it
+   breaks anywhere because an email address has no word boundaries worth preferring. This
+   string is read ALOUD across a counter to the person it belongs to, once, and never shown
+   again — it is stored as a hash and nobody, including Carevelo, can produce it a second
+   time. The two failures that matter are therefore a MISREAD CHARACTER and a line break in
+   the middle of it, which is why the face is `--mono` (it disambiguates the glyphs a
+   proportional face runs together), the tracking is opened up, and `word-break` is
+   deliberately ABSENT rather than inherited.
+
+   The ground and the padding are part of the same argument: this is the one thing on the
+   screen the person at the desk has to read out, and it should be findable at a glance
+   rather than located by reading the labels around it. `user-select: all` makes one click
+   select the whole string, so it cannot be half-copied.
+
+   It is a class rather than the seven inline properties it replaces because those seven
+   only make sense together — a call site that kept six of them would be a password that
+   wraps, or one in a proportional face, and neither failure is visible in review. */
+.layout .password-once {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: var(--space-5);
+  border-radius: var(--r-md);
+  background: var(--surface-sunken);
+  user-select: all;
+}
+
+/* A PAGE WHOSE TITLE IS A MACHINE-READABLE REFERENCE.
+
+   `PageHeader` takes `title` as a STRING and offers no way to wrap it, which is the property
+   that guarantees one <h1> per page and is worth more than the convenience it costs. The
+   payment record's title is the aggregator's own reference — the value an administrator
+   copies into their aggregator dashboard and compares character by character — and it was
+   set in `--mono` for that reason. So the face is asked for on the header instead.
+
+   ONLY THE PAYMENT RECORD WEARS THIS TODAY, and that is a preservation rather than a
+   preference: the delivery and dispense-order screens title themselves with a reference too
+   and have never been monospaced. Making all three agree is a visual change to two screens
+   and belongs to whoever decides which way they should agree. */
+.layout .ref-title h1 {
+  font-family: var(--mono);
+}
+
 /* ------------------------------------------------------------
-   11. TEXT THAT MUST SURVIVE EXACTLY AS IT WAS TYPED
+   12. TEXT THAT MUST SURVIVE EXACTLY AS IT WAS TYPED
 
    A clinical note, shown back to the clinician who wrote it. Clinicians write these in short
    lines and lists because that is how a document meant to be re-read by somebody else gets
@@ -372,7 +468,7 @@
 }
 
 /* ------------------------------------------------------------
-   12. A SHORT LINE IN A STATUS COLOUR
+   13. A SHORT LINE IN A STATUS COLOUR
 
    Three screens set `.fine` and then a colour inline. Named here instead, because "this
    small line is a caution" and "this small line is a refusal" are two different things to
@@ -400,7 +496,7 @@
 }
 
 /* ------------------------------------------------------------
-   13. THE CONSENT POLICY, RENDERED AS THE DOCUMENT THE PATIENT IS AGREEING TO
+   14. THE CONSENT POLICY, RENDERED AS THE DOCUMENT THE PATIENT IS AGREEING TO
 
    The policy text arrives from the API as headings, paragraphs and lists, and it is on the
    screen rather than behind a link because consent obtained from wording the patient never
@@ -426,7 +522,7 @@
 }
 
 /* ------------------------------------------------------------
-   14. THE PORTAL PREVIEW — THE ONE PLACE ON THIS SURFACE THAT PAINTS --brand-*
+   15. THE PORTAL PREVIEW — THE ONE PLACE ON THIS SURFACE THAT PAINTS --brand-*
 
    PortalPreview draws a picture of the PATIENT-facing portal inside the branding settings
    screen, so that the administrator choosing a colour can see what their patients will see.

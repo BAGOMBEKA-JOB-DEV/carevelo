@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react'
 import { redirect } from 'next/navigation'
-import { Button, Notice } from '@carevelo/ui'
+import { Button, Notice, PageHeader } from '@carevelo/ui'
 import { registerPatient } from '../api/patients'
 import type { RegistrationInput, Sex } from '../api/types'
 import type { PatientsPaths } from '../model/paths'
@@ -140,18 +140,20 @@ export function RegisterScreen({ paths, error, field }: RegisterScreenProps): Re
 
   return (
     <>
-      <div className="page-head">
-        <div className="grow">
-          <h1>Register a patient</h1>
-          <p>
+      <PageHeader
+        title="Register a patient"
+        description={
+          <>
             Name and a phone number are all that is required. Everything else is optional and
             can be added later.
-          </p>
-        </div>
-        <Button href={paths.registry} variant="quiet">
-          Back to patients
-        </Button>
-      </div>
+          </>
+        }
+        actions={
+          <Button href={paths.registry} variant="quiet">
+            Back to patients
+          </Button>
+        }
+      />
 
       <div className="grid">
         {/*

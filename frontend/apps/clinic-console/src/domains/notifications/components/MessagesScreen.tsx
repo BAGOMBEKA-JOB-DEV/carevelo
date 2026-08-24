@@ -1,4 +1,4 @@
-import { Notice } from '@carevelo/ui'
+import { Notice, PageHeader } from '@carevelo/ui'
 import type { Attempt } from '../api/http'
 import type { TemplateCatalogue as Catalogue } from '../api/notifications'
 import type { NotificationFilters, NotificationPage, SmsUsage } from '../api/types'
@@ -39,15 +39,15 @@ export type MessagesScreenProps = {
 export function MessagesScreen({ history, usage, catalogue, filters, selfPath }: MessagesScreenProps) {
   return (
     <div className="grid">
-      <div className="page-head">
-        <div className="grow">
-          <h1>Messages</h1>
-          <p>
+      <PageHeader
+        title="Messages"
+        description={
+          <>
             What this clinic sent, whether it arrived, and every message the platform is
             capable of sending.
-          </p>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       <Notice tone="info" title="Messages say that something is ready, and nothing more">
         <p>

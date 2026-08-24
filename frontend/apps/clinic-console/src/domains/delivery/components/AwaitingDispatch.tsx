@@ -1,4 +1,4 @@
-import { Badge, Button, Card, EmptyState, Money, Notice } from '@carevelo/ui'
+import { Badge, Button, Card, DataTable, EmptyState, Inline, Money, Notice, Stack } from '@carevelo/ui'
 import type { DispenseOrder } from '@/domains/dispensing'
 import type { Attempt } from '../api/http'
 import type { DispatchPaths } from '../model/types'
@@ -57,22 +57,22 @@ export function AwaitingDispatch({
 }) {
   return (
     <Card as="section" aria-labelledby="awaiting">
-      <div className="row-wrap">
-        <div className="grow stack">
+      <Inline>
+        <Stack className="grow" gap="2">
           <h2 id="awaiting">Waiting to go out</h2>
           <p className="muted">
             Every order that has been dispensed and has not left the pharmacy. Creating a
             delivery is what puts an address in front of a rider, and it is only the next step
             for the ones the patient asked to have delivered.
           </p>
-        </div>
+        </Stack>
 
         {orders.ok ? (
           <Badge tone={orders.value.length > 0 ? 'warn' : 'neutral'}>
             {orders.value.length} waiting
           </Badge>
         ) : null}
-      </div>
+      </Inline>
 
       {!orders.ok ? (
         <Notice tone="bad" title="This list did not load">
@@ -80,77 +80,82 @@ export function AwaitingDispatch({
             ?? 'The console could not reach the API. Deliveries already created are shown '
               + 'below and are unaffected.'}
         </Notice>
-      ) : orders.value.length === 0 ? (
-        <EmptyState title="Nothing waiting" icon="check">
-          Every dispensed order has either left the pharmacy or been collected.
-        </EmptyState>
       ) : (
         <>
-          <Notice tone="info" title="An order holding here is not stuck software">
-            With no rider available an order simply holds at dispensed, and the patient
-            should be told and offered collection rather than left waiting on a delivery that
-            was never going to happen.
-          </Notice>
+          {orders.value.length > 0 ? (
+            <Notice tone="info" title="An order holding here is not stuck software">
+              With no rider available an order simply holds at dispensed, and the patient
+              should be told and offered collection rather than left waiting on a delivery that
+              was never going to happen.
+            </Notice>
+          ) : null}
 
-          <div className="table-scroll">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th scope="col">Order</th>
-                  <th scope="col">The patient asked for</th>
-                  <th scope="col" className="tnum">Total</th>
-                  <th scope="col">
-                    <span className="sr-only">Dispatch</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {orders.value.map((order) => (
-                  <tr key={order.id}>
-                    <td>
-                      <a href={paths.order(order.id)} className="lnk">
-                        {order.reference}
-                      </a>
-                    </td>
-                    <td>
-                      {order.fulfilment === 'delivery' ? (
-                        <Badge tone="info">Delivery</Badge>
-                      ) : order.fulfilment === 'pickup' ? (
-                        <Badge tone="neutral">Collection</Badge>
-                      ) : (
-                        <Badge tone="warn">Not chosen</Badge>
-                      )}
-                    </td>
-                    <td className="tnum">
-                      <Money value={order.total} />
-                    </td>
-                    <td>
-                      {order.fulfilment !== 'delivery' ? (
-                        /*
-                         * Deliberately not a disabled button. Dispatch is not the next step
-                         * here and pressing anything would be wrong: an order set for
-                         * collection is on the shelf, and one with no method chosen is
-                         * waiting on the patient — which the pharmacy records, not dispatch.
-                         */
-                        <span className="muted">
-                          {order.fulfilment === 'pickup'
-                            ? 'On the shelf for collection'
-                            : 'Waiting on the patient to choose'}
-                        </span>
-                      ) : mayDispatch ? (
-                        <Button href={paths.newDelivery(order.id)} variant="quiet">
-                          Create delivery
-                          <span className="sr-only"> for order {order.reference}</span>
-                        </Button>
-                      ) : (
-                        <span className="muted">Dispatcher or administrator only</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <DataTable
+            caption="Dispensed orders that have not left the pharmacy."
+            rows={orders.value}
+            rowKey={(order) => order.id}
+            empty={
+              <EmptyState title="Nothing waiting" icon="check">
+                Every dispensed order has either left the pharmacy or been collected.
+              </EmptyState>
+            }
+            columns={[
+              {
+                key: 'reference',
+                header: 'Order',
+                rowHeader: true,
+                cell: (order) => (
+                  <a href={paths.order(order.id)} className="lnk">
+                    {order.reference}
+                  </a>
+                ),
+              },
+              {
+                key: 'fulfilment',
+                header: 'The patient asked for',
+                cell: (order) =>
+                  order.fulfilment === 'delivery' ? (
+                    <Badge tone="info">Delivery</Badge>
+                  ) : order.fulfilment === 'pickup' ? (
+                    <Badge tone="neutral">Collection</Badge>
+                  ) : (
+                    <Badge tone="warn">Not chosen</Badge>
+                  ),
+              },
+              {
+                key: 'total',
+                header: 'Total',
+                numeric: true,
+                cell: (order) => <Money value={order.total} />,
+              },
+              {
+                key: 'dispatch',
+                header: 'Dispatch',
+                headerHidden: true,
+                cell: (order) =>
+                  order.fulfilment !== 'delivery' ? (
+                    /*
+                     * Deliberately not a disabled button. Dispatch is not the next step
+                     * here and pressing anything would be wrong: an order set for
+                     * collection is on the shelf, and one with no method chosen is
+                     * waiting on the patient — which the pharmacy records, not dispatch.
+                     */
+                    <span className="muted">
+                      {order.fulfilment === 'pickup'
+                        ? 'On the shelf for collection'
+                        : 'Waiting on the patient to choose'}
+                    </span>
+                  ) : mayDispatch ? (
+                    <Button href={paths.newDelivery(order.id)} variant="quiet">
+                      Create delivery
+                      <span className="sr-only"> for order {order.reference}</span>
+                    </Button>
+                  ) : (
+                    <span className="muted">Dispatcher or administrator only</span>
+                  ),
+              },
+            ]}
+          />
         </>
       )}
     </Card>

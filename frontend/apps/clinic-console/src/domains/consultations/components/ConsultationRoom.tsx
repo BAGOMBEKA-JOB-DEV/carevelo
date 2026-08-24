@@ -1,6 +1,18 @@
 import type { ReactNode } from 'react'
 import { redirect } from 'next/navigation'
-import { Badge, Button, Choice, DateTime, EmptyState, Icon, Notice, type ChoiceOption } from '@carevelo/ui'
+import {
+  Badge,
+  Button,
+  Choice,
+  DateTime,
+  EmptyState,
+  Icon,
+  Inline,
+  Notice,
+  PageHeader,
+  Stack,
+  type ChoiceOption,
+} from '@carevelo/ui'
 import { addAddendum } from '../api/notes'
 import { endConsultation, recordMode, roomSignature, startConsultation } from '../api/consultations'
 import { enterRoom } from '../api/room'
@@ -258,7 +270,7 @@ export function ConsultationRoom({
         />
         <Problem problem={problem} message={message} />
 
-        <div className="grid" style={{ gap: 'var(--space-5)' }}>
+        <Stack gap="5">
           <section className="card stack" style={{ gap: 'var(--space-5)' }} aria-labelledby="door-heading">
             <h2 id="door-heading" className="title-sm">
               {state.consultation === null ? 'Start this consultation' : 'Rejoin this consultation'}
@@ -301,7 +313,7 @@ export function ConsultationRoom({
           </section>
 
           <PatientHistory patient={state.patient} history={state.history} />
-        </div>
+        </Stack>
       </>
     )
   }
@@ -323,7 +335,7 @@ export function ConsultationRoom({
       />
       <Problem problem={problem} message={message} />
 
-      <div className="grid" style={{ gap: 'var(--space-5)' }}>
+      <Stack gap="5">
         {state.credentials !== null ? (
           <MediaPane credentials={state.credentials} mode={used} clinicPhone={clinicPhone} />
         ) : (
@@ -391,7 +403,7 @@ export function ConsultationRoom({
             />
           </>
         )}
-      </div>
+      </Stack>
     </>
   )
 }
@@ -413,27 +425,28 @@ function RoomHead({
   outcome?: ConsultationOutcome | null | undefined
 }) {
   return (
-    <div className="page-head">
-      <div className="grow">
-        <h1>
-          {patient === null
+    <PageHeader
+      title={
+        patient === null
             ? 'Patient record unavailable'
-            : `${patient.given_name} ${patient.family_name}`}
-        </h1>
-        <p>
+          : `${patient.given_name} ${patient.family_name}`
+      }
+      description={
+          <>
           <DateTime value={start} format="datetime" /> · <span className="mono">{reference}</span>
-        </p>
-      </div>
-
-      <div className="row-wrap" style={{ gap: 'var(--space-3)' }}>
-        {mode ? <Badge tone="info">{MODE_LABEL[mode]}</Badge> : null}
-        {ended ? (
+          </>
+      }
+      actions={
+          <Inline gap="3">
+          {mode ? <Badge tone="info">{MODE_LABEL[mode]}</Badge> : null}
+          {ended ? (
           <Badge tone={outcome === 'completed' ? 'good' : 'neutral'}>
             Ended{outcome ? ` · ${OUTCOME_LABEL[outcome]}` : null}
           </Badge>
-        ) : null}
-      </div>
-    </div>
+          ) : null}
+          </Inline>
+      }
+    />
   )
 }
 

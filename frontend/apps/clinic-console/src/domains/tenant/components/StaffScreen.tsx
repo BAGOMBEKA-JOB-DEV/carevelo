@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { Badge, Button, Card, Choice, EmptyState, Field, Input, Notice } from '@carevelo/ui'
+import { Badge, Button, Card, Choice, DataTable, EmptyState, Field, Input, Notice, Stack } from '@carevelo/ui'
 import { attempt, writeFailure } from '../api/http'
 import { inviteStaff, listStaff } from '../api/staff'
 import type { Staff, StaffRole, TenantPaths } from '../model/types'
@@ -81,41 +81,40 @@ export async function StaffScreen(props: StaffScreenProps) {
         <span className="eyebrow">Colleagues</span>
         <h2 className="title-sm">Who works at this clinic</h2>
 
-        {page.data.length === 0 ? (
-          <EmptyState icon="users" title="Nobody has been invited yet">
-            You are the only account here. A clinic needs at least one clinician with
-            registration details recorded before it can offer a single appointment time.
-          </EmptyState>
-        ) : (
-          <div className="table-scroll">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th scope="col">Name</th>
-                  <th scope="col">Role</th>
-                  <th scope="col">Phone</th>
-                  <th scope="col">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {page.data.map((person) => (
-                  <tr key={person.id}>
-                    <th scope="row" style={{ fontWeight: 600 }}>
-                      <a className="lnk" href={staffMemberPath(paths.staffMember, person.id)}>
-                        {person.name}
-                      </a>
-                    </th>
-                    <td>{roleNames(person)}</td>
-                    <td>{person.phone ?? '—'}</td>
-                    <td>
-                      <StaffStatus person={person} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        {/*
+         * The name is `rowHeader`, so DataTable renders it as the `<th scope="row">` this
+         * table already had — and `.table tbody th` in console.css dresses it as the body
+         * cell it sits among, which is what the hand-set `fontWeight: 600` was doing here.
+         * No table in this app is now allowed to reach a `<th>` without a scope: the type
+         * is the check, and nothing in the linter could ever have been.
+         */}
+        <DataTable
+          caption="Everyone with an account at this clinic, by the order the API returns."
+          captionHidden
+          rows={page.data}
+          rowKey={(person) => person.id}
+          empty={
+            <EmptyState icon="users" title="Nobody has been invited yet">
+              You are the only account here. A clinic needs at least one clinician with
+              registration details recorded before it can offer a single appointment time.
+            </EmptyState>
+          }
+          columns={[
+            {
+              key: 'name',
+              header: 'Name',
+              rowHeader: true,
+              cell: (person) => (
+                <a className="lnk" href={staffMemberPath(paths.staffMember, person.id)}>
+                  {person.name}
+                </a>
+              ),
+            },
+            { key: 'role', header: 'Role', cell: (person) => roleNames(person) },
+            { key: 'phone', header: 'Phone', cell: (person) => person.phone ?? '—' },
+            { key: 'status', header: 'Status', cell: (person) => <StaffStatus person={person} /> },
+          ]}
+        />
 
         {/*
          * CURSOR PAGINATION, and the link carries the API's own opaque cursor. There is no
@@ -124,7 +123,7 @@ export async function StaffScreen(props: StaffScreenProps) {
          * colleague who appears to have been removed.
          */}
         {next ? (
-          <p style={{ marginTop: 'var(--space-6)' }}>
+          <p>
             <a className="lnk" href={withParams(paths.staff, { cursor: next })}>
               More colleagues
             </a>
@@ -133,53 +132,56 @@ export async function StaffScreen(props: StaffScreenProps) {
       </Card>
 
       <Card as="section">
-        <span className="eyebrow">Invite</span>
-        <h2 className="title-sm">Add a colleague</h2>
-        <p className="muted">
-          They receive a single-use SMS link and set their own password. The role you choose
-          here is the role they get — they cannot change it when they accept, and nobody
-          ever learns anybody else&rsquo;s password.
-        </p>
+        <Stack gap="6">
+          <Stack gap="none">
+            <span className="eyebrow">Invite</span>
+            <h2 className="title-sm">Add a colleague</h2>
+            <p className="muted">
+              They receive a single-use SMS link and set their own password. The role you choose
+              here is the role they get — they cannot change it when they accept, and nobody
+              ever learns anybody else&rsquo;s password.
+            </p>
+          </Stack>
 
-        <form
-          action={sendInvitation.bind(null, { selfPath: paths.staff })}
-          className="stack"
-          style={{ gap: 'var(--space-6)', marginTop: 'var(--space-6)' }}
-        >
-          <Field name="name" label="Their name">
-            {(control) => <Input {...control} type="text" maxLength={200} required />}
-          </Field>
+          <form action={sendInvitation.bind(null, { selfPath: paths.staff })}>
+            <Stack gap="6">
+              <Field name="name" label="Their name">
+                {(control) => <Input {...control} type="text" maxLength={200} required />}
+              </Field>
 
-          <Field
-            name="phone"
-            label="Their phone number"
-            hint="A Ugandan number. This is where the invitation goes, and it becomes how they sign in."
-          >
-            {(control) => (
-              <Input {...control} type="tel" inputMode="tel" autoComplete="off" required />
-            )}
-          </Field>
+              <Field
+                name="phone"
+                label="Their phone number"
+                hint="A Ugandan number. This is where the invitation goes, and it becomes how they sign in."
+              >
+                {(control) => (
+                  <Input {...control} type="tel" inputMode="tel" autoComplete="off" required />
+                )}
+              </Field>
 
-          <Choice
-            name="role"
-            id="invite-role"
-            legend="Their role"
-            hint="One role per person. Overlapping roles make the access rules unreadable and produce access nobody intended."
-            required
-            options={ROLE_ORDER.map((role) => ({
-              value: role,
-              label: ROLE_LABELS[role],
-              note: ROLE_NOTES[role],
-            }))}
-          />
+              <Choice
+                name="role"
+                id="invite-role"
+                legend="Their role"
+                hint="One role per person. Overlapping roles make the access rules unreadable and produce access nobody intended."
+                required
+                options={ROLE_ORDER.map((role) => ({
+                  value: role,
+                  label: ROLE_LABELS[role],
+                  note: ROLE_NOTES[role],
+                }))}
+              />
 
-          <div>
-            <Button type="submit" variant="primary">
-              Send the invitation
-            </Button>
-          </div>
-        </form>
-      </Card>
+              <div>
+                <Button type="submit" variant="primary">
+                  Send the invitation
+                </Button>
+              </div>
+
+            </Stack>
+          </form>
+        </Stack>
+</Card>
     </div>
   )
 }
