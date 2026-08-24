@@ -206,14 +206,40 @@ export async function AssistedBooking({
   const slots: Slot[] = availability?.ok ? availability.value.slots : []
   const shown = slots.slice(0, MAX_SLOTS_SHOWN)
 
-  const back = (params: Record<string, string | undefined>) =>
-    href(paths.book, {
-      patient: patientId,
-      service: serviceId,
-      clinician: clinicianId,
-      day: chosenDay,
-      ...params,
-    })
+  /*
+   * WHERE `book` RETURNS TO, AS PLAIN DATA — AND THIS IS THE FIX FOR A DEAD BUTTON.
+   *
+   * A `back()` arrow function used to sit on this line, and pressing "Book this appointment"
+   * did not book anything: it dropped the receptionist into the error boundary, mid-call,
+   * with "The schedule did not load" where the confirmation should have been.
+   *
+   * The reason is that an inline `'use server'` function is compiled into a server reference
+   * whose bound arguments are every variable it captures from this component, and Next
+   * SERIALISES (encrypts) those arguments when the closure is created. A function cannot be
+   * serialised, so capturing `back` threw
+   *
+   *     Functions cannot be passed directly to Client Components unless you explicitly
+   *     expose it by marking it with "use server". [function back]
+   *
+   * every time this screen rendered, and the form was left pointing at an action whose bound
+   * arguments had failed to encrypt. `paths` was the second half of the same fault and is
+   * less obvious: `SchedulePaths` carries `room(appointmentId)`, and an object with a
+   * function inside it is exactly as unserialisable as the function itself.
+   *
+   * So both are reduced here to what they actually are on the wire — five strings — and the
+   * query string is assembled by `bookHref` at module scope, which the action resolves on the
+   * server rather than carrying with it. Nothing about the guarantee changes: the patient,
+   * the service, the clinician and the day still come from what the SERVER rendered and never
+   * from the post.
+   */
+  const returnTo: BookingReturn = {
+    bookPath: paths.book,
+    dayPath: paths.day,
+    patientId,
+    serviceId,
+    clinicianId,
+    day: chosenDay,
+  }
 
   /**
    * Book it.
@@ -229,7 +255,7 @@ export async function AssistedBooking({
     'use server'
 
     if (service === null) {
-      return redirect(back({ problem: 'incomplete' }))
+      return redirect(bookHref(returnTo, { problem: 'incomplete' }))
     }
 
     const slot = decodeSlot(String(formData.get('slot') ?? ''))
@@ -237,7 +263,7 @@ export async function AssistedBooking({
     const expectation = String(formData.get('payment_expectation') ?? '')
 
     if (slot === null || !isConsultationMode(mode) || !isPaymentExpectation(expectation)) {
-      return redirect(back({ problem: 'incomplete' }))
+      return redirect(bookHref(returnTo, { problem: 'incomplete' }))
     }
 
     const outcome = await bookAppointment({
@@ -250,14 +276,16 @@ export async function AssistedBooking({
     })
 
     if (outcome.kind === 'problem') {
-      return redirect(back({ problem: outcome.problem, message: outcome.message ?? undefined }))
+      return redirect(
+        bookHref(returnTo, { problem: outcome.problem, message: outcome.message ?? undefined }),
+      )
     }
 
     // Straight to the day the appointment is on, not back to this form. The receptionist's
     // next question is "is it on the board?", and the answer is the board.
     return redirect(
-      href(paths.day, {
-        day: chosenDay,
+      href(returnTo.dayPath, {
+        day: returnTo.day,
         clinician: slot.clinicianId,
         done: `Booked ${outcome.appointment.reference} for ${record.given_name} ${record.family_name}`,
       }),
@@ -449,6 +477,46 @@ export async function AssistedBooking({
       </Stack>
     </>
   )
+}
+
+/**
+ * Everything `book` needs in order to know where to send the browser, and nothing else.
+ *
+ * SIX STRINGS AND NOTHING CALLABLE, which is the entire reason this type exists. It is the
+ * one value the booking action captures for its redirects, and a captured value has to
+ * survive Next's serialisation of an inline server action's bound arguments — see the note
+ * beside `returnTo` in `AssistedBooking`. Handing the action the `SchedulePaths` object
+ * instead would hand it `room(appointmentId)` as well, and one function anywhere in the
+ * graph is enough to take the whole form down.
+ */
+type BookingReturn = {
+  /** Where this form is mounted. The destination for every refusal. */
+  bookPath: string
+  /** Where the day view is mounted. The destination for a booking that landed. */
+  dayPath: string
+  patientId: string
+  serviceId: string | undefined
+  clinicianId: string | undefined
+  day: string
+}
+
+/**
+ * Back to this booking form, with the same caller, service and day still chosen.
+ *
+ * MODULE SCOPE ON PURPOSE. A helper declared inside the component is a captured variable of
+ * the action that calls it, and a function cannot be serialised; a module-level function is
+ * resolved by the compiled action on the server and is never bound to it. That is the whole
+ * difference between this and the `back()` it replaced, and it is the difference between a
+ * booking form that works and one that lands in the error boundary.
+ */
+function bookHref(to: BookingReturn, params: Record<string, string | undefined>): string {
+  return href(to.bookPath, {
+    patient: to.patientId,
+    service: to.serviceId,
+    clinician: to.clinicianId,
+    day: to.day,
+    ...params,
+  })
 }
 
 function Head() {

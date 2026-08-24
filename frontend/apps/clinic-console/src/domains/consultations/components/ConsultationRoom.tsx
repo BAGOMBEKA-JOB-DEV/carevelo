@@ -153,19 +153,29 @@ export function ConsultationRoom({
 
   const appointmentId = state.appointment.id
   const patientId = state.appointment.patient_id
-  const back = (params: Record<string, string | undefined> = {}) => {
-    const search = new URLSearchParams()
-
-    for (const [key, value] of Object.entries(params)) {
-      if (value !== undefined && value !== '') {
-        search.set(key, value)
-      }
-    }
-
-    const query = search.toString()
-
-    return query === '' ? paths.room(appointmentId) : `${paths.room(appointmentId)}?${query}`
-  }
+  /*
+   * WHERE THE FOUR ACTIONS BELOW RETURN TO, AS ONE STRING RATHER THAN AS A CLOSURE.
+   *
+   * A `back()` arrow function used to be built here, and every action in this room captured
+   * it. That could not work. An inline `'use server'` function is compiled into a server
+   * reference whose bound arguments are every variable it captures from this component, and
+   * Next SERIALISES (encrypts) those arguments when the closure is created — on every render
+   * of the room. A function is not serialisable, so capturing `back` threw
+   *
+   *     Functions cannot be passed directly to Client Components unless you explicitly
+   *     expose it by marking it with "use server". [function back]
+   *
+   * and left going in, changing the mode, ending the consultation and adding an addendum all
+   * wired to actions whose bound arguments had failed to encrypt. The identical fault on the
+   * booking screen put a receptionist into the error boundary mid-call, which is how this
+   * class of defect was finally found; DayView and PrescribingPanel carry the same note.
+   *
+   * `paths` cannot be captured either, and this one is easy to miss: `ConsultationPaths`
+   * carries `room(appointmentId)`, and an object with a function inside it is exactly as
+   * unserialisable as the function. Calling it once here, in ordinary render code, reduces it
+   * to the string it was always going to become.
+   */
+  const roomPath = paths.room(appointmentId)
 
   /**
    * Go in: start the encounter, then spend a token on the door.
@@ -190,17 +200,17 @@ export function ConsultationRoom({
       const started = await startConsultation(appointmentId, mode)
 
       if (started.kind === 'problem') {
-        return redirect(back({ problem: 'start', message: started.message ?? undefined }))
+        return redirect(roomHref(roomPath, { problem: 'start', message: started.message ?? undefined }))
       }
     }
 
     const entry = await enterRoom(appointmentId)
 
     if (!entry.ok) {
-      return redirect(back({ problem: classify(entry.status) }))
+      return redirect(roomHref(roomPath, { problem: classify(entry.status) }))
     }
 
-    return redirect(back())
+    return redirect(roomHref(roomPath))
   }
 
   async function changeMode(formData: FormData) {
@@ -210,16 +220,16 @@ export function ConsultationRoom({
     const requested = String(formData.get('mode') ?? '')
 
     if (consultationId === null || !isRemoteMode(requested)) {
-      return redirect(back({ problem: 'incomplete' }))
+      return redirect(roomHref(roomPath, { problem: 'incomplete' }))
     }
 
     const result = await recordMode(consultationId, requested)
 
     if (result.kind === 'problem') {
-      return redirect(back({ problem: 'mode', message: result.message ?? undefined }))
+      return redirect(roomHref(roomPath, { problem: 'mode', message: result.message ?? undefined }))
     }
 
-    return redirect(back())
+    return redirect(roomHref(roomPath))
   }
 
   async function end(formData: FormData) {
@@ -229,13 +239,13 @@ export function ConsultationRoom({
     const outcome = String(formData.get('outcome') ?? '')
 
     if (consultationId === null || !isOutcome(outcome)) {
-      return redirect(back({ problem: 'incomplete' }))
+      return redirect(roomHref(roomPath, { problem: 'incomplete' }))
     }
 
     const result = await endConsultation(consultationId, outcome)
 
     if (result.kind === 'problem') {
-      return redirect(back({ problem: 'end', message: result.message ?? undefined }))
+      return redirect(roomHref(roomPath, { problem: 'end', message: result.message ?? undefined }))
     }
 
     /*
@@ -243,7 +253,7 @@ export function ConsultationRoom({
      * panel changes shape — the page states the new fact rather than carrying a message about
      * it, which also means a reload does not re-announce something that happened once.
      */
-    return redirect(back())
+    return redirect(roomHref(roomPath))
   }
 
   async function addendum(formData: FormData) {
@@ -254,16 +264,16 @@ export function ConsultationRoom({
     const body = String(formData.get('body') ?? '')
 
     if (consultationId === null || noteId === '' || body.trim() === '') {
-      return redirect(back({ problem: 'incomplete' }))
+      return redirect(roomHref(roomPath, { problem: 'incomplete' }))
     }
 
     const result = await addAddendum(consultationId, noteId, body)
 
     if (result.kind !== 'saved') {
-      return redirect(back({ problem: 'addendum', message: messageOf(result) }))
+      return redirect(roomHref(roomPath, { problem: 'addendum', message: messageOf(result) }))
     }
 
-    return redirect(back())
+    return redirect(roomHref(roomPath))
   }
 
   if (state.kind === 'door') {
@@ -424,6 +434,34 @@ export function ConsultationRoom({
 }
 
 /** Who, when, and what state the encounter is in. The first thing on the screen, always. */
+/**
+ * This room, with whatever the last action had to say about itself.
+ *
+ * MODULE SCOPE, AND THAT IS THE ONLY DIFFERENCE FROM THE `back()` IT REPLACED. A helper
+ * declared inside `ConsultationRoom` becomes a captured variable of all four inline server
+ * actions that call it, and a captured variable is serialised into the action's bound
+ * arguments — see the long note beside `roomPath`. A module-level function is resolved by the
+ * compiled action on the server and is never bound to it.
+ *
+ * Near enough duplicated in the prescriptions domain's `PrescribingPanel`, which redirects to
+ * the same room. That is the domain boundary working rather than a missed abstraction: a
+ * domain may not reach into another domain's internals, and eight lines of `URLSearchParams`
+ * is a cheaper price than two domains sharing a module.
+ */
+function roomHref(roomPath: string, params: Record<string, string | undefined> = {}): string {
+  const search = new URLSearchParams()
+
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== '') {
+      search.set(key, value)
+    }
+  }
+
+  const query = search.toString()
+
+  return query === '' ? roomPath : `${roomPath}?${query}`
+}
+
 function RoomHead({
   patient,
   start,
