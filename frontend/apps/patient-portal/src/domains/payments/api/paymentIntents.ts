@@ -302,12 +302,23 @@ export function handoffFor(intent: PaymentIntent): PaymentHandoff {
  * rather than a special case that is never exercised until production.
  */
 function checkoutUrlOf(intent: PaymentIntent): string | null {
-  const candidate = intent.redirect_url
+  const candidate: unknown = intent.redirect_url
 
-  // Null for every aggregator that has no page, and the empty-string test is not padding:
-  // `new URL('')` throws, so without it a blank field would be an exception thrown from a
-  // screen render rather than a patient shown the waiting screen they should see.
-  if (candidate === null || candidate.trim() === '') {
+  /*
+   * `typeof` RATHER THAN `=== null`, ON A FIELD THE CONTRACT ALREADY TYPES `string | null`.
+   * That reads like belt-and-braces and it is not: the type is a description of what the far
+   * side PROMISES, and this one is a different language, a different deployment and a
+   * different release cadence. A number, an object or an absent key here would make
+   * `.trim()` throw — out of a SERVER RENDER of `/payments/{id}`, which means the error
+   * boundary, which means a patient trying to find out whether their money moved is told
+   * that we know nothing. Narrowing instead costs one word and turns the same wire into the
+   * waiting screen, which is both honest and recoverable. It is the rule `statusOf`,
+   * `isKnownMethod` and `moneyFrom` already follow for the same three fields' worth of
+   * reasons; a test in paymentIntents.test.ts holds it, and caught its removal.
+   *
+   * The empty-string half is not padding either: `new URL('')` throws just as loudly.
+   */
+  if (typeof candidate !== 'string' || candidate.trim() === '') {
     return null
   }
 
