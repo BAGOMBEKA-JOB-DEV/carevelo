@@ -1,5 +1,5 @@
 import { getTranslations } from 'next-intl/server'
-import { Button, Card, Notice } from '@carevelo/ui'
+import { Button, Card, Inline, Notice } from '@carevelo/ui'
 import { ReferenceBlock } from './ReferenceBlock'
 import { clinicName, methodKeyOf, type PaymentScreenProps } from './screen'
 
@@ -53,16 +53,22 @@ export async function PaymentFailed({ tenant, intent, checkAgainHref, retryHref 
            * well as to an eye. Rendered as text, never as markup: React escapes it, which
            * matters for a string that originates outside this system entirely.
            */}
-          <blockquote style={{ margin: 0 }}>{reason}</blockquote>
+          {/* `.quote` clears the user agent's 40px inline margin on a `<blockquote>`,
+              which the reset leaves alone — see tokens/components.css. Without it the
+              aggregator's own sentence sits inset from the notice that frames it. */}
+          <blockquote className="quote">{reason}</blockquote>
         </Notice>
       )}
 
-      <p style={{ marginTop: 'var(--space-5)' }}>{t('failed.money', { clinic })}</p>
+      <p className="card__flow">{t('failed.money', { clinic })}</p>
       <p>{t('failed.next')}</p>
 
       <ReferenceBlock reference={intent.reference} clinic={clinic} />
 
-      <div className="row-wrap" style={{ marginTop: 'var(--space-6)' }}>
+      {/* `<Inline>` for the row — it wraps rather than pushing the primary action off the
+          right edge of a 360px phone — and `.card__section` for the 18px above it, which is
+          a space AROUND the row and so is not a gap any column can hold. */}
+      <Inline gap="4" className="card__section">
         {retryHref === undefined ? null : (
           <Button href={retryHref} variant="brand" size="lg">
             {t('actions.tryAgain')}
@@ -72,7 +78,7 @@ export async function PaymentFailed({ tenant, intent, checkAgainHref, retryHref 
         <Button href={checkAgainHref ?? ''} variant="quiet">
           {t('actions.checkAgain')}
         </Button>
-      </div>
+      </Inline>
     </Card>
   )
 }
@@ -104,7 +110,10 @@ export async function PaymentReversed({ tenant, intent, checkAgainHref }: Paymen
 
       <ReferenceBlock reference={intent.reference} clinic={clinic} />
 
-      <div className="row-wrap" style={{ marginTop: 'var(--space-6)' }}>
+      {/* `<Inline>` for the row — it wraps rather than pushing the primary action off the
+          right edge of a 360px phone — and `.card__section` for the 18px above it, which is
+          a space AROUND the row and so is not a gap any column can hold. */}
+      <Inline gap="4" className="card__section">
         {phone === null ? null : (
           <Button href={`tel:${phone}`} variant="brand" size="lg">
             {t('actions.callClinic', { clinic, phone })}
@@ -114,7 +123,7 @@ export async function PaymentReversed({ tenant, intent, checkAgainHref }: Paymen
         <Button href={checkAgainHref ?? ''} variant="quiet">
           {t('actions.checkAgain')}
         </Button>
-      </div>
+      </Inline>
     </Card>
   )
 }

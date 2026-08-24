@@ -1,6 +1,6 @@
 import { getTranslations } from 'next-intl/server'
 import type { ReactNode } from 'react'
-import { Card, DateTime, Icon, Money, Notice } from '@carevelo/ui'
+import { Card, DateTime, Icon, Money, Notice, Stack } from '@carevelo/ui'
 import type { Tenant } from '@/lib/tenant'
 import { moneyFrom, type PaymentIntent, type Receipt } from '../api/types'
 import { RefundGuidance } from './RefundGuidance'
@@ -70,22 +70,26 @@ export async function PaymentReceiptCard({
         <Notice tone="warn">{t('receipt.unavailable')}</Notice>
       ) : null}
 
-      {/* SURVIVING INLINE STYLES, and the reason is the same one written out at length in
-          src/app/account/page.tsx: `.card` lays its children out as a BLOCK, with no gap
-          of its own, and the distances down this card are 0 (the eyebrow, the title and
-          the lede sit flush by design), then 18, then 12, then 16, then 18. A single
-          `<Stack>` around the card's contents would have to pick one of those and would
-          silently open the three that are deliberately closed; a nest per pair is five
-          wrapper elements to retire five properties. So the margins stay and each one is
-          the distance it always was. */}
-      <h2 style={{ marginTop: 'var(--space-6)' }}>{t('receipt.title')}</h2>
+      {/* `.card` lays its children out as a BLOCK with no gap of its own — deliberately,
+          because the eyebrow, the title and the lede at the top of this card sit FLUSH by
+          design and a column would push them apart. So the distances down the card are
+          carried by the blocks that need them, and the two the token layer now names are
+          the two this card uses: `.card__section` is 18px, a new section; `.card__flow` is
+          16px, the next paragraph. Both were `style={{ marginTop: … }}` here.
 
-      {/* A `<dl>` and not a `<Stack>`: `Stack`'s `as` union has no `dl` on purpose — see
-          its docblock — because a description list's dt/dd pairing is a semantic contract
-          rather than a column, and this document's whole value is that a screen reader
-          reads "Paid to: Kira Family Clinic" as one fact and not two. `.stack` gives the
-          column; the 6px it sets is the distance between the pairs. */}
-      <dl className="stack" style={{ marginTop: 'var(--space-4)' }}>
+          The heading and its list are ONE section, so they are one `<Stack gap="4">` — the
+          12px between them was a second `marginTop` that only happened to agree with
+          nothing else on the card. */}
+      <Stack gap="4" className="card__section">
+        <h2>{t('receipt.title')}</h2>
+
+        {/* A `<dl>` and not a `<Stack>`: `Stack`'s `as` union has no `dl` on purpose — see
+            its docblock — because a description list's dt/dd pairing is a semantic contract
+            rather than a column, and this document's whole value is that a screen reader
+            reads "Paid to: Kira Family Clinic" as one fact and not two. `.stack` gives the
+            column; the 6px it sets is the distance between the pairs, and `.deflist` clears
+            the user agent's `<dl>` and `<dd>` margins for every pair at once. */}
+        <dl className="stack deflist">
         {/* The payee, first and in full, because that is what this document asserts. */}
         <Fact label={t('receipt.paidTo')}>
           <strong>{receipt?.payee.name ?? clinic}</strong>
@@ -136,9 +140,10 @@ export async function PaymentReceiptCard({
         </Fact>
 
         <Fact label={t('receipt.providerReference', { method })} valueClassName="mono">
-          {providerReference ?? t('receipt.notRecorded')}
-        </Fact>
-      </dl>
+            {providerReference ?? t('receipt.notRecorded')}
+          </Fact>
+        </dl>
+      </Stack>
 
       {/*
        * The API's own sentence, verbatim: "This payment was made to and received by <clinic>.
@@ -147,12 +152,10 @@ export async function PaymentReceiptCard({
        * copy of a legal statement free to drift from the first.
        */}
       {receipt === null ? null : (
-        <p className="muted" style={{ marginTop: 'var(--space-5)' }}>
-          {receipt.note}
-        </p>
+        <p className="muted card__flow">{receipt.note}</p>
       )}
 
-      <div style={{ marginTop: 'var(--space-6)' }}>
+      <div className="card__section">
         <RefundGuidance tenant={tenant} />
       </div>
     </Card>
@@ -168,13 +171,13 @@ export async function PaymentReceiptCard({
  * `dd` arrives with `margin-inline-start: 40px` from the browser's own stylesheet, and
  * reset.css normalises `h1`–`h4`, `p` and the layout utilities without touching the
  * description-list elements. Seven identical corrections, each free to be forgotten on
- * the eighth pair somebody adds. One correction, in one place, cannot be.
+ * the eighth pair somebody adds. One wrapper, and now one class, cannot be.
  *
- * THE ZERO IS DELIBERATELY NOT MOVED INTO reset.css, which would be the obvious tidy.
- * That file is shared by four apps, the console renders fourteen more `<dl>`s of its own,
- * and a `dd { margin: 0 }` there would silently re-lay-out every one of them. That is a
- * change the console's owner should make and see, not one to make on their behalf from
- * a sweep of the portal — it is reported instead.
+ * THE ZERO IS STILL NOT IN reset.css, which would be the obvious tidy. That file is
+ * shared by four apps, the console renders fourteen more `<dl>`s of its own, and a
+ * `dd { margin: 0 }` there would silently re-lay-out every one of them. It is `.deflist`
+ * in tokens/components.css instead: opt-in, so a `<dl>` on a screen nobody has written
+ * yet still gets the browser's own indent until somebody decides otherwise.
  *
  * `<Stack>` cannot hold this either: it renders a div, and a `<dt>` outside a `<dl>` is
  * not a term, it is a stray element with a class on it.
@@ -192,10 +195,10 @@ function Fact({
   return (
     <div className="stack">
       <dt className="field__label">{label}</dt>
-      {/* SURVIVING INLINE STYLE — the single UA reset the docblock above is about. */}
-      <dd className={valueClassName} style={{ margin: 0 }}>
-        {children}
-      </dd>
+      {/* The user-agent margins the docblock above is about are cleared by `.deflist` on
+          the `<dl>` — one rule for every pair, rather than a correction per `<dd>` that the
+          eighth pair somebody adds is free to be missing. */}
+      <dd className={valueClassName}>{children}</dd>
     </div>
   )
 }

@@ -170,7 +170,60 @@
 }
 
 /* ------------------------------------------------------------
-   4. THE THEME TOGGLE, WHICH SITS ON A BAND THAT IS DARK IN BOTH THEMES
+   4. FINE PRINT INSIDE A TONED NOTICE, WHICH FAILS ON EVERY TONE IN BOTH THEMES
+
+   Found by measuring rather than by looking: `.fine` is `--ink-faint`, and `--ink-faint` is
+   chosen against the page grounds — `--canvas`, `--parchment`, `--surface`, `--surface-2`.
+   A toned `<Notice>` is none of those. It paints `--good-soft`/`--warn-soft`/`--bad-soft`/
+   `--info-soft`, which are lighter than the page in the light theme and lighter than the
+   surface in the dark one, and the faint ink that clears 4.5:1 on the page does not clear it
+   there. Every tone fails, in both themes, with the corrected `--ink-faint` values this file
+   already sets in sections 1 and 2:
+
+     LIGHT, --ink-faint #6a726f          DARK, --ink-faint #8b928f (over --surface)
+       on --good-soft #e3f1ea  4.24        on --good-soft  rgb(34,53,43)  4.11
+       on --warn-soft #f6efdd  4.31        on --warn-soft  rgb(55,51,37)  3.97
+       on --bad-soft  #f9e7e4  4.14        on --bad-soft   rgb(58,44,41)  4.20
+       on --info-soft #e6eef3  4.21        on --info-soft  rgb(39,51,54)  4.10
+
+   In this app that is the compliance screen's data-controller note and the staff record's
+   copy of it — sentences about who is legally responsible for patient records, set in the
+   one size that was already hardest to read.
+
+   THE FIX IS `inherit`, AND IT IS THE TONE'S OWN COLOUR RATHER THAN A NEW ONE. `.notice-info`
+   and friends already set a colour on the notice, measured against the ground they also set;
+   `.fine` was overriding it with an ink chosen for a different ground entirely. Inheriting
+   puts the fine print back in the notice's own colour, where it passes with room:
+
+     LIGHT   good #24734e 4.96   warn #7a5c1f 5.42   bad #c0392b 4.55   info #1f4f6f 7.43
+     DARK    good #4cba82 5.39   warn #d3a552 5.58   bad #e8776b 4.63   info #6ba3c7 4.77
+
+   It is also the right answer visually, which is worth saying because a contrast fix that
+   fights the design usually gets reverted. The alternative was `--ink-2`, which clears 8:1
+   everywhere and makes the fine print DARKER than the notice's own body text — subordinate
+   copy rendered heavier than what it is subordinate to. Inheriting keeps the hierarchy where
+   it was: same colour, smaller size.
+
+   THE NEUTRAL NOTICE IS DELIBERATELY NOT INCLUDED. It sets no colour, so `inherit` would
+   resolve to full `--ink` and do exactly the damage described above. It also does not need
+   the fix: its ground is `--surface-2`, which is one of the grounds `--ink-faint` was
+   measured against, and it passes there — 4.73:1 light, 4.77:1 dark.
+
+   This belongs in packages/ui beside `.fine`, and it is here for the same reason sections 1
+   and 2 are: that package is being edited by somebody else this round. It deletes with no
+   other edit the day the shared layer takes it.
+   ------------------------------------------------------------ */
+.layout .notice-info .fine,
+.layout .notice-warn .fine,
+.layout .notice-bad .fine,
+.auth-page .notice-info .fine,
+.auth-page .notice-warn .fine,
+.auth-page .notice-bad .fine {
+  color: inherit;
+}
+
+/* ------------------------------------------------------------
+   5. THE THEME TOGGLE, WHICH SITS ON A BAND THAT IS DARK IN BOTH THEMES
 
    `.site-theme-btn` in the shared layer was drawn for the patient portal's header, which
    sits on `--canvas`. It takes `--hairline` for its border and `--ink-2` for its glyph,
@@ -203,7 +256,7 @@
 }
 
 /* ------------------------------------------------------------
-   5. TABLE DENSITY
+   6. TABLE DENSITY
 
    The shared `.table` is set for a document: 12px above and below every cell, which on a
    patient's booking confirmation is right and on a dispensing queue is four rows fewer per
@@ -244,7 +297,7 @@
 }
 
 /* ------------------------------------------------------------
-   6. STICKY COLUMN HEADINGS ON THE LONG QUEUES
+   7. STICKY COLUMN HEADINGS ON THE LONG QUEUES
 
    Applied by passing `className="queue"` to DataTable on the pharmacy queue, the dispatch
    board and the patient registry — the three lists long enough that the headings scroll
@@ -288,7 +341,7 @@
 }
 
 /* ------------------------------------------------------------
-   7. THE TOOLBAR ABOVE A LIST
+   8. THE TOOLBAR ABOVE A LIST
 
    One shape above every list in the console, so that "where the filters are" is a thing
    staff learn once. Before this each screen invented its own: some put the filters in a
@@ -312,7 +365,7 @@
 }
 
 /* ------------------------------------------------------------
-   8. A CARD WHOSE ENTIRE CONTENT IS ONE TABLE
+   9. A CARD WHOSE ENTIRE CONTENT IS ONE TABLE
 
    `.card` pads by 24px, which puts a 24px margin of surface around a table that already
    has its own cell padding and looks like a mistake. Two screens were writing
@@ -328,7 +381,7 @@
 }
 
 /* ------------------------------------------------------------
-   9. A `<details>` WHOSE SUMMARY IS A CONTROL
+   10. A `<details>` WHOSE SUMMARY IS A CONTROL
 
    Six screens open a form from a `<summary className="lnk">` — cancel an appointment,
    confirm one without payment, amend a note, correct an order, withdraw a consent. Every
@@ -360,7 +413,7 @@
 }
 
 /* ------------------------------------------------------------
-   10. THE NAME OF THE THING A BLOCK IS ABOUT
+   11. THE NAME OF THE THING A BLOCK IS ABOUT
 
    The patient on an appointment card, the person chosen in assisted booking, the prescriber
    signing a prescription, the patient a prescription is for. Five screens, and before the
@@ -386,7 +439,7 @@
 }
 
 /* ------------------------------------------------------------
-   11. A VALUE THAT MUST BE READ CHARACTER BY CHARACTER
+   12. A VALUE THAT MUST BE READ CHARACTER BY CHARACTER
 
    The one-time password issued with a portal account, and the policy identifier under a
    consent record. Both are read off the screen and typed or spoken somewhere else, and
@@ -453,7 +506,7 @@
 }
 
 /* ------------------------------------------------------------
-   12. TEXT THAT MUST SURVIVE EXACTLY AS IT WAS TYPED
+   13. TEXT THAT MUST SURVIVE EXACTLY AS IT WAS TYPED
 
    A clinical note, shown back to the clinician who wrote it. Clinicians write these in short
    lines and lists because that is how a document meant to be re-read by somebody else gets
@@ -473,7 +526,7 @@
 }
 
 /* ------------------------------------------------------------
-   13. A SHORT LINE IN A STATUS COLOUR
+   14. A SHORT LINE IN A STATUS COLOUR
 
    Three screens set `.fine` and then a colour inline. Named here instead, because "this
    small line is a caution" and "this small line is a refusal" are two different things to
@@ -501,7 +554,7 @@
 }
 
 /* ------------------------------------------------------------
-   14. THE CONSENT POLICY, RENDERED AS THE DOCUMENT THE PATIENT IS AGREEING TO
+   15. THE CONSENT POLICY, RENDERED AS THE DOCUMENT THE PATIENT IS AGREEING TO
 
    The policy text arrives from the API as headings, paragraphs and lists, and it is on the
    screen rather than behind a link because consent obtained from wording the patient never
@@ -528,7 +581,7 @@
 
 
 /* ------------------------------------------------------------
-   15. THE TWO ELEMENTS THE LAYOUT PRIMITIVES DELIBERATELY WILL NOT TAKE
+   16. THE TWO ELEMENTS THE LAYOUT PRIMITIVES DELIBERATELY WILL NOT TAKE
 
    Stack's and Grid's `as` unions stop at the elements that are layout, and they stop there
    on purpose. `<dl>` promises a screen reader that what follows is term-and-definition
@@ -559,7 +612,7 @@
 }
 
 /* ------------------------------------------------------------
-   16. THE BODY OF A DISCLOSURE, HELD OFF THE CONTROL THAT OPENED IT
+   17. THE BODY OF A DISCLOSURE, HELD OFF THE CONTROL THAT OPENED IT
 
    `<summary>` has to be the FIRST child of `<details>` or the disclosure does not work at
    all, which means the summary and the body it opens are ALWAYS siblings inside `<details>`
@@ -580,7 +633,7 @@
 }
 
 /* ------------------------------------------------------------
-   17. THE HALF-STEPS AROUND BODY SIZE THAT THIS APP ACTUALLY USES
+   18. THE HALF-STEPS AROUND BODY SIZE THAT THIS APP ACTUALLY USES
 
    `--text-base-size` is 14.5px and `.fine` is 12px, and there is nothing between them. Six
    call sites had each picked their own way across that gap — 13, 13.5, 14, 14.5, 15 and
@@ -632,7 +685,7 @@
 }
 
 /* ------------------------------------------------------------
-   18. WEIGHT 600, WHICH THE TYPE SCALE HAS NO STEP FOR
+   19. WEIGHT 600, WHICH THE TYPE SCALE HAS NO STEP FOR
 
    `.title-sm` is 700 in the display face and `.record-name` is 600 at 16px, and between them
    there is nothing that says "this line is the important one of the two" at body size. Four
@@ -652,7 +705,7 @@
 }
 
 /* ------------------------------------------------------------
-   19. THE FOUR REMAINING NAMED SHAPES, EACH OF WHICH WAS AN INLINE STYLE
+   20. THE FOUR REMAINING NAMED SHAPES, EACH OF WHICH WAS AN INLINE STYLE
 
    Small, and each one is the whole of what a call site was setting by hand.
    ------------------------------------------------------------ */
@@ -713,7 +766,7 @@
 }
 
 /* ------------------------------------------------------------
-   20. THE PORTAL PREVIEW — THE ONE PLACE ON THIS SURFACE THAT PAINTS --brand-*
+   21. THE PORTAL PREVIEW — THE ONE PLACE ON THIS SURFACE THAT PAINTS --brand-*
 
    PortalPreview draws a picture of the PATIENT-facing portal inside the branding settings
    screen, so that the administrator choosing a colour can see what their patients will see.
@@ -743,14 +796,55 @@
   background: var(--surface);
 }
 
-/* The service card a patient picks from. --brand-surface is the clinic's own pale tint as
-   the API sent it; the text on it takes --ink and never --brand-primary-fg, because that
-   foreground was computed against --brand-primary and this is not that colour. */
+/* The service card a patient picks from.
+
+   --brand-wash AND NOT --brand-surface, AND THE DIFFERENCE WAS A 1.05:1 DEFECT.
+
+   This rule used to paint --brand-surface — the clinic's own pale tint, exactly as the API
+   sent it. That tint is chosen against WHITE and it is absent from the dark palette on
+   purpose, so it does not move when the theme does. The ink on top of it does: --ink is
+   #1e2422 in light and #eceeed in dark. In dark, therefore, this card was near-white text on
+   a pale mint ground.
+
+     --ink #eceeed on --brand-surface #edf5f2  =  1.05:1   FAILS, and is not visible at all
+     --ink-faint on the same ground            =  2.87:1   FAILS
+
+   Measured on the branding screen with the demo clinic's palette. It is the screen an
+   administrator opens to CHOOSE a colour, so the one card they are there to look at was the
+   one card that disappeared.
+
+   --brand-wash is the token the shared layer already created for this exact situation — its
+   own comment calls an unmixed --brand-surface on a dark ground "a headlight in a dark
+   room". It is defined as `var(--brand-surface)` in light, so this line changes nothing
+   there, and as the clinic's hue mixed INTO --surface in dark, which keeps the hue theirs
+   and lets the ground decide the lightness:
+
+     --ink #eceeed on the dark wash  =  12.1:1 to 13.3:1 across the brand hues sampled
+                                        (teal, green, maroon, navy, ochre)
+
+   The fine line under the service name takes --ink-2 rather than the --ink-faint it
+   inherits from `.fine`, and that is the tenant-dependent half of the same problem. No
+   ratio on --brand-surface can be guaranteed from here: it is a hex this stylesheet sees
+   for the first time in the browser, and the clinic's own tint at 12px was already 4.46:1
+   in light — under the floor before dark mode was ever involved. --ink-2 is the only ink
+   that holds across the range of tints a clinic can plausibly send: 8.1:1 to 10.2:1 in
+   light, higher in dark. It is heavier than fine print normally wants, and that is the
+   correct trade on a surface whose ground is chosen by somebody else.
+
+   THE RESIDUAL RISK IS STILL REAL AND IS NAMED IN THE REPORT: a clinic that sends a genuinely
+   dark --brand-surface would invert this again, and the honest repair is a server-computed
+   --brand-surface-fg alongside the --brand-primary-fg that already exists. Nothing here can
+   compute one — see the note at the top of this section about why no foreground is derived
+   in this subtree. */
 .preview__offer {
-  background: var(--brand-surface);
+  background: var(--brand-wash);
   border: 1px solid var(--hairline-soft);
   border-radius: var(--r-md);
   padding: var(--space-5);
+}
+
+.preview__offer .fine {
+  color: var(--ink-2);
 }
 
 /* The two buttons in the preview are pictures of buttons: they are inside an element with

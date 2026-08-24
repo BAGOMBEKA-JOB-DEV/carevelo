@@ -436,3 +436,86 @@
    `.stack` column wants, and in that shape every `<dt>` is a first child of its own
    wrapper and the spacing belongs to the column instead. This rule stays out of it. */
 .deflist > dt ~ dt { margin-top: var(--space-3); }
+
+/* Somebody else's words, quoted. Same story as `<dd>` above and the same reason it is a
+   class rather than an element rule in the reset: `<blockquote>` arrives with the user
+   agent's 40px inline margin, the reset covers `h1`–`h4` and `p` and stops there on
+   purpose, and the one call site — the aggregator's own refusal sentence, inside the
+   `.notice` that frames it — had corrected it with `style={{ margin: 0 }}`.
+
+   The element stays a `<blockquote>` and is not swapped for a `<p>`. Marking a quotation
+   as one is how a screen reader is told these are not the product's words, which on a
+   screen reporting a failed payment is the difference between the aggregator saying it
+   and us saying it. */
+.quote { margin: 0; }
+
+/* ---- A reference somebody reads out loud ----
+
+   A payment or order reference is not prose. It is read down a telephone, character by
+   character, to a member of staff hunting for the same string on the clinic's aggregator
+   dashboard — and 0.04em is what separates a run of monospace glyphs enough to be
+   dictated without being re-read. `.mono` sets the face and nothing else, so the tracking
+   had been written as `style={{ letterSpacing: '0.04em' }}` at the one call site.
+
+   NAMED `.reference` AND DELIBERATELY NOT `.identifier`, which is the obvious name and is
+   the one that would have done damage. The clinic console already writes
+   `className="identifier"` on a `<dd>` in ConsentDeskScreen.tsx against a rule that exists
+   nowhere in the token layer; defining that name here would silently restyle a screen this
+   sweep does not own, from a file its owner was not editing. A name nothing else claims
+   changes exactly the markup that asks for it. The console's dangling class is reported
+   rather than adopted. */
+.reference { letter-spacing: 0.04em; }
+
+/* ---- A fingerprint printed whole ----
+
+   The consent policy's SHA-256, shown in full on the consent history so a patient can
+   check that the words they agreed to are the words on file. A shortened hash cannot be
+   checked against anything, which would make showing it theatre — so it is never
+   truncated, and `overflow-wrap: anywhere` is what stops 64 characters with no space in
+   them pushing the card wider than a 360px phone.
+
+   `overflow-wrap` rather than the `word-break: break-all` this was written as inline:
+   `break-all` breaks EVERY word at the edge including ordinary prose, while
+   `overflow-wrap: anywhere` breaks only a run that cannot fit any other way — which is
+   the actual rule wanted, and the one that stays correct if a label ever ends up inside
+   the same element. 12.5px matches `.stat__note`, so the fingerprint is the same size as
+   every other supporting figure in the product rather than a size chosen once here. */
+.hash { overflow-wrap: anywhere; font-size: 12.5px; }
+
+/* ---- A stat standing alone inside a block card ----
+
+   `.card` is a plain block with no gap of its own — deliberately, because a card holds
+   prose as often as it holds a column — so anything inside it that needs air brings its
+   own. Three payment screens drop a single `.stat` into the middle of a card to state the
+   amount, and all three had written `style={{ marginBlock: 'var(--space-5)' }}` to give it
+   that air on both sides.
+
+   `margin-block` and not a `margin-top`: the figure needs separating from the sentence
+   above it AND from whatever follows, and on the one screen where the amount is the last
+   thing before a notice the bottom half is what stops the two touching. It is one
+   declaration precisely because it is the same decision on all three. */
+.stat--banded { margin-block: var(--space-5); }
+
+/* ---- The two distances a block card separates its own contents by ----
+
+   `.card` is a plain block with no gap of its own, and that is deliberate: a card holds
+   prose at least as often as it holds a column, and a container that puts 16px between
+   every child would push an eyebrow away from the heading it labels. So a card's contents
+   bring their own space — which is correct, and which the four payment screens had been
+   doing thirteen times over with `style={{ marginTop: 'var(--space-5)' }}` and
+   `style={{ marginTop: 'var(--space-6)' }}` written out at each site.
+
+   THERE ARE EXACTLY TWO OF THEM, AND THE DIFFERENCE IS REAL rather than drift. 16px is the
+   card's paragraph rhythm — the next block of prose, the reference under the sentence that
+   explains it. 18px marks a break between SECTIONS: a titled block of its own, or the row
+   of buttons that closes the card. An irreversible tap wants visibly more air above it
+   than a paragraph does, so that "Try again" and the sentence saying what failed do not
+   read as one continuous run of things to touch.
+
+   WHY THESE ARE CLASSES AND NOT A `<Stack>`. Both are a space AROUND a block rather than
+   BETWEEN a column's children, and the layout layer models only the second on purpose —
+   see Stack's docblock, and PageBody's, for the block-formatting-context reasoning that
+   makes converting a card like this to a flex column a silent change to every distance in
+   it. Named here, the thirteen call sites become two decisions that can be revisited. */
+.card__flow    { margin-top: var(--space-5); }
+.card__section { margin-top: var(--space-6); }

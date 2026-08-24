@@ -179,17 +179,20 @@ export async function ConsentHistory({
                     </Inline>
 
                     <Stack gap="2">
-                      {/* SURVIVING INLINE STYLE, here and on the guardian line below: 13.5px
-                          is not a step on the type scale — `.subtitle` is 16px and `.fine` is
-                          12px — and there is no class between them. See account/page.tsx. */}
-                      <p className="subtitle" style={{ fontSize: 13.5 }}>
+                      {/* `.subtitle--sm` in the token layer. `.subtitle` is 16px — a LEDE,
+                          the sentence under a card heading — and these two lines are a
+                          timestamp and an attribution, which must not compete with the
+                          decision word above them. The step between `.subtitle` and `.fine`
+                          did not exist and was being written out as `fontSize` on six
+                          elements across four screens; it exists now. */}
+                      <p className="subtitle subtitle--sm">
                         {record.occurred_at === null ? null : (
                           <DateTime value={record.occurred_at} format="datetime" />
                         )}
                       </p>
 
                       {record.granted_by === 'guardian' && record.guardian_name !== null ? (
-                        <p className="subtitle" style={{ fontSize: 13.5 }}>
+                        <p className="subtitle subtitle--sm">
                           {t('history.byGuardian', {
                             name: record.guardian_name,
                             relationship:
@@ -200,39 +203,43 @@ export async function ConsentHistory({
                     </Stack>
                   </Stack>
 
-                  {/* SURVIVING INLINE STYLES inside this disclosure, and the reason is
-                      structural rather than a shortfall in the layer. The first distance in
-                      here is between the `<summary>` and the note under it, and a `<summary>`
-                      is not something a `<Stack>` can hold: Stack renders a `div`, `<details>`
-                      is the only legal parent for a summary, and a gap only exists BETWEEN a
-                      column's own children. Wrapping just the body would silently delete that
-                      first 8px. The `<dl>` has the same problem from the other end — `Stack`
-                      has no `as="dl"`, deliberately, because a description list's dt/dd
-                      pairing is a semantic contract and not a column. */}
-                  <details>
-                    <summary style={SUMMARY}>{t('history.evidenceSummary')}</summary>
+                  {/* `.disclosure` IS THE ONE COLUMN A `<Stack>` CAN NEVER BE. `<summary>`
+                      must be the first child of `<details>`, `<details>` is its only legal
+                      parent, and `Stack` renders a `div` — so the 8px between the summary and
+                      the note under it can only ever live on the `<details>` itself. That is
+                      what `.disclosure` is, and `.disclosure__summary` is the 44px touch band
+                      the marker row needs as a control. Both were a `SUMMARY` style constant
+                      in this file and a second copy of it in RegistrationForm.tsx.
 
-                    <p className="subtitle" style={{ marginTop: 'var(--space-3)', fontSize: 13 }}>
-                      {t('history.evidenceNote')}
-                    </p>
+                      The `<dl>` keeps `.stack` for its own 6px, because `Stack` has no
+                      `as="dl"` — deliberately: a description list's dt/dd pairing is a
+                      semantic contract and not a column. `.deflist` clears the user agent's
+                      `<dl>` and `<dd>` margins and adds the 8px above a second `<dt>`, which
+                      is the 14px group separation that was written by hand here and would
+                      have been missing from the third pair somebody added. */}
+                  <details className="disclosure">
+                    <summary className="disclosure__summary">
+                      {t('history.evidenceSummary')}
+                    </summary>
 
-                    <dl className="stack" style={{ marginTop: 'var(--space-4)' }}>
-                      <dt className="field__label">{t('history.versionLabel')}</dt>
-                      <dd className="tnum">{record.policy_version}</dd>
+                    <Stack gap="4">
+                      <p className="subtitle subtitle--sm">{t('history.evidenceNote')}</p>
 
-                      {/* The 8px here is a GROUP separation on top of the list's own 6px —
-                          14px, which is not on the scale and is why it cannot be a gap. */}
-                      <dt className="field__label" style={{ marginTop: 'var(--space-3)' }}>
-                        {t('history.fingerprintLabel')}
-                      </dt>
-                      {/* Whole, not truncated: a shortened hash cannot be checked against
-                          anything, which would make showing it theatre. `wordBreak` is what
-                          stops a 64-character hash pushing the card wider than the phone, and
-                          the token layer has no utility for it. */}
-                      <dd style={{ wordBreak: 'break-all', fontSize: 12.5 }}>
-                        <code>{record.policy_text_hash}</code>
-                      </dd>
-                    </dl>
+                      <dl className="stack deflist">
+                        <dt className="field__label">{t('history.versionLabel')}</dt>
+                        <dd className="tnum">{record.policy_version}</dd>
+
+                        <dt className="field__label">{t('history.fingerprintLabel')}</dt>
+                        {/* Whole, not truncated: a shortened hash cannot be checked against
+                            anything, which would make showing it theatre. `.hash` is what
+                            stops a 64-character fingerprint pushing the card wider than the
+                            phone — see tokens/components.css, where it sits beside the
+                            `.deflist` rules it is always used with. */}
+                        <dd className="hash">
+                          <code>{record.policy_text_hash}</code>
+                        </dd>
+                      </dl>
+                    </Stack>
                   </details>
                 </Stack>
               </Card>
@@ -328,12 +335,3 @@ function badgeTone(action: string): 'good' | 'warn' | 'neutral' {
       return 'neutral'
   }
 }
-
-/** The disclosure row is a control, so it answers to the same 44px touch floor. */
-const SUMMARY = {
-  cursor: 'pointer',
-  minHeight: 'var(--touch-min)',
-  display: 'flex',
-  alignItems: 'center',
-  fontWeight: 600,
-} as const

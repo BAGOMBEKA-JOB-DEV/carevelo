@@ -106,7 +106,9 @@ export async function PaymentMethodChooser({
       <h1>{t('choose.title')}</h1>
       <p>{t('choose.subtitle', { clinic })}</p>
 
-      <div className="stat" style={{ marginBlock: 'var(--space-5)' }}>
+      {/* `.stat--banded`: air on both sides of the figure, inside a card that has no gap
+          of its own. Three payment screens were writing that as `marginBlock` by hand. */}
+      <div className="stat stat--banded">
         <span className="stat__label">{t('choose.amountLabel')}</span>
         <span className="stat__value">
           <Money value={amount} />
@@ -144,9 +146,7 @@ export async function PaymentMethodChooser({
        * that path and takes nothing out of it. Saying so here is not marketing — it is the
        * only place the person handing over money can read it.
        */}
-      <p className="muted" style={{ marginTop: 'var(--space-5)' }}>
-        {t('choose.direct', { clinic })}
-      </p>
+      <p className="muted card__flow">{t('choose.direct', { clinic })}</p>
     </Card>
   )
 }

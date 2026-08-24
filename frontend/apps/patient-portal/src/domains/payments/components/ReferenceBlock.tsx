@@ -1,4 +1,5 @@
 import { getTranslations } from 'next-intl/server'
+import { Stack } from '@carevelo/ui'
 
 /**
  * The clinic-quotable reference, on every payment screen without exception.
@@ -26,21 +27,20 @@ export async function ReferenceBlock({ reference, clinic }: { reference: string;
      * there is no column here for a `<Stack>` gap to be. `.stack` still does the work
      * INSIDE it: the three lines are 6px apart, which is that class's own default.
      *
-     * THE TRACKING. A payment reference is not prose. It is read out down a telephone,
-     * digit by digit, to a member of staff looking for the same string on the clinic's
-     * aggregator dashboard, and 0.04em is what separates a run of monospace characters
-     * enough to be dictated without being re-read. `.mono` in the token layer sets the
-     * face and nothing else; the tracking has no class, and inventing `.identifier` for
-     * it is not free — the console already writes `className="identifier"` on a `<dd>`
-     * against a rule that does not exist anywhere in the token layer, so defining that
-     * name here would silently restyle a screen this sweep does not own. Reported instead.
+     * THE TRACKING IS `.reference` NOW, in tokens/components.css. A payment reference is
+     * read out down a telephone, character by character, to a member of staff looking for
+     * the same string on the clinic's aggregator dashboard, and 0.04em is what separates a
+     * run of monospace glyphs enough to be dictated without being re-read.
+     *
+     * The class is NOT called `.identifier`, which is the obvious name: the console
+     * already writes `className="identifier"` on a `<dd>` in ConsentDeskScreen.tsx against
+     * a rule that exists nowhere in the token layer, and defining that name would have
+     * restyled a screen this sweep does not own. That dangling class is reported instead.
      */
-    <div className="stack" style={{ marginTop: 'var(--space-5)' }}>
+    <Stack gap="2" className="card__flow">
       <span className="field__label">{t('reference.label')}</span>
-      <strong className="mono" style={{ letterSpacing: '0.04em' }}>
-        {reference}
-      </strong>
+      <strong className="mono reference">{reference}</strong>
       <span className="field__hint">{t('reference.hint', { clinic })}</span>
-    </div>
+    </Stack>
   )
 }

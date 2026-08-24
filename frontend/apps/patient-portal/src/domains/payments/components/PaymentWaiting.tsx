@@ -1,5 +1,5 @@
 import { getTranslations } from 'next-intl/server'
-import { Button, Card, Money, Notice, Spinner, formatMoney } from '@carevelo/ui'
+import { Button, Card, Inline, Money, Notice, Spinner, formatMoney } from '@carevelo/ui'
 import { isCash, isMobileMoney, moneyFrom } from '../api/types'
 import { ReferenceBlock } from './ReferenceBlock'
 import { StatusRefresher } from './StatusRefresher'
@@ -54,7 +54,10 @@ export async function PaymentWaiting({ tenant, intent, checkAgainHref, retryHref
       </p>
 
       {money === null ? null : (
-        <div className="stat" style={{ marginBlock: 'var(--space-5)' }}>
+        /* `.stat--banded` gives the figure air on BOTH sides inside a card that has no
+           gap of its own. It was `style={{ marginBlock: 'var(--space-5)' }}` here and on
+           two other payment screens; it is one declaration in tokens/components.css now. */
+        <div className="stat stat--banded">
           <span className="stat__label">{t('choose.amountLabel')}</span>
           <span className="stat__value">
             <Money value={money} />
@@ -66,7 +69,7 @@ export async function PaymentWaiting({ tenant, intent, checkAgainHref, retryHref
         {t('waiting.howLong')}
       </Notice>
 
-      <p style={{ marginTop: 'var(--space-5)' }}>{t('waiting.notPaidYet', { method })}</p>
+      <p className="card__flow">{t('waiting.notPaidYet', { method })}</p>
 
       <Notice tone="warn" icon="shield">
         {t('waiting.doNotPayTwice', { clinic })}
@@ -76,7 +79,10 @@ export async function PaymentWaiting({ tenant, intent, checkAgainHref, retryHref
 
       <ReferenceBlock reference={intent.reference} clinic={clinic} />
 
-      <div className="row-wrap" style={{ marginTop: 'var(--space-6)' }}>
+      {/* `<Inline>` for the row — it wraps rather than pushing the primary action off the
+          right edge of a 360px phone — and `.card__section` for the 18px above it, which is
+          a space AROUND the row and so is not a gap any column can hold. */}
+      <Inline gap="4" className="card__section">
         <Button href={checkAgainHref ?? ''} variant="brand" size="lg">
           {t('actions.checkAgain')}
         </Button>
@@ -86,12 +92,14 @@ export async function PaymentWaiting({ tenant, intent, checkAgainHref, retryHref
             {t('actions.tryAgain')}
           </Button>
         )}
-      </div>
+      </Inline>
 
-      <p className="row" style={{ marginTop: 'var(--space-5)' }}>
+      {/* `wrap={false}`: the spinner and the sentence it is spinning about are one atom,
+          and a spinner that has fallen onto its own line is a spinner about nothing. */}
+      <Inline as="span" gap="4" wrap={false} className="card__flow">
         <Spinner label={t('waiting.checkingLabel')} />
         <span className="muted grow">{t('waiting.checking')}</span>
-      </p>
+      </Inline>
 
       <StatusRefresher active />
 
@@ -152,7 +160,7 @@ export async function PaymentNotStarted({ tenant, intent, checkAgainHref, retryH
       </p>
 
       {money === null ? null : (
-        <div className="stat" style={{ marginBlock: 'var(--space-5)' }}>
+        <div className="stat stat--banded">
           <span className="stat__label">{t('choose.amountLabel')}</span>
           <span className="stat__value">
             <Money value={money} />
@@ -162,7 +170,10 @@ export async function PaymentNotStarted({ tenant, intent, checkAgainHref, retryH
 
       <ReferenceBlock reference={intent.reference} clinic={clinic} />
 
-      <div className="row-wrap" style={{ marginTop: 'var(--space-6)' }}>
+      {/* `<Inline>` for the row — it wraps rather than pushing the primary action off the
+          right edge of a 360px phone — and `.card__section` for the 18px above it, which is
+          a space AROUND the row and so is not a gap any column can hold. */}
+      <Inline gap="4" className="card__section">
         <Button href={checkAgainHref ?? ''} variant={atTheDesk ? 'quiet' : 'brand'} size="lg">
           {t('actions.checkAgain')}
         </Button>
@@ -172,7 +183,7 @@ export async function PaymentNotStarted({ tenant, intent, checkAgainHref, retryH
             {t('actions.tryAgain')}
           </Button>
         )}
-      </div>
+      </Inline>
 
       {/* Cash is confirmed by a person at a desk, so a timer would be asking a question
           nobody is answering on a schedule. The aggregator branch is genuinely re-checkable:

@@ -1,5 +1,5 @@
 import { getTranslations } from 'next-intl/server'
-import { Button, Card, Notice } from '@carevelo/ui'
+import { Button, Card, Inline, Notice } from '@carevelo/ui'
 import { ReferenceBlock } from './ReferenceBlock'
 import { StatusRefresher } from './StatusRefresher'
 import { clinicName, methodKeyOf, type PaymentScreenProps } from './screen'
@@ -54,11 +54,14 @@ export async function PaymentUnresolved({
         {t('unresolved.doNotPayTwice')}
       </Notice>
 
-      <p style={{ marginTop: 'var(--space-5)' }}>{t('unresolved.callClinic', { clinic })}</p>
+      <p className="card__flow">{t('unresolved.callClinic', { clinic })}</p>
 
       <ReferenceBlock reference={intent.reference} clinic={clinic} />
 
-      <div className="row-wrap" style={{ marginTop: 'var(--space-6)' }}>
+      {/* `<Inline>` for the row — it wraps rather than pushing the primary action off the
+          right edge of a 360px phone — and `.card__section` for the 18px above it, which is
+          a space AROUND the row and so is not a gap any column can hold. */}
+      <Inline gap="4" className="card__section">
         <Button href={checkAgainHref ?? ''} variant="brand" size="lg">
           {t('actions.checkAgain')}
         </Button>
@@ -68,10 +71,12 @@ export async function PaymentUnresolved({
             {t('actions.callClinic', { clinic, phone })}
           </Button>
         )}
-      </div>
+      </Inline>
 
       {retryHref === undefined ? null : (
-        <div style={{ marginTop: 'var(--space-6)' }}>
+        /* A section of its own rather than another paragraph: it is a second, weaker
+           offer, and `.card__section`'s 18px is what says so. */
+        <div className="card__section">
           <Notice tone="neutral" title={t('unresolved.tryAnywayTitle')}>
             <div className="stack">
               <span>{t('unresolved.tryAnyway')}</span>

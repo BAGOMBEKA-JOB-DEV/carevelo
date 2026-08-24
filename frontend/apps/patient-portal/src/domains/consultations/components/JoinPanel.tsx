@@ -188,28 +188,32 @@ export async function JoinPanel({
               </li>
             </ul>
 
-            {/* SURVIVING INLINE STYLES, here and on the note below it. This Card is a
-                BLOCK container and has to stay one, because `.ticklist` above brings its
-                own 24px `margin-top` from the token layer: inside a `<Stack>` that margin
-                would be added to the Stack's gap instead of standing in for it, and the
-                list would drift away from its heading. The three gaps down this card are
-                24px, 18px and 12px, so no single gap absorbs them either. */}
-            <form action={enterConsultation} style={{ marginTop: 'var(--space-6)' }}>
-              {/*
-               * The identifier travels in the form because a Server Action takes FormData,
-               * and it is safe there for the same reason it is safe in the URL: it is an
-               * argument to an authorised call, not an assertion. AppointmentPolicy::join
-               * and row-level security decide, and another clinic's appointment is a 404.
-               */}
-              <input type="hidden" name="appointment_id" value={appointment.id} />
-              <Button variant="brand" size="lg" block type="submit">
-                {t('enter')}
-              </Button>
-            </form>
+            {/* THIS CARD IS A BLOCK CONTAINER AND HAS TO STAY ONE, because `.ticklist`
+                above brings its own 24px `margin-top` from the token layer: inside a
+                `<Stack>` that margin would be ADDED to the Stack's gap instead of standing
+                in for it, and the list would drift away from its heading.
 
-            <p className="fine" style={{ marginTop: 'var(--space-4)' }}>
-              {t('resumeNote')}
-            </p>
+                So the button and the note under it are one SECTION of the card rather than
+                two more children of a column — which is what they are anyway, the note
+                being the sentence that explains the button. `.card__section` is the 18px
+                below the list, from tokens/components.css, and the 12px between the form
+                and its note is the group's own gap. Both were `marginTop` properties. */}
+            <Stack gap="4" className="card__section">
+              <form action={enterConsultation}>
+                {/*
+                 * The identifier travels in the form because a Server Action takes FormData,
+                 * and it is safe there for the same reason it is safe in the URL: it is an
+                 * argument to an authorised call, not an assertion. AppointmentPolicy::join
+                 * and row-level security decide, and another clinic's appointment is a 404.
+                 */}
+                <input type="hidden" name="appointment_id" value={appointment.id} />
+                <Button variant="brand" size="lg" block type="submit">
+                  {t('enter')}
+                </Button>
+              </form>
+
+              <p className="fine">{t('resumeNote')}</p>
+            </Stack>
           </Card>
         ) : null}
 

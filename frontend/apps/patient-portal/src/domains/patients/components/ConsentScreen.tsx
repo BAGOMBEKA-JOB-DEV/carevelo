@@ -278,12 +278,17 @@ export async function ConsentScreen({
 
                 <ConsentPolicyText text={primaryText} lang={primary} titleId="consent-policy" />
 
-                {/* SURVIVING INLINE STYLE, and one class away from going. 13px is a note
-                    under a block of policy text: `.subtitle` is 16px, `.fine` is 12px, and
-                    the step between them does not exist. It is the same 13px written out on
-                    four screens in this app, so the fix is `.subtitle--sm` beside `.subtitle`
-                    in tokens/typography.css — which is not this sweep's file to write. */}
-                <p className="subtitle" style={{ fontSize: 13 }}>
+                {/* `.subtitle--sm`, which is the class the note above this one asked for.
+                      13.5px is a note under a block of policy text: `.subtitle` is 16px — a
+                      LEDE — and `.fine` is 12px, and the step between them did not exist.
+                      Six elements across four screens were writing it out as a `fontSize`.
+
+                      It went into tokens/components.css rather than typography.css, which is
+                      where the earlier note guessed: typography.css is the SCALE, and this is
+                      a modifier of one class on it. Beside `.subtitle` would have been just
+                      as defensible; beside `.stat__value--sm`, which exists for exactly the
+                      same reason, is where the argument for it is already written down. */}
+                <p className="subtitle subtitle--sm">
                   {t('consent.policyVersion', { version: policy.version })}
                 </p>
 
@@ -296,7 +301,7 @@ export async function ConsentScreen({
                    * a page nobody reads either half of; the summary is written in the language
                    * it opens into, so it is legible to the person who needs it.
                    */
-                  <details>
+                  <details className="disclosure">
                     {/* `.disclosure__summary` in the token layer. A `<summary>` is a CONTROL
                         — clicked, tabbed to, toggling state — so it answers to the same 44px
                         floor as every other control on a surface opened one-handed on a
@@ -345,11 +350,17 @@ export async function ConsentScreen({
               >
                 {processingDecided ? null : (
                   <form action={submitDecision.bind(null, decisionFor('data_processing', true))}>
-                    {guardian ? <GuardianFields idPrefix="dp" strings={guardianStrings} /> : null}
+                    {/* 18px between the guardian's details and the button that submits
+                        them — see GuardianFields below for why it is a gap here rather
+                        than a margin there. With no guardian the column has one child and
+                        no gap, which is exactly right. */}
+                    <Stack gap="6">
+                      {guardian ? <GuardianFields idPrefix="dp" strings={guardianStrings} /> : null}
 
-                    <Button variant="brand" size="lg" block type="submit">
-                      {t('consent.agree')}
-                    </Button>
+                      <Button variant="brand" size="lg" block type="submit">
+                        {t('consent.agree')}
+                      </Button>
+                    </Stack>
                   </form>
                 )}
               </DecisionCard>
@@ -364,23 +375,27 @@ export async function ConsentScreen({
                 {decided?.telemedicine !== undefined ? null : processingGranted ? (
                   <div className="row-wrap">
                     <form action={submitDecision.bind(null, decisionFor('telemedicine', true))}>
-                      {guardian ? (
-                        <GuardianFields idPrefix="tm-yes" strings={guardianStrings} />
-                      ) : null}
+                      <Stack gap="6">
+                        {guardian ? (
+                          <GuardianFields idPrefix="tm-yes" strings={guardianStrings} />
+                        ) : null}
 
-                      <Button variant="brand" type="submit">
-                        {t('consent.agree')}
-                      </Button>
+                        <Button variant="brand" type="submit">
+                          {t('consent.agree')}
+                        </Button>
+                      </Stack>
                     </form>
 
                     <form action={submitDecision.bind(null, decisionFor('telemedicine', false))}>
-                      {guardian ? (
-                        <GuardianFields idPrefix="tm-no" strings={guardianStrings} />
-                      ) : null}
+                      <Stack gap="6">
+                        {guardian ? (
+                          <GuardianFields idPrefix="tm-no" strings={guardianStrings} />
+                        ) : null}
 
-                      <Button variant="quiet" type="submit">
-                        {t('consent.decline')}
-                      </Button>
+                        <Button variant="quiet" type="submit">
+                          {t('consent.decline')}
+                        </Button>
+                      </Stack>
                     </form>
                   </div>
                 ) : (
@@ -532,15 +547,21 @@ function GuardianFields({
   strings: GuardianStrings
 }): ReactElement {
   return (
-    /* SURVIVING INLINE STYLE, and the margin is the honest half of it. These fields are
-       dropped into four different forms on this page, each of which puts a submit button
-       directly after them, and the 18px below is a property of THAT relationship — not of
-       this column. `Stack` deliberately has no margin prop (a space AROUND a thing is not
-       a space BETWEEN things, and a `margin` prop is the first step to a utility
-       framework), and giving each of the four forms its own `<Stack gap="6">` would state
-       the same distance four times to retire it once. The 16px between the fields is the
-       column's own and is stated with `.stack`'s gap. */
-    <div className="stack" style={{ gap: 'var(--space-5)', marginBottom: 'var(--space-6)' }}>
+    /* THE COLUMN IS A `<Stack>`; THE 18px BELOW IT IS A CLASS. These fields are dropped
+       into four different forms on this page, each of which puts a submit button directly
+       after them, and that 18px is a property of THAT relationship rather than of this
+       column — so it is not a gap any `<Stack>` can hold, which is why `Stack` has no
+       margin prop and is not getting one (a space AROUND a thing is not a space BETWEEN
+       things, and a margin prop is the first step to a utility framework).
+
+       So it moved to where it belongs: each of the four decision forms is now a
+       `<Stack gap="6">`, and the 18px is that column's gap between these fields and the
+       button under them. It reads the same when the fields are ABSENT, which is the case
+       that made the margin wrong in the first place — a guardian-less patient renders a
+       form with one child, and a column with one child has no gap, where a margin-bottom
+       on a conditionally-rendered block is a distance that appears and disappears with
+       something else. Four gaps, but four gaps that cannot be left behind. */
+    <Stack gap="5">
       <span className="field__label">{strings.legend}</span>
 
       {/* The id is prefixed because these two fields appear once per decision form on this
@@ -560,6 +581,6 @@ function GuardianFields({
       >
         {(control) => <Input {...control} type="text" maxLength={60} required />}
       </Field>
-    </div>
+    </Stack>
   )
 }
