@@ -19,6 +19,7 @@
     "test": "./packages/ui/node_modules/.bin/vitest run",
     "test:watch": "./packages/ui/node_modules/.bin/vitest",
     "test:e2e": "playwright test",
+    "test:visual": "playwright test e2e/visual.spec.ts",
     "dev": "pnpm --filter @carevelo/patient-portal dev --hostname 0.0.0.0",
     "dev:console": "pnpm --filter @carevelo/clinic-console dev --hostname 0.0.0.0",
     "dev:rider": "pnpm --filter @carevelo/rider-view dev --hostname 0.0.0.0",

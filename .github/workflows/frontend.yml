@@ -131,3 +131,53 @@ jobs:
           git diff --exit-code -- packages/api-client/src/generated \
             || { echo "api-client:generate does not reproduce the committed client. Commit its output."; exit 1; }
           echo "generator output matches the committed client"
+
+# ---------------------------------------------------------------------------
+# THE VISUAL REGRESSION GATE IS NOT WIRED UP HERE, AND THIS IS WHAT IT WOULD TAKE.
+#
+# `pnpm test:visual` (frontend/e2e/visual.spec.ts) screenshots the key screens
+# at two viewports in both themes and diffs them against committed baselines. It
+# is the only check that can see a spacing regression re-entering through a class
+# or a token, which is the half the ESLint rule in eslint.config.js cannot cover:
+# that rule bans the SHAPE `style={{…}}`, and this would catch the EFFECT.
+#
+# It is not a job yet because it needs a whole running product, not a checkout:
+#
+#   1. PostgreSQL, migrated. Every page under test reads through the API, and the
+#      failure mode when the database is absent is not an error — it is a page
+#      that renders empty and screenshots perfectly happily. That is not
+#      hypothetical: the first baseline run on this machine produced twelve green
+#      PNGs that were all the same empty error page, because Postgres was down.
+#      Any job added here MUST assert on real content before it trusts a shot.
+#   2. The seeded demo tenant, `kira`, with its two accounts. The specs sign in.
+#   3. `php artisan serve` on :8000.
+#   4. All four Next dev servers, on the ports in each app's package.json.
+#   5. Requests made to `kira.localhost`, never `localhost` — tenancy is resolved
+#      from the Host header, so `localhost` renders the 404 page and the spec
+#      would pass against it.
+#
+# Baselines are also platform-specific: Playwright names them `-linux.png`, and
+# font rasterisation differs enough between a developer's machine and a runner
+# that the two disagree at the pixel level. A real job would generate them inside
+# the same container image it asserts in.
+#
+# Until that stack exists in CI, this runs locally against a stack brought up by
+# hand, and the spec says so at the top of the file.
+#
+#  visual:
+#    runs-on: ubuntu-latest
+#    services:
+#      postgres:
+#        image: postgres:16
+#        env: { POSTGRES_PASSWORD: postgres, POSTGRES_DB: carevelo }
+#        options: >-
+#          --health-cmd pg_isready --health-interval 10s --health-timeout 5s
+#          --health-retries 5
+#    steps:
+#      - uses: actions/checkout@v4
+#      - run: php artisan migrate --force && php artisan db:seed --class=DemoTenantSeeder
+#      - run: php artisan serve --port=8000 &
+#      - run: pnpm dev &            # all four apps
+#      - run: pnpm exec playwright install --with-deps chromium
+#      - run: pnpm test:visual
+# ---------------------------------------------------------------------------
