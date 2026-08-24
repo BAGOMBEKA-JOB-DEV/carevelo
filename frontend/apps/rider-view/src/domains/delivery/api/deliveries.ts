@@ -11,11 +11,16 @@ import type {
 } from '../model/types'
 
 /**
- * The three calls this app makes. There are only three, and there will not be a fourth.
+ * The three ENDPOINTS this app touches. There are only three, and there will not be a
+ * fourth.
  *
- *   GET  /v1/rider/deliveries              — this rider's own active assignments
+ *   GET  /v1/rider/deliveries              — this rider's own assignments, active or
+ *                                            recently finished, chosen by `?status=`
  *   GET  /v1/rider/deliveries/{id}         — one of them
  *   POST /v1/rider/deliveries/{id}/status  — move it
+ *
+ * Four functions, three endpoints: the listing answers two questions and the difference
+ * between them is one published parameter, not a second route. See `listCompleted()`.
  *
  * ------------------------------------------------------------
  * WHAT THE RIDER IS SHOWN IS NOT DECIDED HERE, AND CANNOT BE
@@ -42,25 +47,78 @@ import type {
 /**
  * This rider's active assignments, oldest first.
  *
- * "ACTIVE" IS THE SERVER'S DEFINITION AND THERE IS NO WAY TO WIDEN IT. `index()` filters
- * to `assigned`, `picked_up` and `en_route`, orders by `assigned_at`, and the operation
- * publishes NO query parameters at all. So a delivery leaves this list the moment it is
- * delivered or fails — which is the right default for a working screen, and is also the
- * reason this app has no "finished today" list: there is no endpoint that would serve
- * one.
+ * "ACTIVE" IS THE SERVER'S DEFINITION AND THERE IS NO WAY TO WIDEN IT. `index()` maps the
+ * word onto `assigned`, `picked_up` and `en_route` and orders by `assigned_at`, and
+ * `RiderAssignmentsRequest` publishes exactly two values for `?status=` — the two tabs this
+ * app has — rather than the seven-case `DeliveryStatus` enum the dispatch board speaks.
+ * That narrowness is the point: the wider parameter would let the least-trusted actor in
+ * the system compose questions no screen here answers, "which of my deliveries are
+ * unassigned" among them, which is a question about work being taken away from somebody.
  *
- * `cursor` IS PASSED THOUGH THE CONTRACT DOES NOT DESCRIBE IT. `cursorPaginate()` reads
- * it, and `meta.next_cursor` is published in the response — a paginator that hands out a
- * cursor and an operation that documents no way to send one back is a gap in the
- * contract, not a reason to page by offset. Offset is what duplicates and skips rows
- * while the dispatcher assigns beside you, and a skipped row here is a package nobody
- * collects. The day the operation gains a query schema, this line stops needing a
- * comment.
+ * NO PARAMETER IS SENT FOR THE DEFAULT, AND THAT IS DELIBERATE. `active` is the server's
+ * default and the default is the OLD behaviour, so this call is byte-for-byte the request
+ * it was before the parameter existed. Sending `status=active` explicitly would look like
+ * belt and braces and would in fact be a second place for the default to be decided.
+ *
+ * `cursor` AND `status` ARE BOTH SENT THOUGH THE CONTRACT DESCRIBES NEITHER.
+ * `operations['v1.rider.deliveries.index']` still types `query` as `never`, because
+ * `docs/40-api/openapi.yaml` has not been regenerated for this endpoint —
+ * `RiderAssignmentsRequest` validates both, and `meta.next_cursor` is published in the
+ * response. A paginator that hands out a cursor and an operation that documents no way to
+ * send one back is a gap in the specification, not a reason to page by offset: offset is
+ * what duplicates and skips rows while the dispatcher assigns beside you, and a skipped row
+ * here is a package nobody collects. `RequestOptions.query` is a plain record, so this
+ * compiles; the day the operation gains a query schema, both calls stop needing a comment.
  */
 export async function listAssignments(cursor?: string | undefined): Promise<AssignmentsPage> {
   const client = await readClient()
 
   return client.get<AssignmentsPage>('/v1/rider/deliveries', { query: { cursor } })
+}
+
+/**
+ * What this rider has finished recently, newest first.
+ *
+ * ==================================================================
+ * THIS CALL READS BACK A BOUNDED WINDOW, AND THE BOUND IS THE SERVER'S
+ * ==================================================================
+ *
+ * `RiderDeliveryController::COMPLETED_WINDOW_HOURS` is 72, and its docblock argues the
+ * number at length: every row here carries a named person's telephone number and the
+ * street address where their medicines were taken, and the fact that a named person
+ * received a delivery from a named clinic is itself health data under DPPA 2019 whether or
+ * not a medicine is named. An all-time history would turn a rider's handset — a personal
+ * phone that leaves the clinic every evening and may be sold, lost or handed on — into a
+ * standing, exportable list of a clinic's patients and where they live.
+ *
+ * NOTHING IN THIS FILE MAY WIDEN THAT, AND NOTHING HERE TRIES. There is no `from`, no
+ * `until` and no `per_page` above the endpoint's own ceiling, because the parameter set the
+ * server publishes is two words and a cursor. The bound is enforced on `show` as well as on
+ * the listing — a rider who read a delivery yesterday holds its identifier, and a `show`
+ * with no bound would hand back the recipient and the address for as long as the row exists
+ * — so this screen and the delivery screen behind it age out together. If they did not,
+ * only the weaker of the two would be true.
+ *
+ * ACTIVE WORK IS NEVER IN THIS LIST AND IS NEVER AGED OUT OF THE OTHER ONE. The window
+ * applies to finished deliveries alone; a package still assigned to this rider stays on the
+ * round however long it has been sitting there, because a package that disappeared from a
+ * rider's list because it got old is a package nobody delivers.
+ *
+ * NEWEST FIRST, WHERE THE ROUND IS OLDEST FIRST. A work queue is read from the front; a
+ * record of what you just did is read from the back. The server decides that ordering and
+ * it is named here so nobody adds a sort of their own on top of it.
+ *
+ * THE PAYLOAD IS THE SAME `RiderDeliveryResource` AS THE ROUND. Finished work does not get
+ * a wider projection than live work — it gets a narrower window. There is still no
+ * diagnosis, no clinical note, no prescription and no medicine list, because there is no
+ * such property on the type.
+ */
+export async function listCompleted(cursor?: string | undefined): Promise<AssignmentsPage> {
+  const client = await readClient()
+
+  return client.get<AssignmentsPage>('/v1/rider/deliveries', {
+    query: { status: 'completed', cursor },
+  })
 }
 
 /**

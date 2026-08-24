@@ -27,7 +27,11 @@
  *     that cannot be in the bundle cannot be rendered by mistake.
  *  2. EVERY TYPE IN model/types.ts COMES FROM THE GENERATED CONTRACT. There is no
  *     hand-written delivery interface that could quietly grow a `medicines` field.
- *  3. THE ONLY ENDPOINTS TOUCHED ARE THE THREE UNDER `/v1/rider`. `/v1/deliveries`,
+ *  3. THE ONLY ENDPOINTS TOUCHED ARE THE THREE UNDER `/v1/rider` — and `CompletedScreen`
+ *     did not add a fourth. It asks the SAME listing a different question, through the one
+ *     parameter `RiderAssignmentsRequest` publishes, and gets back the same
+ *     `RiderDeliveryResource` over a narrower window. Finished work does not earn a wider
+ *     projection than live work. `/v1/deliveries`,
  *     `/v1/dispense-orders` and `/v1/prescriptions` exist and are staff endpoints; a
  *     rider's session would be refused by them, but the refusal is not the control. The
  *     control is that nothing here has a reason to know their names.
@@ -42,12 +46,13 @@
  * WHAT THE ROUTE LAYER HAS TO DO, EXACTLY
  * ==================================================================
  *
- * Two screens, both mounted inside `<FieldShell>`, both behind the identity domain's
+ * Three screens, all mounted inside `<FieldShell>`, all behind the identity domain's
  * guard — `currentRider()` for a session and `isRider()` for the role, because the API
- * answers a non-rider with an empty list, which on this screen is indistinguishable from
+ * answers a non-rider with an empty list, which on these screens is indistinguishable from
  * a quiet morning.
  *
  *   <AssignmentsScreen paths cursor done problem message />
+ *   <CompletedScreen   paths cursor />
  *   <DeliveryScreen    delivery paths reporting done already problem message />
  *
  * `paths` is `DeliveryPaths`: where the route layer has mounted these two, with
@@ -71,12 +76,13 @@
 
 /* ---- Screens ---- */
 export { AssignmentsScreen, type AssignmentsScreenProps } from './components/AssignmentsScreen'
+export { CompletedScreen, type CompletedScreenProps } from './components/CompletedScreen'
 export { DeliveryScreen, type DeliveryScreenProps } from './components/DeliveryScreen'
 
 /* ---- Reads, for a route that must 404 or set a title.
    `getAssignment` is null-on-refusal and never throws for a missing record;
    `listAssignments` throws `ApiError`, and the screen above catches for itself. ---- */
-export { getAssignment, listAssignments } from './api/deliveries'
+export { getAssignment, listAssignments, listCompleted } from './api/deliveries'
 
 /* ---- Types, all of them from the generated contract ---- */
 export type {

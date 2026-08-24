@@ -1,44 +1,41 @@
 /**
  * The rider view's two sections — one entry per tab.
  *
- * WHY THIS FILE EXISTS. Both tabs pointed at routes that did not exist, so the whole of
- * this surface's navigation was a 404. On the smallest surface in the product that is the
- * easiest kind of breakage to leave in place: two links, both broken, nothing to compare
- * them against. The tab bar is now generated from this list and the placeholder screens
- * read the same list, so a tab cannot exist without a screen describing what belongs
- * behind it.
+ * WHY THIS FILE EXISTS. Both tabs once pointed at routes that did not exist, so the whole
+ * of this surface's navigation was a 404. On the smallest surface in the product that is
+ * the easiest kind of breakage to leave in place: two links, both broken, nothing to
+ * compare them against. The tab bar is generated from this list, so a tab cannot exist
+ * without a route being named for it here.
+ *
+ * IT USED TO CARRY MORE, AND WHAT IT CARRIED IS WORTH RECORDING. Each section also held a
+ * lede, a caution and a list of "plans" — a description of the screen that would eventually
+ * be built — which `PlannedSection` rendered on the tabs that had no screen yet. Both tabs
+ * have screens now: `AssignmentsScreen` and `CompletedScreen` say what they are in their
+ * own headings, which is where a page's description belongs. Keeping a second copy here
+ * would be two sets of words for one screen, free to drift, with only one of them on
+ * display. So the placeholder went, and this file is the tab bar's own data and nothing
+ * else.
  *
  * TWO SECTIONS, AND IT SHOULD STAY TWO. The rider is the least-trusted actor in the system
- * and has the fewest things to do: see the next delivery, change its status. Anything that
- * wants to be a third tab here should be read as a request to give a rider information
- * they do not need.
+ * and has the fewest things to do: see the next delivery, change its status, check what
+ * they finished. Anything that wants to be a third tab here should be read as a request to
+ * give a rider information they do not need — and the first such request is always the
+ * clinic's dispatch board, which is a `viewAny` the rider policy refuses.
  *
- * NOTHING CLINICAL IS DESCRIBED HERE, and nothing clinical may ever be. A rider never sees
- * a diagnosis, a clinical note, or — where it can be avoided — a medicine name. The
- * backend enforces that with a rider-specific resource class rather than the dispatcher's
- * with fields hidden, and this app carries only the delivery and identity domains so that
- * a clinical component cannot exist in the bundle at all. This file is the copy layer of
- * the same rule.
+ * NOTHING CLINICAL IS NAMED HERE, and nothing clinical may ever be. A rider never sees a
+ * diagnosis, a clinical note, or a medicine name. The backend enforces that with a
+ * rider-specific resource class rather than the dispatcher's with fields hidden, and this
+ * app carries only the delivery and identity domains so that a clinical component cannot
+ * exist in the bundle at all. This file is the navigation layer of the same rule.
  *
  * @see docs/10-product/prd-h4-prescription-dispensing-delivery.md
  */
 
-/** One thing that will live on a section's screen. Rendered as a card. */
-export type Plan = {
-  readonly title: string
-  readonly body: string
-}
-
 export type Section = {
   /** The route. Needs a matching directory under src/app, or the tab 404s. */
   readonly href: string
-  /** Tab label and page heading. */
+  /** Tab label. Short, because it sits in a bar two items wide on a 360px screen. */
   readonly label: string
-  /** One sentence: what this screen is for. */
-  readonly lede: string
-  /** A constraint a reader of this screen must not miss. Rendered as a standing notice. */
-  readonly caution?: string | undefined
-  readonly plans: readonly Plan[]
 }
 
 /** Tab order, left to right. */
@@ -47,57 +44,22 @@ export const SECTION_IDS = ['assignments', 'completed'] as const
 export type SectionId = (typeof SECTION_IDS)[number]
 
 export const SECTIONS: Record<SectionId, Section> = {
+  /** The round in front of the rider: assigned, picked up, en route. */
   assignments: {
     href: '/assignments',
     label: 'Assignments',
-    lede: 'The deliveries assigned to you, and nothing else.',
-    caution:
-      'A rider is shown a recipient, an address and a package reference. No diagnosis, no '
-      + 'clinical note and no medicine name reaches this screen — not hidden by the '
-      + 'interface, but absent from the response the server sends it, which is a different '
-      + 'and much stronger guarantee.',
-    plans: [
-      {
-        title: 'Yours only',
-        body:
-          'The deliveries assigned to you. Another rider\'s work is not here, and neither is '
-          + 'the clinic\'s dispatch board.',
-      },
-      {
-        title: 'What each one shows',
-        body:
-          'Recipient name and phone, the delivery address with any landmark, and the package '
-          + 'reference. That is the whole of it, and it is everything needed to hand a '
-          + 'package to the right person.',
-      },
-      {
-        title: 'Status',
-        body:
-          'Collected, on the way, delivered. A delivery that cannot be completed is recorded '
-          + 'with a reason from a fixed list and returns to the pharmacy the same day — '
-          + 'medicine belongs on licensed premises and never sits with a rider overnight.',
-      },
-    ],
   },
 
+  /**
+   * Recently finished work — delivered, could not be delivered, returned to the pharmacy.
+   *
+   * "RECENTLY" IS THE SERVER'S WORD AND IT IS 72 HOURS. See
+   * `RiderDeliveryController::COMPLETED_WINDOW_HOURS`, which argues the number: a rider's
+   * handset is a personal phone that leaves the clinic every evening, and an all-time
+   * history would turn it into a standing list of a clinic's patients and where they live.
+   */
   completed: {
     href: '/completed',
     label: 'Completed',
-    lede: 'The deliveries you have already finished.',
-    plans: [
-      {
-        title: 'Finished runs',
-        body:
-          'What you delivered and when, in Africa/Kampala time, so you can check your own '
-          + 'day against the clinic\'s record of it.',
-      },
-      {
-        title: 'The ones that came back',
-        body:
-          'A delivery that could not be completed, with the reason recorded at the time and '
-          + 'the return to the pharmacy noted against it. It stays visible here rather than '
-          + 'quietly disappearing from your list.',
-      },
-    ],
   },
 }
