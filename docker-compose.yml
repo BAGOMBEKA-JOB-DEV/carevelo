@@ -63,6 +63,13 @@ services:
 
   # ---------------------------------------------------------------------------
   # One-shot setup: roles, migrations, seed. Everything else waits on it.
+  #
+  # NOTHING HERE MAY WRITE INTO THE MOUNTED SOURCE. ./backend is the developer's
+  # own directory, so a command that edits a file in it edits THEIRS. This ran
+  # `key:generate` once and replaced a working APP_KEY with a malformed one,
+  # breaking 76 tests on the host with "Unsupported cipher or incorrect key
+  # length". The key now comes from docker/api.env, which Laravel reads ahead of
+  # .env. Anything added here should read the source and write only the database.
   # Separated from the API so that a failure here is legible as a failure of
   # setup rather than a web server that will not boot.
   # ---------------------------------------------------------------------------
@@ -78,7 +85,6 @@ services:
       - ./backend:/app
     command: >
       sh -c "
-        php artisan key:generate --force &&
         php artisan db:roles --superuser=postgres &&
         php artisan migrate --database=pgsql_migrator --force &&
         php artisan db:seed --force &&
