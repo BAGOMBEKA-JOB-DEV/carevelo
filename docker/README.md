@@ -74,3 +74,30 @@ putting video in front of anyone.
 `next dev` and `artisan serve`, source mounted, secrets from `.env.example` and
 therefore public. The foot of `docker-compose.yml` lists what a production one
 needs instead.
+
+## If the build is slow or times out
+
+The first build downloads a lot. On a thin connection the original version of
+these files failed after six minutes of retries, and three things now stop that
+being fatal:
+
+- **Two images, not nine.** Every service sharing a Dockerfile also shares an
+  `image:` name. Compose keys a build by that name, so without it the five PHP
+  services and four Node services built *separately* — nine full dependency
+  installs racing each other for one connection.
+- **Cache mounts.** A failed build no longer throws away what it downloaded, so
+  a retry resumes instead of restarting. If a build dies, just run it again.
+- **Four parallel downloads, not sixteen.** pnpm's default saturates a thin link
+  so completely that every stream drops under the 50 KiB/s floor it warns about.
+  Fewer streams finish sooner.
+
+Playwright's browsers (~150 MB) are skipped: the container runs `next dev` and
+never opens one. Browser tests run on your machine against a stack that is up.
+
+Still struggling? Build one image at a time so a failure costs less:
+
+```bash
+docker compose build patient-portal   # the web image, shared by all four apps
+docker compose build api              # the PHP image, shared by five services
+docker compose up
+```

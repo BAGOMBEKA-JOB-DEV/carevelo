@@ -4,6 +4,7 @@
 # configuration; splitting them into three images would mean three things to keep
 # in step and three chances for a worker to run last week's code against this
 # week's schema. The compose file runs the same image with different commands.
+# syntax=docker/dockerfile:1
 FROM php:8.3-cli-alpine
 
 # intl for the Africa/Kampala date handling, pdo_pgsql for the database, zip and
@@ -23,7 +24,11 @@ WORKDIR /app
 # DEPENDENCIES BEFORE SOURCE, so a code change does not reinstall the world.
 # --no-scripts because artisan is not here yet; scripts run after the copy below.
 COPY backend/composer.json backend/composer.lock ./
-RUN composer install --no-interaction --no-scripts --prefer-dist
+# A cache mount for the same reason the web image has one: on a slow connection a
+# failed build must not throw away what it already downloaded, or the retry fails
+# identically and you are in a loop.
+RUN --mount=type=cache,id=composer-cache,target=/tmp/composer \
+    COMPOSER_HOME=/tmp/composer composer install --no-interaction --no-scripts --prefer-dist
 
 COPY backend/ ./
 RUN composer dump-autoload --optimize

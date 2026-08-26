@@ -15,6 +15,13 @@
 
 name: carevelo
 
+# EVERY SERVICE THAT SHARES A DOCKERFILE ALSO SHARES AN `image:` NAME, and that is
+# not cosmetic. Compose keys a build by its target image name, so without these
+# five PHP services and four Node services built as NINE separate images -- nine
+# full dependency installs, competing for one connection. On a slow link that
+# does not finish: the first attempt died after 6m25s of `pnpm install` retries
+# at 9 KiB/s. With the names pinned it is two builds, and the rest reuse them.
+
 services:
   # ---------------------------------------------------------------------------
   # PostgreSQL. THE TWO ROLES ARE THE TENANT-ISOLATION CONTROL, NOT A CONVENTION.
@@ -60,6 +67,7 @@ services:
   # setup rather than a web server that will not boot.
   # ---------------------------------------------------------------------------
   setup:
+    image: carevelo-api:dev
     build:
       context: .
       dockerfile: docker/api.Dockerfile
@@ -78,6 +86,7 @@ services:
       "
 
   api:
+    image: carevelo-api:dev
     build:
       context: .
       dockerfile: docker/api.Dockerfile
@@ -95,6 +104,7 @@ services:
   # API up and neither of these running looks completely healthy and quietly does
   # nothing, which is the worst kind of broken.
   worker:
+    image: carevelo-api:dev
     build: { context: ., dockerfile: docker/api.Dockerfile }
     depends_on:
       setup: { condition: service_completed_successfully }
@@ -104,6 +114,7 @@ services:
     command: php artisan queue:work --tries=3 --timeout=90
 
   scheduler:
+    image: carevelo-api:dev
     build: { context: ., dockerfile: docker/api.Dockerfile }
     depends_on:
       setup: { condition: service_completed_successfully }
@@ -112,6 +123,7 @@ services:
     command: php artisan schedule:work
 
   reverb:
+    image: carevelo-api:dev
     build: { context: ., dockerfile: docker/api.Dockerfile }
     depends_on:
       setup: { condition: service_completed_successfully }
@@ -127,6 +139,7 @@ services:
   # `dev` script so a container and a local run are reachable at the same URL.
   # ---------------------------------------------------------------------------
   patient-portal:
+    image: carevelo-web:dev
     build: { context: ., dockerfile: docker/web.Dockerfile }
     depends_on: [api]
     environment:
@@ -138,6 +151,7 @@ services:
     command: pnpm --filter @carevelo/patient-portal dev --hostname 0.0.0.0
 
   clinic-console:
+    image: carevelo-web:dev
     build: { context: ., dockerfile: docker/web.Dockerfile }
     depends_on: [api]
     environment:
@@ -147,6 +161,7 @@ services:
     command: pnpm --filter @carevelo/clinic-console dev --hostname 0.0.0.0
 
   rider-view:
+    image: carevelo-web:dev
     build: { context: ., dockerfile: docker/web.Dockerfile }
     depends_on: [api]
     environment:
@@ -156,6 +171,7 @@ services:
     command: pnpm --filter @carevelo/rider-view dev --hostname 0.0.0.0
 
   platform-admin:
+    image: carevelo-web:dev
     build: { context: ., dockerfile: docker/web.Dockerfile }
     depends_on: [api]
     environment:
