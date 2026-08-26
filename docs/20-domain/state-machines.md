@@ -205,9 +205,31 @@ stateDiagram-v2
 
 **Notes**
 
-- `suspended` blocks staff sign-in. It does **not** block a patient reading their own records, and does not abandon a delivery in flight. A commercial dispute must not become a clinical incident.
+- `suspended` blocks staff sign-in. It does **not** block a patient reading their own records, does not abandon a delivery in flight, and does not permit the offboarding export to be withheld. A commercial dispute must not become a clinical incident.
+- **`active → suspended` is now also reached automatically**, by `billing:suspend-lapsed`, when a subscription period has ended and the grace window has elapsed. Everything in the clause above holds identically for an automatic suspension — the sweep changes a status and nothing else, which is precisely what keeps it true. Two refusals are part of the machine rather than the sweep's discretion: a clinic with no commercial record at all is never suspended (absence of a record is not evidence of non-payment), and only an `active` clinic is a candidate, because this transition table already says so.
 - `offboarding` starts the controller-obligation clock: export the clinic's data to the clinic, then delete on the retention schedule ([Retention & Deletion](../50-security-compliance/data-retention-and-deletion.md), §H7.4).
 - `closed` means tenant data is deleted; the audit trail of the deletion itself is retained.
+
+## PlatformSubscriptionCharge
+
+One attempt to collect a clinic's subscription. **Carevelo is the merchant** — see [Domain Model](domain-model.md) for why this is not a `PaymentIntent`.
+
+```mermaid
+stateDiagram-v2
+    [*] --> initiated: charge recorded
+    initiated --> succeeded: Pesapal reports COMPLETED, amount agrees
+    initiated --> failed: Pesapal reports FAILED
+    succeeded --> reversed: Pesapal reports a reversal
+    failed --> [*]
+    reversed --> [*]
+```
+
+**Notes**
+
+- **There is no `pending`**, and its absence is the difference from `PaymentIntent` rather than an omission. Nobody is standing at a counter watching a mobile-money prompt: a recurring charge is executed by Pesapal on its own schedule, and a transaction Pesapal has nothing on yet is simply one we have not been told about.
+- `failed` is final **as a charge**. The retry is Pesapal's recurring schedule, which produces a new transaction with a new tracking id and therefore a new row.
+- `reversed` does **not** wind back the clinic's paid-through date. Withdrawing service retroactively over a payments dispute is a decision for a person who can telephone the clinic, and a scheduled sweep is not that person.
+- A reported amount that disagrees with the clinic's agreed price applies **no** transition at all, and is flagged.
 
 ## Patient
 

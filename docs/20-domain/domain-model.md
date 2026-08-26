@@ -16,6 +16,7 @@ erDiagram
     TENANT ||--o{ PATIENT : records
     TENANT ||--|| AGGREGATOR_ACCOUNT : configures
     TENANT ||--o{ AUDIT_EVENT : accrues
+    TENANT ||--o{ PLATFORM_SUBSCRIPTION_CHARGE : "is billed by"
 
     PATIENT ||--o{ CONSENT_RECORD : grants
     PATIENT ||--o{ APPOINTMENT : books
@@ -42,7 +43,9 @@ erDiagram
     TENANT_USER ||--o{ DELIVERY : "rider assigned"
 ```
 
-Every entity in that diagram except `TENANT` itself carries `tenant_id`. It is omitted from the relationships above only to keep the diagram readable — see [Multi-Tenancy](../30-architecture/multi-tenancy.md) for why it is on every row without exception.
+Every entity in that diagram except `TENANT` and `PLATFORM_SUBSCRIPTION_CHARGE` carries `tenant_id` *as its isolation key*. It is omitted from the relationships above only to keep the diagram readable — see [Multi-Tenancy](../30-architecture/multi-tenancy.md) for why it is on every row without exception.
+
+`PLATFORM_SUBSCRIPTION_CHARGE` is the exception worth reading twice. It carries a `tenant_id`, and that column names **who is being billed** rather than whose row it is: the charge is Carevelo's record of its own revenue, and it is invisible from inside the clinic it names. That is the opposite direction from every other line in the diagram, which is why it is a platform-scoped aggregate rather than a table under the clinic.
 
 ## Aggregate boundaries
 
@@ -93,7 +96,7 @@ Tenant
   branding: logo_url, primary_colour, secondary_colour
   contact: phone, email, physical_address, district
   compliance: umdpc_facility_reference?, nda_licence_reference?
-  subscription: plan, status, trial_ends_at
+  subscription: plan?, plan_price_minor?, trial_ends_at?, current_period_ends_at?
   locale: timezone (Africa/Kampala), currency (UGX)
   status: provisioning | active | suspended | offboarding | closed
 ```
@@ -102,7 +105,10 @@ Tenant
 
 - `subdomain` is globally unique and immutable after provisioning — it appears in patient-facing URLs and in the aggregator callback configuration.
 - Compliance references are **stored as evidence, not verified**. Carevelo does not and cannot validate a UMDPC or NDA licence; recording it is the clinic's attestation. Never present these as verified in any UI (§H1.2).
-- A tenant in `suspended` state blocks staff sign-in but never blocks a patient from reading their own existing records or a delivery in flight — suspension is a commercial action and must not become a clinical one.
+- A tenant in `suspended` state blocks staff sign-in but never blocks a patient from reading their own existing records or a delivery in flight — suspension is a commercial action and must not become a clinical one. This holds when the suspension is automatic as well as when an operator performs it; `billing:suspend-lapsed` changes a status and nothing else, precisely so that the rule keeps holding.
+- **`plan` and `plan_price_minor` are permitted to disagree with any published price list, and neither is derived from the other.** The tier says what a clinic *gets*; the amount says what *this* clinic agreed to pay. Early plans are agreed in conversation (§G), so a clinic that negotiated a price keeps it — a price table would silently re-price every clinic on a tier the day it changed, retroactively, with nothing in the diff to show it.
+- **`current_period_ends_at` being null is not evidence of non-payment.** It means no paid period is recorded, which for a clinic nobody has billed is simply true. The lapse rule falls back to `trial_ends_at` and, when both are null, concludes nothing — the alternative would have suspended every clinic in the register the day the column was added.
+- Neither `plan`, `plan_price_minor` nor `current_period_ends_at` is mass-assignable, and none is settable from any clinic-facing endpoint. A paid-through date a clinic could write is a subscription a clinic could grant itself.
 - `offboarding` triggers the export obligation in [Retention & Deletion](../50-security-compliance/data-retention-and-deletion.md).
 
 ### TenantUser
@@ -344,6 +350,45 @@ PaymentIntent
 - `redirect_url` is **somewhere to send the patient, not a confirmation that anybody has paid.** The intent is `initiated` when it is written.
 - `cash_at_clinic` involves no aggregator and resolves by staff attestation, which is itself an audited action.
 - Refunds are **initiated by the clinic through its own aggregator**, and recorded here as an outcome. Carevelo never issues a refund, because it holds nothing to refund from.
+
+### PlatformSubscriptionCharge *(platform-scoped)*
+
+One attempt to collect a **clinic's subscription to the software**. Carevelo is the merchant.
+
+```
+PlatformSubscriptionCharge
+  id, tenant_id                  -- WHO IS BILLED, not whose row this is
+  plan, amount_minor, currency   -- copied at charge time, never read back through the relation
+  period_starts_on, period_ends_on
+  merchant_reference             -- ours; Pesapal echoes it as OrderMerchantReference
+  aggregator_tracking_id?        -- Pesapal's id; absent until Pesapal mints one
+  aggregator_reference?          -- confirmation code for a completed collection
+  failure_code?                  -- the machine code only, never the provider's prose
+  status  -- initiated | succeeded | failed | reversed
+  initiated_at, resolved_at?
+```
+
+**Why this is not a `PaymentIntent` with a different `payable_type`.** Every invariant the patient path relies on is inverted here, and running both through one table would put clinic money and Carevelo money on one code path — which is how custody arrives by accident, and [ADR-0003](../70-decisions/0003-non-custodial-payment-architecture.md) is blunt about what custody costs.
+
+| | `PaymentIntent` | `PlatformSubscriptionCharge` |
+|---|---|---|
+| Who pays whom | patient → clinic | clinic → Carevelo |
+| Merchant | the clinic | **Carevelo** |
+| Credentials | the clinic's own `aggregator_accounts` row | config/env, never a database row |
+| Where funds settle | the clinic's account | our own revenue |
+| Scoping | tenant-scoped, RLS-isolated | platform-scoped, invisible inside a tenant |
+| Subject | an `Appointment` or `DispenseOrder` | the tenant's own subscription |
+
+**Invariants**
+
+- **Permitted by ADR-0003 and by nothing wider.** §Consequences: "Revenue is subscription-only (§F)". Carevelo is the merchant for its own subscription fee and for no other money that exists.
+- **Touches neither `aggregator_accounts` nor `payment_intents`**, ever. Not by relation, not by lookup, not through a shared service. A test watches the statements a charge actually issues and fails if either table appears.
+- **Records an attempt; does not move money**, exactly as `PaymentIntent` does. There is no running total, no arrears and no balance — a clinic whose period lapsed weeks ago is not billed for the gap, because no concept in which it could accrue exists.
+- **Platform-scoped and additionally fenced by an inverted RLS policy**: visible with no tenant bound, invisible *and unwritable* with any tenant bound. Being unwritable matters as much as being unreadable — without `WITH CHECK`, a clinic session could forge a paid subscription into a table it cannot read.
+- `amount_minor` is copied from the tenant's agreed price at charge time and **never** from what Pesapal reported. A row built from the reported amount would agree with itself, and the amount check would be inert.
+- **The reported amount is checked, never believed.** A mismatch applies no state change and is flagged — the same fraud boundary the patient path enforces, in a separate implementation, deliberately.
+- **`aggregator_tracking_id` is unique**, which is what stops a replayed recurring notification extending a clinic's paid-through date twice.
+- Nothing refunds from here. A subscription correction is executed by Carevelo at Pesapal, as the merchant, and appears here as `reversed` when Pesapal reports it.
 
 ### AggregatorAccount
 

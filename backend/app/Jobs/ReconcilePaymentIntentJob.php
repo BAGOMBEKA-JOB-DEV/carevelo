@@ -86,7 +86,8 @@ class ReconcilePaymentIntentJob extends TenantAwareJob
 
         try {
             // The clinic's OWN credentials. There is no platform merchant
-            // account to fall back on, because no such account exists.
+            // account to fall back on: the one Carevelo holds collects the
+            // clinic's SUBSCRIPTION and is unreachable from a PaymentIntent.
             $reported = app(PaymentGateway::class)->fetchStatus($account, $intent);
         } catch (AggregatorUnavailable $e) {
             // An aggregator outage must not spin the queue. Back off onto the

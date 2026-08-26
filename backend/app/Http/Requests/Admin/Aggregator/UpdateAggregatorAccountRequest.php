@@ -10,10 +10,17 @@ use Illuminate\Validation\Rule;
 /**
  * The CLINIC'S OWN merchant credentials at a BoU-licensed aggregator.
  *
- * There is no platform merchant account. Carevelo has none, will never have
- * one, and could not use one without becoming a payment service provider under
- * the NPS Act 2020 -- so every credential in this payload belongs to the clinic
- * and every shilling collected with it settles directly to the clinic.
+ * There is no platform merchant account ON THIS PATH, and none can be reached
+ * from it. Carevelo could not collect a patient's payment into an account of
+ * its own without becoming a payment service provider under the NPS Act 2020 --
+ * so every credential in this payload belongs to the clinic, and every shilling
+ * collected with it settles directly to the clinic.
+ *
+ * Carevelo does hold one Pesapal merchant account, for the clinic's SUBSCRIPTION
+ * to the software. It is unreachable from here: its credentials come from
+ * configuration, this request cannot express them, and the endpoint behind it
+ * writes an aggregator_accounts row -- a table subscription billing never
+ * touches. @see docs/70-decisions/0003-non-custodial-payment-architecture.md
  *
  * PUT rather than PATCH, and `secret_key` is required: a partial credential
  * update produces a half-rotated key pair that fails at the aggregator hours

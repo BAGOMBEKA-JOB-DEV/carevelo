@@ -3255,6 +3255,201 @@ paths:
                   - data
         401:
           $ref: '#/components/responses/AuthenticationException'
+  /webhooks/pesapal-billing:
+    get:
+      operationId: webhooks.pesapal-billing
+      description: "Trusted for nothing. `OrderTrackingId` is the only field read, and it is\nused solely as the `orderTrackingId` argument to an authenticated call to\nPesapal. Everything this endpoint acts on comes from that answer.\n\nAlways answers `{\"received\": true}` with 200, or a neutral 404 that does\nnot distinguish an unconfigured platform from an unreadable request."
+      summary: 'Receive a Pesapal notification about a subscription transaction'
+      tags:
+        - PlatformBillingIpn
+      parameters:
+        -
+          name: OrderTrackingId
+          in: query
+          description: "THE ONLY PLACE THE REQUEST IS TOUCHED. `input()` reads the query\n string and the body alike, which is what the route's GET|POST needs:\n Pesapal registers a notification type per URL and has been known to\n send either."
+          schema:
+            type: string
+      responses:
+        200:
+          description: "Nothing from the notification is stored. There is nothing in it worth\nkeeping: no status, no amount, no clinic, no signature."
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  received:
+                    type: boolean
+                required:
+                  - received
+        404:
+          description: ''
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                    const: 'Not found'
+                  status:
+                    type: integer
+                    const: 404
+                  code:
+                    type: string
+                    const: not_found
+                  detail:
+                    type: 'null'
+                  errors:
+                    type: string
+                required:
+                  - type
+                  - title
+                  - status
+                  - code
+                  - detail
+                  - errors
+  '/v1/platform/tenants/{tenant}/subscription':
+    get:
+      operationId: v1.platform.subscription.show
+      summary: 'What this clinic is on, and what became of its recent charges'
+      tags:
+        - PlatformSubscription
+      parameters:
+        -
+          name: tenant
+          in: path
+          required: true
+          description: 'The tenant ID'
+          schema:
+            type: string
+      responses:
+        200:
+          description: '`PlatformSubscriptionResource`'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/PlatformSubscriptionResource'
+                required:
+                  - data
+        403:
+          $ref: '#/components/responses/AuthorizationException'
+        404:
+          $ref: '#/components/responses/ModelNotFoundException'
+        401:
+          $ref: '#/components/responses/AuthenticationException'
+    put:
+      operationId: v1.platform.subscription.update
+      description: "DOES NOT COLLECT ANYTHING. Recording a commercial agreement and asking\nPesapal for money are two different acts and are two different endpoints,\nbecause a support operator correcting a typo in a price must not thereby\ncharge a clinic.\n\nThe price is not validated against a published list, and there is no such\nlist in the code. A clinic that negotiated a price keeps it, and a price\ntable would silently re-price every clinic on a tier the day it changed."
+      summary: 'Record the plan and the price a clinic agreed'
+      tags:
+        - PlatformSubscription
+      parameters:
+        -
+          name: tenant
+          in: path
+          required: true
+          description: 'The tenant ID'
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSubscriptionRequest'
+      responses:
+        200:
+          description: '`PlatformSubscriptionResource`'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/PlatformSubscriptionResource'
+                required:
+                  - data
+        403:
+          $ref: '#/components/responses/AuthorizationException'
+        404:
+          $ref: '#/components/responses/ModelNotFoundException'
+        401:
+          $ref: '#/components/responses/AuthenticationException'
+        422:
+          $ref: '#/components/responses/ValidationException'
+  '/v1/platform/tenants/{tenant}/subscription/collect':
+    post:
+      operationId: v1.platform.subscription.collect
+      description: "CAREVELO IS THE MERCHANT and this is the only endpoint in the product for\nwhich that is true. It moves no money: it records the charge we expect and\ntells Pesapal a recurring collection is authorised against Carevelo's own\naccount, returning the page the clinic's administrator pays on.\n\nA clinic's own Pesapal account is not reachable from here in any way.\nSubscriptionBilling takes a PlatformMerchant, which can only produce\nplatform credentials from configuration; there is no AggregatorAccount in\nscope and no query that could find one.\n\n503 when the platform is unconfigured, which is the honest answer on a\ndeployment with no merchant account: it must never silently fall back to\ncollecting through a clinic's."
+      summary: 'Start the recurring collection at Pesapal'
+      tags:
+        - PlatformSubscription
+      parameters:
+        -
+          name: tenant
+          in: path
+          required: true
+          description: 'The tenant ID'
+          schema:
+            type: string
+      responses:
+        201:
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      redirect_url: { type: [string, 'null'] }
+                      aggregator_tracking_id: { type: [string, 'null'] }
+                    required:
+                      - redirect_url
+                      - aggregator_tracking_id
+                required:
+                  - data
+        503:
+          description: ''
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                    const: 'Subscription billing is unavailable'
+                  status:
+                    type: integer
+                    const: 503
+                  code:
+                    type: string
+                    const: billing_unavailable
+                  detail:
+                    type: string
+                  errors:
+                    type: string
+                required:
+                  - type
+                  - title
+                  - status
+                  - code
+                  - detail
+                  - errors
+        403:
+          $ref: '#/components/responses/AuthorizationException'
+        404:
+          $ref: '#/components/responses/ModelNotFoundException'
+        401:
+          $ref: '#/components/responses/AuthenticationException'
   /v1/platform/tenants:
     get:
       operationId: v1.platform.tenants.index
@@ -3798,6 +3993,70 @@ paths:
               schema:
                 type: string
                 const: nosniff
+        403:
+          $ref: '#/components/responses/AuthorizationException'
+        422:
+          $ref: '#/components/responses/ValidationException'
+        401:
+          $ref: '#/components/responses/AuthenticationException'
+  /v1/revenue:
+    get:
+      operationId: v1.revenue.index
+      description: "ClinicAdmin only, through `PaymentIntentPolicy::reconcile` -- the same\ngate as the reconciliation view it sits beside, deliberately reusing that\nability rather than inventing a second one that could drift from it. A\nclinic's whole takings are a commercial view of the business; a\npharmacist and a front-desk clerk have no business in it even though both\nmay take a payment.\n\nA denial here is 403, not 404. That is not in tension with the house rule\nthat cross-tenant reads are 404: the caller is inside their own clinic and\nthe endpoint's existence is not a secret from them -- what they lack is\nthe role. A request from outside the tenant never reaches this method at\nall, because ResolveTenant answers an unrecognised host with a neutral 404\nand row-level security means another clinic's confirmations are not in the\nquery's result set to be leaked."
+      summary: 'GET /v1/revenue?from&to'
+      tags:
+        - Revenue
+      parameters:
+        -
+          name: from
+          in: query
+          schema:
+            type: string
+            format: date
+        -
+          name: to
+          in: query
+          schema:
+            type: string
+            format: date
+        -
+          name: per_page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+        -
+          name: cursor
+          in: query
+          description: "Opaque, and produced only by this endpoint. There is no `page`\nand there will not be one: see the controller."
+          schema:
+            type: string
+      responses:
+        200:
+          description: '`AggregatorConfirmedPaymentsResource`'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/AggregatorConfirmedPaymentsResource'
+                  meta:
+                    type: object
+                    properties:
+                      counts: { type: string }
+                      does_not_count: { type: array, prefixItems: [{ type: string, const: "attempts the aggregator has not confirmed as completed, including every one still pending a patient's PIN" }, { type: string, const: 'attempts the aggregator reported as failed, and attempts that timed out without a later confirmation' }, { type: string, const: 'confirmations the aggregator afterwards reported as reversed' }, { type: string, const: 'cash handed over at the clinic and attested by a staff member, which no aggregator ever saw' }, { type: string, const: 'collections recorded against an aggregator account that is not live, which is test data by definition' }], minItems: 5, maxItems: 5, additionalItems: false }
+                      not_money_in_the_bank: { type: string, description: "The sentence the whole endpoint exists to keep true. It is in\nthe payload rather than only in the documentation because the\npayload is what a clinic owner's screen is built from, and a\ncaveat nobody ships is a caveat nobody reads." }
+                      by_service_next_cursor: { type: [string, 'null'], description: 'Cursor, never an offset page number. Null on the last page.' }
+                    required:
+                      - counts
+                      - does_not_count
+                      - not_money_in_the_bank
+                      - by_service_next_cursor
+                required:
+                  - data
+                  - meta
         403:
           $ref: '#/components/responses/AuthorizationException'
         422:
@@ -4664,6 +4923,36 @@ components:
         - fallback
         - credentials_are_write_only
       title: AggregatorAccountResource
+    AggregatorConfirmedPaymentsResource:
+      type: object
+      properties:
+        confirmed_from:
+          type: string
+          description: "The window is over CONFIRMATIONS. Named so a reader cannot take it\nfor the window in which the appointments were booked, which would\nput a payment in the wrong month at every month boundary."
+        confirmed_to:
+          type: string
+        clinic_timezone:
+          type: string
+          description: "Stated rather than assumed. The dates above are the clinic's own\ndays, and a client rendering them in the browser's timezone would\nsilently disagree with the figure beside them."
+        aggregator_confirmed_count:
+          type: integer
+        aggregator_confirmed_total:
+          type: object
+        by_method_recorded:
+          type: array
+          items: {  }
+        by_service:
+          type: array
+          items: {  }
+      required:
+        - confirmed_from
+        - confirmed_to
+        - clinic_timezone
+        - aggregator_confirmed_count
+        - aggregator_confirmed_total
+        - by_method_recorded
+        - by_service
+      title: AggregatorConfirmedPaymentsResource
     App.Http.Requests.Admin.Tenant.UpdateTenantRequest:
       type: object
       description: "The clinic editing its own record during and after onboarding.\n\nTwo things happen here and both are security boundaries.\n\nCOLOURS ARE VALIDATED AGAINST A STRICT HEX PATTERN BEFORE STORAGE. Branding\nis applied as design tokens injected into CSS custom properties, so a stored\nvalue reaches a stylesheet; validating on render rather than on entry would\nleave one careless template between a tenant-supplied string and script\nexecution on a page displaying another patient's dosage instructions. The\npattern below admits `#RRGGBB` and nothing else -- not a colour keyword, not\na three-digit shorthand, not a `rgb()` function, and certainly not a\ndeclaration with a semicolon in it.\n\nTHE SUBDOMAIN IS IMMUTABLE. It is declared `prohibited` rather than merely\nomitted so the administrator gets a sentence explaining why instead of a\nsilent discard."
@@ -5725,6 +6014,105 @@ components:
         - email
         - password
       title: PlatformSignInRequest
+    PlatformSubscriptionResource:
+      type: object
+      properties:
+        tenant_id:
+          type: string
+        legal_name:
+          type: string
+        plan:
+          type:
+            - string
+            - 'null'
+        price:
+          type:
+            - object
+            - 'null'
+          properties:
+            amount_minor:
+              type: integer
+            currency:
+              type: string
+          required:
+            - amount_minor
+            - currency
+        trial_ends_at:
+          type:
+            - string
+            - 'null'
+          description: "The two dates that decide whether staff can sign in tomorrow. UTC on the wire and rendered in Africa/Kampala by the client, like\nevery other instant this API returns."
+        current_period_ends_at:
+          type:
+            - string
+            - 'null'
+        status:
+          type: string
+          description: "`suspended` means STAFF SIGN-IN IS BLOCKED and nothing else. It\ndoes not mean the clinic's patients lose access to their own\nrecords, it does not stop a delivery already in flight, and it\nnever means an export can be withheld. Stated on the wire because\na console showing \"suspended\" without it invites a support agent\nto believe the clinic is switched off."
+        recent_charges:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              plan:
+                type: string
+              amount:
+                type: object
+                properties:
+                  amount_minor:
+                    type: integer
+                  currency:
+                    type: string
+                required:
+                  - amount_minor
+                  - currency
+              period_starts_on:
+                type: string
+              period_ends_on:
+                type: string
+              status:
+                type: string
+              merchant_reference:
+                type: string
+              aggregator_reference:
+                type:
+                  - string
+                  - 'null'
+                description: "Pesapal's confirmation code. An identifier for a support\nconversation, never a fact anything acts on."
+              failure_code:
+                type:
+                  - string
+                  - 'null'
+              initiated_at:
+                type: string
+              resolved_at:
+                type:
+                  - string
+                  - 'null'
+            required:
+              - id
+              - plan
+              - amount
+              - period_starts_on
+              - period_ends_on
+              - status
+              - merchant_reference
+              - aggregator_reference
+              - failure_code
+              - initiated_at
+              - resolved_at
+      required:
+        - tenant_id
+        - legal_name
+        - plan
+        - price
+        - trial_ends_at
+        - current_period_ends_at
+        - status
+        - recent_charges
+      title: PlatformSubscriptionResource
     PlatformTenantResource:
       type: object
       properties:
@@ -6648,6 +7036,14 @@ components:
         - legal_name
         - subdomain
       title: StoreTenantRequest
+    SubscriptionPlan:
+      type: string
+      description: "The published subscription tiers. A closed list rather than a string column with a hopeful name, because `plan` is reported on, filtered by and compared: free text would make all three meaningless within a month of the first bespoke deal.  NOTE WHAT IS NOT HERE: THE PRICE. Early plans in this market are agreed in conversation (Business Plan SS-G), and a clinic that negotiated a price keeps it. The amount lives on the tenant, so a change to a published price list can never silently re-price an existing clinic retroactively -- which a price table here would do, with nothing in the diff to show it.  So a tier says what a clinic GETS and the tenant says what it PAYS, and the two are permitted to disagree. That is not an accident of modelling; it is how the commercial relationship actually works.\n| |\n|---|\n| `starter` <br/> A single-clinician practice. |\n| `clinic` <br/> The ordinary case: one clinic, several clinicians, a dispensary. |\n| `group` <br/> Several sites under one owner, each still its own tenant. |"
+      enum:
+        - starter
+        - clinic
+        - group
+      title: SubscriptionPlan
     SubstitutionResource:
       type: object
       properties:
@@ -6916,7 +7312,7 @@ components:
       title: TenantStatus
     UpdateAggregatorAccountRequest:
       type: object
-      description: "The CLINIC'S OWN merchant credentials at a BoU-licensed aggregator.\n\nThere is no platform merchant account. Carevelo has none, will never have\none, and could not use one without becoming a payment service provider under\nthe NPS Act 2020 -- so every credential in this payload belongs to the clinic\nand every shilling collected with it settles directly to the clinic.\n\nPUT rather than PATCH, and `secret_key` is required: a partial credential\nupdate produces a half-rotated key pair that fails at the aggregator hours\nlater, in production, on a live collection.\n\nNothing validated here is ever returned. The response carries provider,\nstatus, environment and the last verification time, and no endpoint anywhere\nin this API reads a credential back."
+      description: "The CLINIC'S OWN merchant credentials at a BoU-licensed aggregator.\n\nThere is no platform merchant account ON THIS PATH, and none can be reached\nfrom it. Carevelo could not collect a patient's payment into an account of\nits own without becoming a payment service provider under the NPS Act 2020 --\nso every credential in this payload belongs to the clinic, and every shilling\ncollected with it settles directly to the clinic.\n\nCarevelo does hold one Pesapal merchant account, for the clinic's SUBSCRIPTION\nto the software. It is unreachable from here: its credentials come from\nconfiguration, this request cannot express them, and the endpoint behind it\nwrites an aggregator_accounts row -- a table subscription billing never\ntouches. @see docs/70-decisions/0003-non-custodial-payment-architecture.md\n\nPUT rather than PATCH, and `secret_key` is required: a partial credential\nupdate produces a half-rotated key pair that fails at the aggregator hours\nlater, in production, on a live collection.\n\nNothing validated here is ever returned. The response carries provider,\nstatus, environment and the last verification time, and no endpoint anywhere\nin this API reads a credential back."
       properties:
         provider:
           type: string
@@ -7145,6 +7541,21 @@ components:
         password:
           type: string
       title: UpdateStaffRequest
+    UpdateSubscriptionRequest:
+      type: object
+      description: "The plan a clinic is on, and what it agreed to pay.\n\nTWO FIELDS AND BOTH ARE REQUIRED TOGETHER, which is a deliberate refusal of\nthe obvious convenience. A tier alone would have to imply a price from a list,\nand the first bespoke deal would then make that list a lie; a price alone\nwould leave a clinic paying for something nobody can name. Early plans in this\nmarket are agreed in conversation (Business Plan SS-G), so the endpoint that\nrecords one records both halves of what was agreed.\n\nWHOLE SHILLINGS ON THE WIRE. The column is minor units -- hundredths of a\nshilling -- and every amount in this system is, but nobody in Uganda quotes\ncents and a platform operator typing a monthly fee should type 250000. The\nconversion happens here, once, in the one place a human types the number."
+      properties:
+        plan:
+          $ref: '#/components/schemas/SubscriptionPlan'
+        price:
+          type: integer
+          description: "Integer, not numeric: a decimal shilling does not exist and a\nfloat here is the beginning of a rounding defect in a money field."
+          minimum: 1
+          maximum: 50000000
+      required:
+        - plan
+        - price
+      title: UpdateSubscriptionRequest
     UpdateTenantRequest:
       type: object
       description: "The platform's lever on a clinic: its lifecycle state and its trial.\n\nCOMMERCIAL fields only. Branding, contact details, services and staff belong\nto the clinic and are changed through the clinic's own admin endpoints — a\nplatform operator editing a clinic's brand is a support incident, not a\nfeature.\n\nSuspension is likewise commercial and never clinical. It blocks staff\nsign-in; it does not stop a patient reading their own records or a delivery\nalready in flight, and nothing in this request could make it do so."

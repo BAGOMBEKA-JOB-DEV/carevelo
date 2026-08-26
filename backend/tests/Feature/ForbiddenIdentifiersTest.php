@@ -79,6 +79,19 @@ it('has no forbidden identifier in payment source code', function () {
         base_path('app/Models/PaymentIntent.php'),
         base_path('app/Models/AggregatorAccount.php'),
         base_path('app/Support/Money.php'),
+
+        // Subscription billing, added when Carevelo became the merchant for its
+        // OWN revenue. This is the half of the system where the temptation is
+        // strongest and the reader's guard is lowest: "we are collecting our own
+        // money, so surely a balance is fine". It is not. The words below name
+        // regulated activities whoever the money belongs to, and a `payout` or a
+        // `settlement` in this domain would be the first sign that platform
+        // revenue had started behaving like custody of somebody else's.
+        base_path('app/Models/PlatformSubscriptionCharge.php'),
+        base_path('app/Services/Billing/SubscriptionBilling.php'),
+        base_path('app/Services/Billing/RecurringChargeResolver.php'),
+        base_path('app/Services/Billing/PlatformMerchant.php'),
+        base_path('config/billing.php'),
     ];
 
     $violations = [];
