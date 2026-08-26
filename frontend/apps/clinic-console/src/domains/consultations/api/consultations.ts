@@ -231,9 +231,26 @@ export async function endConsultation(
  * re-renders to say what it now is under the same authorisation as the first render. Nothing
  * clinical is in it and nothing here is rendered.
  */
-export function roomSignature(consultation: Consultation | null, noteCount: number): string {
+export function roomSignature(
+  consultation: Consultation | null,
+  noteCount: number,
+  /**
+   * How many messages are on the consultation.
+   *
+   * A SEPARATE PARAMETER AND NOT ADDED INTO `noteCount`, and the distinction is load-bearing
+   * rather than tidy. Both callers have to produce the SAME string from the same facts, or
+   * the poll sees a difference on every tick and refreshes the room for ever. Summing them at
+   * one call site and not the other is exactly how that happens, and it is invisible: the
+   * screen simply reloads every fifteen seconds and nobody can say why.
+   *
+   * Defaulted to 0 so that a caller which genuinely has no transcript — there is exactly one,
+   * the `consultation === null` path — cannot accidentally omit it and produce a third
+   * spelling of the same state.
+   */
+  messageCount = 0,
+): string {
   if (consultation === null) {
-    return `none|${noteCount}`
+    return `none|${noteCount}|${messageCount}`
   }
 
   return [
@@ -242,6 +259,21 @@ export function roomSignature(consultation: Consultation | null, noteCount: numb
     consultation.outcome ?? '',
     consultation.ended_at ?? '',
     noteCount,
+    /*
+     * THE MESSAGE COUNT, AND IT IS WHY CHAT IS LIVE AT ALL.
+     *
+     * `ConsultationMessageSent` broadcasts to `private-tenant.{t}.consultation.{c}` carrying
+     * identifiers and no body — but no app in this workspace declares `@carevelo/realtime`, so
+     * nothing consumes it and polling is the FLOOR here rather than the fallback. `RoomLive`
+     * already asks for this string every fifteen seconds; a message arriving changes it, the
+     * poll notices, and the SERVER re-renders the transcript.
+     *
+     * A COUNT AND NEVER A BODY — the same rule the broadcast obeys. Nothing clinical is in
+     * this string and nothing here is rendered. Messages are append-only, with no update and
+     * no delete route, so the count is a monotonic marker rather than a checksum, which is all
+     * a poll needs.
+     */
+    messageCount,
   ].join('|')
 }
 

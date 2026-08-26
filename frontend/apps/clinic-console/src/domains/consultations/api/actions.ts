@@ -2,11 +2,13 @@
 
 import { findConsultationForAppointment } from './consultations'
 import { roomSignature } from './consultations'
+import { listMessages, sendMessage } from './messages'
 import { listNotes, saveDraft, type SaveResult } from './notes'
+import type { SendResult } from '../model/chat'
 import { isNoteSection } from '../model/drafts'
 
 /**
- * The two things the BROWSER is allowed to ask this domain, and neither of them is for data.
+ * The three things the BROWSER is allowed to ask this domain, and none of them is for data.
  *
  * Everything else in this domain is reached by a native form post to an inline server action
  * closed over the values the server rendered with. These two are here because a client
@@ -90,6 +92,58 @@ export async function roomDigest(appointmentId: string, patientId: string): Prom
   }
 
   const notes = await listNotes(consultation.id)
+  const messages = await listMessages(consultation.id)
 
-  return roomSignature(consultation, notes?.length ?? 0)
+  /*
+   * THE MESSAGE COUNT IS IN THE DIGEST, AND IT IS WHAT MAKES CHAT LIVE.
+   *
+   * `ConsultationMessageSent` broadcasts to `private-tenant.{t}.consultation.{c}` carrying
+   * identifiers and no body — but no app in this workspace declares `@carevelo/realtime` as a
+   * dependency, so nothing consumes it, and polling is the FLOOR here rather than the
+   * fallback. `RoomLive` already asks for this string every fifteen seconds; folding the count
+   * in means a patient's message changes it, the poll notices, and the SERVER re-renders the
+   * transcript.
+   *
+   * A COUNT AND NEVER A BODY, which is the same rule the broadcast obeys: the browser learns
+   * only THAT something moved. Nothing clinical is in this string and nothing here is rendered.
+   *
+   * IT COSTS AN AUDIT EVENT EVERY FIFTEEN SECONDS. `consultation_message.viewed` is written on
+   * every read, so a live consultation writes roughly four a minute per participant — on top
+   * of the `clinical_note.viewed` this function already wrote. Reads of a clinical record are
+   * audited on purpose, and the alternative is a clinician who does not see a patient's
+   * message until they reload. `RoomLive` bounds it: the timer stops while the tab is hidden
+   * and never runs for a consultation that has ended.
+   *
+   * AN UNREADABLE TRANSCRIPT COUNTS AS ZERO rather than throwing. This runs on a timer in a
+   * browser, and a wrong count costs one missed tick of freshness — the next one corrects it —
+   * and never correctness, because the server render is what draws.
+   */
+  return roomSignature(consultation, notes?.length ?? 0, messages?.length ?? 0)
+}
+
+/**
+ * SAY SOMETHING TO THE PATIENT.
+ *
+ * Here for the same reason `saveNoteSection` is: `ChatComposer` is a client component, and a
+ * module-level `'use server'` export is the only thing `'use client'` code can call across the
+ * boundary. It takes both arguments from the browser and treats both as arguments to an
+ * AUTHORISED CALL rather than as assertions — `ConsultationPolicy::participate` admits exactly
+ * two people, row-level security decides which consultation exists at all, and a forged
+ * identifier resolves to a 404.
+ *
+ * THERE IS NO `author_role` PARAMETER AND THERE MUST NOT BE. The server derives which side is
+ * speaking from the authorisation decision it has just taken; the form request has no such
+ * field and `RejectsUnknownFields` turns an attempt into a 422. A client able to assert it
+ * could put words into the patient's mouth inside a clinical record.
+ *
+ * IT RETURNS A DISCRIMINATED RESULT AND THROWS NOTHING, for the reason given above
+ * `saveNoteSection`: a thrown server action in a client component becomes an error boundary,
+ * and an error boundary in the middle of a consultation is a clinician losing their screen
+ * with a patient watching.
+ */
+export async function sendConsultationMessage(
+  consultationId: string,
+  body: string,
+): Promise<SendResult> {
+  return sendMessage(consultationId, body)
 }

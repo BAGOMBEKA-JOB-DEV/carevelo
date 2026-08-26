@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers'
 import { ApiError, type operations } from '@carevelo/api-client'
+import { isMediaConfigured } from '../model/media'
 import { writingApi } from './gateway'
 
 /**
@@ -48,9 +49,15 @@ type RedeemedCredentials =
  * What the console remembers about an entry. NOT a contract type.
  *
  * Deliberately narrowed to the four fields the platform guarantees plus the appointment they
- * belong to. The provider's own keys are not carried: nothing in this build can use them, and
- * a cookie is a poor place to keep a credential nobody reads. When a provider lands,
- * `MediaPane` is where its keys are consumed and this type widens to carry them.
+ * belong to. The provider's own keys are STILL not carried, and that is a live decision now
+ * rather than a placeholder: LiveKit has landed on the backend, so a configured clinic's
+ * redeem response really does carry `url` and `token` in `credentials` below. They are not
+ * persisted because this build has no client able to open a media session — and a credential
+ * that admits its holder to a named patient's consultation, sitting in a cookie for ninety
+ * minutes with nothing able to spend it, is exposure bought for nothing.
+ *
+ * Adding the two fields here is step 1 of the three written on `components/VideoStage.tsx`,
+ * which is the seam the media SDK lands in.
  */
 export interface RoomCredentials {
   readonly appointmentId: string
@@ -206,12 +213,17 @@ async function remember(
     participant: credentials.participant ?? '',
     provider: credentials.provider ?? 'unknown',
     /*
-     * A STRING ON THE WIRE, COMPARED AS ONE. The backend sends 'false'/'true' because
-     * `VideoProvider::credentialsFor` is contracted as `array<string, string>`.
-     * `Boolean('false')` is true, and that single coercion would open a dead room on every
-     * unconfigured tenant — which is exactly the failure this flag exists to prevent.
+     * A STRING ON THE WIRE, COMPARED AS ONE — and the comparison is now a named function in
+     * ../model/media.ts rather than an inline `=== 'true'`.
+     *
+     * The backend sends 'false'/'true' because `VideoProvider::credentialsFor` is contracted
+     * as `array<string, string>`. `Boolean('false')` is true, and that single coercion would
+     * open a dead room on every unconfigured tenant — the exact failure this flag exists to
+     * prevent. It was described in three comments and asserted nowhere, because this module
+     * imports `next/headers` and cannot be loaded by the unit runner. That is precisely why
+     * the decision moved to a module that can.
      */
-    configured: credentials.configured === 'true',
+    configured: isMediaConfigured(credentials.configured),
   }
 
   ;(await cookies()).set({

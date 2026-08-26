@@ -587,6 +587,37 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/consultations/{consultation}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The transcript, oldest first
+         * @description Open after the encounter ends and forever afterwards, unlike store(). The
+         *     conversation is part of the medical record, and a record you cannot read
+         *     back is not one.
+         */
+        get: operations["v1.consultations.messages.index"];
+        put?: never;
+        /**
+         * Say something
+         * @description Works whether or not the video provider is configured, and that is the
+         *     requirement rather than a side effect: this endpoint touches
+         *     config('video') nowhere, mints no join token and asks no SFU anything, so
+         *     a clinic whose LiveKit deployment is unreachable still has a working
+         *     consultation channel. If chat depended on the media stack it would be
+         *     unavailable in precisely the outage it exists for.
+         */
+        post: operations["v1.consultations.messages.store"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/deliveries": {
         parameters: {
             query?: never;
@@ -2572,6 +2603,15 @@ export interface components {
             guardian_relationship: string | null;
             occurred_at: string | null;
         };
+        /** ConsultationMessageResource */
+        ConsultationMessageResource: {
+            id: string;
+            consultation_id: string;
+            author_id: string;
+            author_role: string;
+            body: string;
+            created_at: string | null;
+        };
         /**
          * ConsultationMode
          * @description Voice and chat are FIRST-CLASS modes, not degraded fallbacks. A patient on a poor connection -- which in this market is a large share of them at any moment -- must be able to choose voice deliberately rather than fight a failing video call.
@@ -2594,8 +2634,8 @@ export interface components {
         ConsultationResource: {
             id: string;
             appointment_id: string;
-            patient_id: string;
-            clinician_id: string;
+            patient_id: string | null;
+            clinician_id: string | null;
             mode_used: string;
             outcome: string | null;
             started_at: string | null;
@@ -3435,7 +3475,7 @@ export interface components {
             tenant_id: string;
             reason: string;
             /** @enum {string} */
-            scope: "patient_record" | "consultation" | "clinical_note" | "prescription" | "dispensing" | "delivery" | "payment" | "audit_trail";
+            scope: "patient_record" | "consultation" | "consultation_message" | "clinical_note" | "prescription" | "dispensing" | "delivery" | "payment" | "audit_trail";
             /**
              * Format: date-time
              * @description The time box, both ends of it. A grant that starts in the past
@@ -3532,6 +3572,37 @@ export interface components {
             granted_by?: "patient" | "guardian";
             guardian_name?: string;
             guardian_relationship?: string;
+        };
+        /**
+         * StoreConsultationMessageRequest
+         * @description Sending a chat message inside a consultation.
+         *
+         *     ONE FIELD, AND THE ABSENCES ARE THE DESIGN.
+         *
+         *     There is no `author_id` and no `author_role`. Both are derived from the
+         *     authenticated session and from the authorisation decision the controller has
+         *     just made. A client that could assert either could put words into the other
+         *     participant's mouth inside a clinical record, and RejectsUnknownFields turns
+         *     the attempt into a 422 rather than silently discarding it.
+         *
+         *     There is no `consultation_id` either: the encounter comes from the path and
+         *     is bound under row-level security, so a message cannot be addressed to an
+         *     encounter the sender cannot see.
+         *
+         *     THE LENGTH LIMIT IS 4,000 AND NOT THE NOTE'S 20,000. A note is a document a
+         *     clinician composes; a chat message is a turn in a conversation. Someone
+         *     pasting four thousand characters into a chat window is writing a note, and
+         *     they should write it as a note where the addendum mechanism exists. The limit
+         *     is generous enough that no real message meets it and small enough that the
+         *     transcript stays a transcript.
+         */
+        StoreConsultationMessageRequest: {
+            /**
+             * @description Not nullable and not `sometimes`. An empty message is not a turn
+             *     in a conversation, and a chat log full of blank lines makes the
+             *     clinical record harder to read for no gain to anybody.
+             */
+            body: string;
         };
         /**
          * StoreDeliveryRequest
@@ -5326,6 +5397,67 @@ export interface operations {
                 content: {
                     "application/json": {
                         data: components["schemas"]["ConsultationResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            403: components["responses"]["AuthorizationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "v1.consultations.messages.index": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The consultation ID */
+                consultation: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Array of `ConsultationMessageResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["ConsultationMessageResource"][];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            403: components["responses"]["AuthorizationException"];
+            404: components["responses"]["ModelNotFoundException"];
+        };
+    };
+    "v1.consultations.messages.store": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The consultation ID */
+                consultation: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StoreConsultationMessageRequest"];
+            };
+        };
+        responses: {
+            /** @description `ConsultationMessageResource` */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["ConsultationMessageResource"];
                     };
                 };
             };

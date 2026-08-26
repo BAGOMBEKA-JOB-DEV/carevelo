@@ -1,5 +1,7 @@
 import { ApiError, type components, type operations } from '@carevelo/api-client'
+import type { ConsultationMessage } from '../model/chat'
 import { readingApi } from './gateway'
+import { listMessages } from './messages'
 import { readRoomCredentials, type RoomCredentials } from './room'
 
 /**
@@ -115,6 +117,21 @@ export type ConsultationEntry =
       readonly credentials: RoomCredentials
       /** Null until the clinician starts it — which is the ordinary case on arrival. */
       readonly consultation: Consultation | null
+      /**
+       * The chat transcript, or null when it could not be read.
+       *
+       * NULL IS NOT EMPTY, and the panel draws the two differently. `[]` is "nothing has
+       * been said"; null is "we could not read what was said", which on a screen where a
+       * clinician may have written "go to the hospital now" must never be rendered as a
+       * blank conversation.
+       *
+       * Loaded HERE rather than inside the panel, for the same reason everything else on
+       * this screen is: reads are audited. `consultation_message.viewed` is written on
+       * every one, so a component fetching its own would put a second event in the trail
+       * for one screen, and "who read my consultation" has to be answerable without a
+       * footnote about component structure.
+       */
+      readonly messages: readonly ConsultationMessage[] | null
     }
 
 /**
@@ -150,12 +167,18 @@ export async function loadConsultationEntry(appointmentId: string): Promise<Cons
   if (credentials !== null) {
     // Inside already. The consultation may not exist yet — the clinician creates it when
     // they join — and the room renders that state honestly rather than hiding it.
+    const consultation = await findConsultationForAppointment(appointmentId)
+
     return {
       kind: 'room',
       appointment,
       bookedMode,
       credentials,
-      consultation: await findConsultationForAppointment(appointmentId),
+      consultation,
+      // No consultation record means no transcript endpoint to call: the messages hang off
+      // the consultation, not the appointment, and the API would answer 404. An empty list
+      // rather than null, because "nothing has been said" is exactly true at that moment.
+      messages: consultation === null ? [] : await listMessages(consultation.id),
     }
   }
 
@@ -265,9 +288,9 @@ export async function findConsultationForAppointment(
  * and the server component re-renders to say what it now is, under the same authorisation
  * as the first render. Nothing clinical is in it, and nothing here is rendered.
  */
-export function roomSignature(consultation: Consultation | null): string {
+export function roomSignature(consultation: Consultation | null, messageCount = 0): string {
   if (consultation === null) {
-    return 'none'
+    return `none|${messageCount}`
   }
 
   return [
@@ -275,5 +298,23 @@ export function roomSignature(consultation: Consultation | null): string {
     consultation.mode_used,
     consultation.outcome ?? '',
     consultation.ended_at ?? '',
+    /*
+     * THE MESSAGE COUNT, AND IT IS THE REASON CHAT IS LIVE AT ALL.
+     *
+     * `ConsultationMessageSent` broadcasts to `private-tenant.{t}.consultation.{c}` carrying
+     * identifiers and no body — but no app in this workspace declares `@carevelo/realtime`
+     * as a dependency, so nothing consumes it and polling is the FLOOR here rather than the
+     * fallback. `RoomLive` already asks for this string every fifteen seconds; folding the
+     * count in means a message arriving changes it, the poll notices, and the SERVER
+     * re-renders the transcript.
+     *
+     * A COUNT AND NOT A BODY, deliberately, and it is the same rule the broadcast obeys: the
+     * browser learns only THAT something moved. Nothing clinical is in this string and
+     * nothing here is rendered.
+     *
+     * A count cannot fall — messages are append-only, with no update and no delete route —
+     * so it is a monotonic marker rather than a checksum, which is all a poll needs.
+     */
+    String(messageCount),
   ].join('|')
 }

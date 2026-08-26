@@ -31,6 +31,7 @@ import {
   type Patient,
 } from '../model/types'
 import type { SectionSeed } from './NoteEditor'
+import { ChatPanel } from './ChatPanel'
 import { EndConsultation } from './EndConsultation'
 import { MediaPane } from './MediaPane'
 import { ModeControl } from './ModeControl'
@@ -390,6 +391,20 @@ export function ConsultationRoom({
               <ModeControl consultation={consultation} bookedMode={state.bookedMode} action={changeMode} />
             ) : null}
 
+            {/*
+              * DIRECTLY UNDER THE MEDIA PANE AND ABOVE THE NOTE, and the position is an
+              * argument rather than a layout choice. What the patient is saying belongs next
+              * to the thing that is failing to show them — and before the note, because the
+              * note is written FROM what was said.
+              *
+              * This console had no chat surface at all until now, not even a placeholder,
+              * while `ModeControl` immediately above has always offered the clinician the
+              * choice of stepping the consultation down into `chat`. A mode with no surface
+              * behind it is a record that says the encounter was held by chat when nothing on
+              * either side could carry one.
+              */}
+            <ChatPanel consultation={consultation} messages={state.messages} userId={userId} />
+
             <Card as="section" aria-labelledby="note-heading">
               <Stack gap="5">
                 {/* A bare `.stack` before this — 6px in the reset — so `gap="2"`. */}
@@ -420,10 +435,17 @@ export function ConsultationRoom({
 
             {!ended ? <EndConsultation action={end} notesSaved={state.notes.length > 0} /> : null}
 
+            {/*
+              * THE SIGNATURE NOW CARRIES THE MESSAGE COUNT AS WELL AS THE NOTE COUNT, which is
+              * what makes chat live. Both arguments have to be spelled the same way here as in
+              * `roomDigest`, or the poll sees a difference on every tick and reloads this
+              * screen for ever — see `roomSignature`, which is why the two counts are separate
+              * parameters rather than one sum.
+              */}
             <RoomLive
               appointmentId={appointmentId}
               patientId={patientId}
-              signature={roomSignature(consultation, state.notes.length)}
+              signature={roomSignature(consultation, state.notes.length, state.messages?.length ?? 0)}
               hasEnded={ended}
             />
           </>

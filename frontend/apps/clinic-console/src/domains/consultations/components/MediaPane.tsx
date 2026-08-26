@@ -1,43 +1,49 @@
-import { Badge, Notice, Stack } from '@carevelo/ui'
-import type { RoomCredentials } from '../api/room'
+import { Notice, Stack } from '@carevelo/ui'
+import { mediaState } from '../model/media'
 import { MODE_LABEL, type ConsultationMode } from '../model/types'
+import type { RoomCredentials } from '../api/room'
+import { VideoStage } from './VideoStage'
 
 /**
- * The media leg — and, today, the honest absence of one.
+ * The media leg: which of two truths this clinic is living in.
  *
  * ====================================================================================
- * THIS IS THE ONLY FILE THAT CHANGES WHEN A VIDEO PROVIDER IS CHOSEN.
+ * IT IS A TWO-WAY SWITCH AND NOTHING MORE. THAT IS THE WHOLE JOB.
  * ====================================================================================
  *
- * That is the whole reason it is a file of its own rather than four lines inside the room.
- * ADR-0004 is still Proposed: the backend binds `VideoProvider` to `UnconfiguredVideoProvider`,
- * which brokers nothing and answers `{room, participant, provider: "unconfigured",
- * configured: "false"}`. Its own comment says why that is a value rather than a stub — "a
- * join-token endpoint that raises until a commercial decision is made cannot be tested, cannot
- * be built against by the frontend, and would arrive at integration day never having run" —
- * and this component is the frontend half of the same bargain. The token flow, its single-use
- * accounting and its audit trail are exercised for real today; only the picture is missing.
+ * ADR-0004 is now Accepted — LiveKit, SELF-HOSTED, chosen on cost — so the branch that used
+ * to be unreachable is reachable, and this file was split along the seam rather than grown.
+ * `VideoStage` owns everything about a clinic that HAS a media server, including the exact
+ * three steps for wiring the SDK; this component owns the choice and the honest fallback for
+ * a clinic that does not.
  *
- * WHAT ARRIVING HERE WITH A PROVIDER LOOKS LIKE. `credentials.configured` becomes true and the
- * redeem response carries that provider's own keys alongside the four the platform guarantees.
- * The `configured` branch below becomes `<ProviderMedia …/>`; `api/room.ts` widens what it
- * remembers to include the keys that provider needs; and NOTHING ELSE IN THIS DOMAIN MOVES —
- * not the door, not the entry flow, not the mode control, not the note editor, not the route.
+ * THE UNCONFIGURED BRANCH BELOW IS UNCHANGED, DELIBERATELY, AND IT IS NOT A PLACEHOLDER. It
+ * is the correct product behaviour for every clinic that has not deployed an SFU — which is
+ * all of them until one is deployed — and for a production evening where a rotated secret did
+ * not make it into the environment. `UnconfiguredVideoProvider` still exists on the backend
+ * for exactly that reason and says so at length.
+ *
+ * A frozen frame with no explanation is worse than an honest downgrade: the clinician assumes
+ * the product is broken and the clinic hears about it. A grey rectangle with a spinner IS
+ * that frame. So there is no rectangle, no spinner and no "connecting…" — there is a sentence
+ * saying video is not switched on for this clinic, and the mode the consultation is being
+ * held in instead, which is a thing that actually works.
+ *
+ * THE CONSULTATION IS NOT BLOCKED BY EITHER BRANCH. The clinician still holds it — by
+ * telephone, in the room, however the clinic already works — and the note, the prescribing,
+ * the record and now the messages all run exactly as they would with a picture. Carevelo
+ * records the encounter; it does not have to carry it.
  *
  * ====================================================================================
- * WHY IT SAYS SO RATHER THAN SHOWING A PANE
+ * THE COERCION THAT DECIDES WHICH BRANCH RUNS
  * ====================================================================================
  *
- * A frozen frame with no explanation is worse than an honest downgrade — the clinician assumes
- * the product is broken and the clinic hears about it. A grey rectangle with a spinner in it
- * IS that frame. So there is no rectangle, no spinner and no "connecting…": there is a
- * sentence saying video is not switched on for this clinic yet, and the mode the consultation
- * is being held in instead, which is a thing that actually works.
- *
- * THE CONSULTATION IS NOT BLOCKED BY THIS. The clinician still holds it — by telephone, in the
- * room, however the clinic already works — and the note, the prescribing and the record all
- * run exactly as they would with a picture. Carevelo records the encounter; it does not have
- * to carry it.
+ * `credentials.configured` is already a real boolean here, because `api/room.ts` coerced it
+ * through `isMediaConfigured` — which compares against the STRING `'true'`, because
+ * `VideoProvider::credentialsFor` is contracted as `array<string, string>` and
+ * `Boolean('false')` is `true`. One truthiness check upstream would open a dead room on every
+ * unconfigured tenant. That decision now has a name and a test: `../model/media.ts` and
+ * `media.test.ts`.
  */
 export function MediaPane({
   credentials,
@@ -49,7 +55,7 @@ export function MediaPane({
   mode: ConsultationMode | null
   clinicPhone?: string | null | undefined
 }) {
-  if (!credentials.configured) {
+  if (mediaState(credentials.configured) === 'unconfigured') {
     return (
       <Notice tone="warn" icon="phone" title="Video is not switched on for this clinic yet">
         {/* `<Notice>` puts its children in a plain div with no gap, because most notices are
@@ -64,7 +70,7 @@ export function MediaPane({
             Hold the consultation the way the clinic already does — {' '}
             {mode === null ? 'by telephone' : MODE_LABEL[mode].toLowerCase()}
             {clinicPhone ? ` on ${clinicPhone}` : null} — and record it here as you go. The note,
-            the prescription and the record all work.
+            the prescription, the record and the messages below all work.
           </p>
           <p className="fine">
             Room {credentials.room} · you are joined as {credentials.participant}. That pair is
@@ -76,28 +82,7 @@ export function MediaPane({
     )
   }
 
-  /*
-   * A provider IS configured and this build cannot open it.
-   *
-   * Reachable only after ADR-0004 is decided and the backend is rebound, and it is a loud,
-   * honest dead end on purpose. The alternative — rendering an empty pane and letting the
-   * clinician wonder — is the frozen frame again, and this way the first person to see it
-   * knows exactly what is missing.
-   *
-   * REPLACE THIS BRANCH, not the one above, with the provider's component.
-   */
-  return (
-    <Notice tone="bad" icon="help" title="This console cannot open the video provider">
-      <Stack gap="3">
-        <p>
-          The clinic&rsquo;s server brokered a session with <Badge tone="info">{credentials.provider}</Badge>
-          {' '}and this build has no client for it. Tell whoever deployed this console: the
-          provider was configured after this version was built.
-        </p>
-        <p>
-          Hold the consultation another way rather than waiting for a picture that is not coming.
-        </p>
-      </Stack>
-    </Notice>
-  )
+  // A media server IS configured for this clinic. Everything about that case, including the
+  // exact three steps for wiring the LiveKit SDK, is in one file.
+  return <VideoStage credentials={credentials} mode={mode} />
 }

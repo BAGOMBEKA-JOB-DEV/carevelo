@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { clearAllDrafts } from './clearDrafts'
+import { chatDraftKey, CHAT_DRAFT_PREFIX } from '../model/chat'
 import { DRAFT_PREFIX, draftKey } from '../model/drafts'
 
 /*
@@ -21,7 +22,15 @@ import { DRAFT_PREFIX, draftKey } from '../model/drafts'
  *      pressing "Sign out" on a shared terminal and staying signed in, which is worse than
  *      the draft it was trying to protect.
  *
- * AND ONE THING IT MUST NOT DO: reach past its own prefix. Sign-out is a blunt instrument
+ *   3. MISSING A WHOLE KIND OF DRAFT. This is the new one, and it is the quietest of the
+ *      three. The sweep matched one prefix while the domain wrote two: the consultation room
+ *      now has a chat composer, and a half-written message to a patient is clinical text in
+ *      client storage exactly as a half-written note is. A sweep blind to it runs, reports
+ *      success, and leaves that message on a shared clinic handset for whoever signs in next.
+ *      Nothing in a type, a diff or a manual test shows it — only a test that names both
+ *      prefixes, which is what the case below is.
+ *
+ * AND ONE THING IT MUST NOT DO: reach past its own prefixes. Sign-out is a blunt instrument
  * and this function runs inside it, so a sweep that took the theme preference or a session
  * hint with it would be a bug nobody could attribute.
  */
@@ -78,12 +87,50 @@ describe('clearAllDrafts', () => {
     expect(window.localStorage.getItem(theirs)).toBeNull()
   })
 
-  it('leaves anything that is not a note draft alone', () => {
+  it('takes the chat draft as well as the note draft', () => {
+    /*
+     * ACCEPTANCE CRITERION 7 AGAINST THE SURFACE THAT WAS ADDED AFTER IT WAS WRITTEN. A
+     * clinician's half-typed message to a patient is clinical text in client storage, and the
+     * criterion does not distinguish it from a note. Both keys are built by the functions the
+     * product uses, so a change to either format cannot leave this passing against a shape
+     * nothing writes.
+     */
+    const note = draftKey('user-1', 'consult-a', 'plan')
+    const chat = chatDraftKey('user-1', 'consult-a')
+
+    window.localStorage.setItem(note, 'clinical text')
+    window.localStorage.setItem(chat, 'Take one tablet twice a day and stop the other one.')
+
+    clearAllDrafts()
+
+    expect(window.localStorage.getItem(note)).toBeNull()
+    expect(window.localStorage.getItem(chat)).toBeNull()
+  })
+
+  it('sweeps every prefix the domain writes clinical text under, not just the first', () => {
+    /*
+     * THE GUARD AGAINST THE THIRD PREFIX. Written as a loop over the two names rather than as
+     * two assertions, so that adding a kind of draft and forgetting the sweep fails HERE —
+     * with the prefix that was missed printed in the failure — rather than on a handset.
+     */
+    for (const prefix of [DRAFT_PREFIX, CHAT_DRAFT_PREFIX]) {
+      const key = `${prefix}user-1.consult-a.something`
+
+      window.localStorage.setItem(key, 'clinical text')
+
+      clearAllDrafts()
+
+      expect(window.localStorage.getItem(key), `${prefix} survived the sweep`).toBeNull()
+    }
+  })
+
+  it('leaves anything that is not a draft alone', () => {
     // Sign-out is blunt and this runs inside it. A sweep that took the theme preference with
     // it would be a bug nobody could attribute to this function.
     window.localStorage.setItem('carevelo.theme', 'dark')
     window.localStorage.setItem('unrelated', 'keep me')
     window.localStorage.setItem(draftKey('user-1', 'consult-a', 'plan'), 'go')
+    window.localStorage.setItem(chatDraftKey('user-1', 'consult-a'), 'go')
 
     clearAllDrafts()
 

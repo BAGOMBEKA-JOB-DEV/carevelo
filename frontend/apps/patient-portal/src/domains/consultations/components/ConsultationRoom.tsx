@@ -4,6 +4,7 @@ import type { Tenant } from '@/lib/tenant'
 import { leaveConsultation } from '../api/actions'
 import { consultationHref } from '../api/paths'
 import { roomSignature, type Appointment, type Consultation, type ConsultationMode } from '../api/consultations'
+import type { ConsultationMessage } from '../model/chat'
 import type { RoomCredentials } from '../api/room'
 import { ChatPanel } from './ChatPanel'
 import { EmergencyGuidance } from './EmergencyGuidance'
@@ -43,6 +44,7 @@ export async function ConsultationRoom({
   bookedMode,
   credentials,
   consultation,
+  messages,
   clinicianName,
   emergencyGuidance,
 }: {
@@ -52,6 +54,8 @@ export async function ConsultationRoom({
   credentials: RoomCredentials
   /** Null until the clinician starts the consultation, which is the state on arrival. */
   consultation: Consultation | null
+  /** The transcript, or null when it could not be read. Null is NOT empty — see ChatPanel. */
+  messages: readonly ConsultationMessage[] | null
   clinicianName?: string | undefined
   emergencyGuidance?: string | undefined
 }) {
@@ -118,9 +122,15 @@ export async function ConsultationRoom({
           </Notice>
         )}
 
+        {/*
+          * THE SIGNATURE NOW CARRIES THE MESSAGE COUNT, which is what makes chat live. A
+          * message arriving changes the string, this component notices on its next tick and
+          * calls `router.refresh()`, and the SERVER renders the new line into the transcript
+          * below. The browser is told only that something moved. See `roomSignature`.
+          */}
         <RoomLive
           appointmentId={appointment.id}
-          signature={roomSignature(consultation)}
+          signature={roomSignature(consultation, messages?.length ?? 0)}
           hasEnded={ended}
           label={t('updatesOnItsOwn')}
         />
@@ -135,8 +145,10 @@ export async function ConsultationRoom({
           </Stack>
         </Card>
 
-        {/* Always present, in every mode. Chat is not a fallback. */}
-        <ChatPanel clinic={clinic} />
+        {/* ALWAYS PRESENT, IN EVERY MODE. Chat is not a fallback — and it is also the thing
+            that still works when the media pane above has nothing to show, which is why the
+            two are next to each other rather than in separate places. */}
+        <ChatPanel clinic={clinic} consultation={consultation} messages={messages} />
 
         <Card tone="brand" padding="tight">
           {/* SURVIVING INLINE STYLE, three of them — `.stat__value` is 28px, sized for a

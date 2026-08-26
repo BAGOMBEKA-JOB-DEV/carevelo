@@ -1453,6 +1453,81 @@ paths:
           $ref: '#/components/responses/AuthenticationException'
         422:
           $ref: '#/components/responses/ValidationException'
+  '/v1/consultations/{consultation}/messages':
+    get:
+      operationId: v1.consultations.messages.index
+      description: "Open after the encounter ends and forever afterwards, unlike store(). The\nconversation is part of the medical record, and a record you cannot read\nback is not one."
+      summary: 'The transcript, oldest first'
+      tags:
+        - ConsultationMessage
+      parameters:
+        -
+          name: consultation
+          in: path
+          required: true
+          description: 'The consultation ID'
+          schema:
+            type: string
+      responses:
+        200:
+          description: 'Array of `ConsultationMessageResource`'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ConsultationMessageResource'
+                required:
+                  - data
+        403:
+          $ref: '#/components/responses/AuthorizationException'
+        404:
+          $ref: '#/components/responses/ModelNotFoundException'
+        401:
+          $ref: '#/components/responses/AuthenticationException'
+    post:
+      operationId: v1.consultations.messages.store
+      description: "Works whether or not the video provider is configured, and that is the\nrequirement rather than a side effect: this endpoint touches\nconfig('video') nowhere, mints no join token and asks no SFU anything, so\na clinic whose LiveKit deployment is unreachable still has a working\nconsultation channel. If chat depended on the media stack it would be\nunavailable in precisely the outage it exists for."
+      summary: 'Say something'
+      tags:
+        - ConsultationMessage
+      parameters:
+        -
+          name: consultation
+          in: path
+          required: true
+          description: 'The consultation ID'
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreConsultationMessageRequest'
+      responses:
+        201:
+          description: '`ConsultationMessageResource`'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/ConsultationMessageResource'
+                required:
+                  - data
+        403:
+          $ref: '#/components/responses/AuthorizationException'
+        404:
+          $ref: '#/components/responses/ModelNotFoundException'
+        401:
+          $ref: '#/components/responses/AuthenticationException'
+        422:
+          $ref: '#/components/responses/ValidationException'
   /v1/deliveries:
     get:
       operationId: v1.deliveries.index
@@ -5324,6 +5399,31 @@ components:
         - guardian_relationship
         - occurred_at
       title: ConsentRecordResource
+    ConsultationMessageResource:
+      type: object
+      properties:
+        id:
+          type: string
+        consultation_id:
+          type: string
+        author_id:
+          type: string
+        author_role:
+          type: string
+        body:
+          type: string
+        created_at:
+          type:
+            - string
+            - 'null'
+      required:
+        - id
+        - consultation_id
+        - author_id
+        - author_role
+        - body
+        - created_at
+      title: ConsultationMessageResource
     ConsultationMode:
       type: string
       description: "Voice and chat are FIRST-CLASS modes, not degraded fallbacks. A patient on a poor connection -- which in this market is a large share of them at any moment -- must be able to choose voice deliberately rather than fight a failing video call.\n"
@@ -5351,9 +5451,13 @@ components:
         appointment_id:
           type: string
         patient_id:
-          type: string
+          type:
+            - string
+            - 'null'
         clinician_id:
-          type: string
+          type:
+            - string
+            - 'null'
         mode_used:
           type: string
         outcome:
@@ -6658,6 +6762,7 @@ components:
           enum:
             - patient_record
             - consultation
+            - consultation_message
             - clinical_note
             - prescription
             - dispensing
@@ -6756,6 +6861,17 @@ components:
         - affirmed
         - policy_version
       title: StoreConsentRequest
+    StoreConsultationMessageRequest:
+      type: object
+      description: "Sending a chat message inside a consultation.\n\nONE FIELD, AND THE ABSENCES ARE THE DESIGN.\n\nThere is no `author_id` and no `author_role`. Both are derived from the\nauthenticated session and from the authorisation decision the controller has\njust made. A client that could assert either could put words into the other\nparticipant's mouth inside a clinical record, and RejectsUnknownFields turns\nthe attempt into a 422 rather than silently discarding it.\n\nThere is no `consultation_id` either: the encounter comes from the path and\nis bound under row-level security, so a message cannot be addressed to an\nencounter the sender cannot see.\n\nTHE LENGTH LIMIT IS 4,000 AND NOT THE NOTE'S 20,000. A note is a document a\nclinician composes; a chat message is a turn in a conversation. Someone\npasting four thousand characters into a chat window is writing a note, and\nthey should write it as a note where the addendum mechanism exists. The limit\nis generous enough that no real message meets it and small enough that the\ntranscript stays a transcript."
+      properties:
+        body:
+          type: string
+          description: "Not nullable and not `sometimes`. An empty message is not a turn\nin a conversation, and a chat log full of blank lines makes the\nclinical record harder to read for no gain to anybody."
+          maxLength: 4000
+      required:
+        - body
+      title: StoreConsultationMessageRequest
     StoreDeliveryRequest:
       type: object
       description: "Dispatching a dispensed order.\n\nThe body carries only what a courier needs to find a door: a name, a number,\nan address. There is deliberately no field here for a medicine, an item list\nor a note -- a delivery holds no clinical data, so there is nothing for a\ncareless client to send."
