@@ -106,3 +106,29 @@ That is one `docker-php-ext-install`, not 377 tarballs.
 **The trade:** these images are not self-contained. They are a development
 stack. A production image installs its own dependencies — the foot of
 `docker-compose.yml` lists what else it would need.
+
+## Ports, when you have other projects running
+
+Everything here is a **host mapping**, and on a busy machine one of them will
+eventually collide — Reverb already did, with `Bind for 0.0.0.0:8080 failed:
+port is already allocated`, so it now maps to **8081**.
+
+| Service | Host | In-container |
+|---|---|---|
+| API | 8000 | 8000 |
+| Patient portal | 3000 | 3000 |
+| Clinic console | 3001 | 3001 |
+| Rider view | 3002 | 3002 |
+| Platform admin | 3003 | 3003 |
+| Reverb | **8081** | 8080 |
+| LiveKit (dev) | 7880 | 7880 |
+| PostgreSQL | **5433** | 5432 |
+
+In `"8081:8080"` the **left** number is the host's and is safe to change if it is
+busy. The **right** one is the container's and is not — the API finds Reverb by
+`REVERB_PORT` inside the network, and PostgreSQL by `DB_HOST=postgres`.
+
+PostgreSQL is on 5433 deliberately: a local install usually holds 5432, so the
+two never fight. They are **separate databases with separate data** — your
+`composer test` runs against the local one, the containers against 5433. Worth
+remembering before a "why is my patient not there" moment.
