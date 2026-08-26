@@ -421,6 +421,6 @@ it('makes no claim about money it cannot see', function () {
     ));
 
     foreach (['wallet', 'balance', 'escrow', 'payout', 'settlement'] as $forbidden) {
-        expect($body)->not->toContain($forbidden, "Reconciliation view leaked '{$forbidden}'");
+        expect(str_contains($body, $forbidden))->toBeFalse("Reconciliation view leaked '{$forbidden}'");
     }
 });

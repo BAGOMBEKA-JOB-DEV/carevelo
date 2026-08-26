@@ -558,7 +558,7 @@ it('never writes note text into the audit log', function () {
         $serialised = strtolower((string) json_encode($events->pluck('metadata')->all()));
 
         foreach (['tuberculosis', 'sputum', 'suspected'] as $term) {
-            expect($serialised)->not->toContain($term, "Audit metadata leaked '{$term}'");
+            expect(str_contains($serialised, $term))->toBeFalse("Audit metadata leaked '{$term}'");
         }
     });
 });

@@ -359,13 +359,13 @@ it('returns status milestones only and never names the contents', function () {
     $body = strtolower(json_encode($response->json()) ?: '');
 
     foreach (['amoxicillin', 'medicine', 'diagnosis', 'prescription', 'dosage', 'directions'] as $term) {
-        expect($body)->not->toContain($term, "Tracking payload leaked '{$term}'");
+        expect(str_contains($body, $term))->toBeFalse("Tracking payload leaked '{$term}'");
     }
 
     // Nor the recipient block: tracking answers "where is my package", and an
     // address is no part of that answer.
     foreach (['recipient', 'address', 'landmark'] as $term) {
-        expect($body)->not->toContain($term, "Tracking payload leaked '{$term}'");
+        expect(str_contains($body, $term))->toBeFalse("Tracking payload leaked '{$term}'");
     }
 });
 

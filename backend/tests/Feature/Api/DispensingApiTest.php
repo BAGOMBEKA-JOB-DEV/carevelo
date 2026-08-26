@@ -142,7 +142,7 @@ it('shows the pharmacy queue to a pharmacist, without naming any medicine', func
     $body = strtolower(json_encode($response->json()) ?: '');
 
     foreach (['amoxicillin', 'paracetamol', 'directions', 'diagnosis'] as $term) {
-        expect($body)->not->toContain($term, "Pharmacy queue leaked '{$term}'");
+        expect(str_contains($body, $term))->toBeFalse("Pharmacy queue leaked '{$term}'");
     }
 });
 
@@ -671,7 +671,7 @@ it('audits the bench with identifiers and outcomes, never medicine names', funct
         $body = strtolower(json_encode(AuditEvent::query()->get()->toArray()) ?: '');
 
         foreach (['amoxicillin', 'paracetamol'] as $term) {
-            expect($body)->not->toContain($term, "Audit trail leaked '{$term}'");
+            expect(str_contains($body, $term))->toBeFalse("Audit trail leaked '{$term}'");
         }
     });
 });

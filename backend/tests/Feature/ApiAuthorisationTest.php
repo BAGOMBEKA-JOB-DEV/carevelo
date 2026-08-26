@@ -64,7 +64,7 @@ it('gives a rider no clinical field whatsoever', function () {
     ];
 
     foreach ($forbidden as $term) {
-        expect($body)->not->toContain($term, "Rider payload leaked '{$term}'");
+        expect(str_contains($body, $term))->toBeFalse("Rider payload leaked '{$term}'");
     }
 
     // And it does carry exactly what a rider needs.

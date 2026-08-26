@@ -244,7 +244,7 @@ it('carries no clinical content in the list', function () {
     ));
 
     foreach (['diagnosis', 'body', 'note', 'medicine'] as $term) {
-        expect($body)->not->toContain($term, "Consultation list leaked '{$term}'");
+        expect(str_contains($body, $term))->toBeFalse("Consultation list leaked '{$term}'");
     }
 });
 

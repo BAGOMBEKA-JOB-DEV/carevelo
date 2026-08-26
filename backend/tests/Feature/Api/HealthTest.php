@@ -78,7 +78,7 @@ it('reports not ready, with no detail, when a dependency is unreachable', functi
     $body = (string) json_encode($response->json());
 
     foreach (['redis-primary.internal', '6379', 'Connection refused'] as $leak) {
-        expect($body)->not->toContain($leak, "The readiness response leaked '{$leak}'");
+        expect(str_contains($body, $leak))->toBeFalse("The readiness response leaked '{$leak}'");
     }
 });
 
@@ -166,7 +166,7 @@ it('reveals nothing about tenants from any health endpoint', function () {
         $body = strtolower((string) $this->getJson(healthUrl($path))->getContent());
 
         foreach ($forbidden as $leak) {
-            expect($body)->not->toContain($leak, "{$path} disclosed '{$leak}'");
+            expect(str_contains($body, $leak))->toBeFalse("{$path} disclosed '{$leak}'");
         }
     }
 });

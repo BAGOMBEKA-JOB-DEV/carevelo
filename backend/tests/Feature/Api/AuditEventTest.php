@@ -159,7 +159,7 @@ it('never returns clinical content from an audit payload', function () {
     $body = strtolower(json_encode($response->json()) ?: '');
 
     foreach (['diagnosis', 'malaria', 'coartem'] as $term) {
-        expect($body)->not->toContain($term, "The audit read leaked '{$term}'");
+        expect(str_contains($body, $term))->toBeFalse("The audit read leaked '{$term}'");
     }
 
     // And the identifier survives, which is the entire point: the event records

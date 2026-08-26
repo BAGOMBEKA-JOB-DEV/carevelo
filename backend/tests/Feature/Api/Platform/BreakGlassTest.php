@@ -286,7 +286,7 @@ it('records no clinical content in the access audit event', function () {
     $encoded = strtolower((string) json_encode($metadata));
 
     foreach (['namuli', 'nakiwala', 'diagnosis', 'medicine', 'reason'] as $term) {
-        expect($encoded)->not->toContain($term, "The break-glass audit event leaked '{$term}'");
+        expect(str_contains($encoded, $term))->toBeFalse("The break-glass audit event leaked '{$term}'");
     }
 
     // Identifiers and outcomes, which is the whole of what an audit event holds.

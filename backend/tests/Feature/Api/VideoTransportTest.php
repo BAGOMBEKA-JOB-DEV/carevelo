@@ -298,8 +298,8 @@ it('mints a credential naming only the room and the participant role', function 
     ];
 
     foreach ($mustNotAppear as $leak) {
-        expect($serialised)->not->toContain($leak, "The media credential carries '{$leak}'.")
-            ->and($decodedToken)->not->toContain($leak, "The access token's claims carry '{$leak}'.");
+        expect(str_contains($serialised, $leak))->toBeFalse("The media credential carries '{$leak}'.")
+            ->and(str_contains($decodedToken, $leak))->toBeFalse("The access token's claims carry '{$leak}'.");
     }
 });
 
@@ -358,11 +358,11 @@ it('never lets the api secret reach a response body, a log line or an audit even
     });
 
     foreach ($bodies as $index => $body) {
-        expect((string) $body)->not->toContain(videoApiSecret(), "Response {$index} leaked the media secret.");
+        expect(str_contains((string) $body, videoApiSecret()))->toBeFalse("Response {$index} leaked the media secret.");
     }
 
     foreach ($lines as $line) {
-        expect($line)->not->toContain(videoApiSecret(), 'The media secret reached the log.');
+        expect(str_contains($line, videoApiSecret()))->toBeFalse('The media secret reached the log.');
     }
 
     $audit = app(Tenancy::class)->run(
@@ -370,7 +370,7 @@ it('never lets the api secret reach a response body, a log line or an audit even
         fn () => (string) json_encode(AuditEvent::query()->get(['action', 'metadata'])->toArray())
     );
 
-    expect($audit)->not->toContain(videoApiSecret(), 'The media secret reached an audit event.');
+    expect(str_contains($audit, videoApiSecret()))->toBeFalse('The media secret reached an audit event.');
 
     // The trail still says which transport brokered the consultation, which is
     // what makes it possible to tell later which consultations ran over our own

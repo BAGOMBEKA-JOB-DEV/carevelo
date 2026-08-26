@@ -116,7 +116,7 @@ it('puts no clinical figure on the tenant register', function () {
     $body = strtolower((string) json_encode($response->json()));
 
     foreach (['patient', 'consultation', 'prescription', 'diagnosis', 'medicine'] as $term) {
-        expect($body)->not->toContain($term, "The tenant register leaked '{$term}'");
+        expect(str_contains($body, $term))->toBeFalse("The tenant register leaked '{$term}'");
     }
 });
 
@@ -288,7 +288,7 @@ it('never exports aggregator credentials', function () {
     $body = strtolower((string) json_encode($response->json('data.records')));
 
     foreach (['api_key', 'secret_key', 'webhook_secret', 'aggregator_account'] as $term) {
-        expect($body)->not->toContain($term, "The export leaked '{$term}'");
+        expect(str_contains($body, $term))->toBeFalse("The export leaked '{$term}'");
     }
 });
 

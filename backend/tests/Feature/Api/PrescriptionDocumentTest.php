@@ -354,7 +354,7 @@ it('names Carevelo nowhere on the document', function () {
     $rendered = strtolower($this->get($url)->assertOk()->streamedContent());
 
     foreach (['carevelo', '/producer', '/creator', '/info'] as $forbidden) {
-        expect($rendered)->not->toContain($forbidden, "The rendered prescription contained '{$forbidden}'");
+        expect(str_contains($rendered, $forbidden))->toBeFalse("The rendered prescription contained '{$forbidden}'");
     }
 });
 
@@ -404,7 +404,7 @@ it('audits the disclosure with identifiers only, never the content or the path',
         // link, and an audit trail is no place to keep a route to a clinical
         // document.
         foreach (['amoxicillin', 'capsule', 'directions', '.pdf'] as $forbidden) {
-            expect($recorded)->not->toContain($forbidden, "The audit event leaked '{$forbidden}'");
+            expect(str_contains($recorded, $forbidden))->toBeFalse("The audit event leaked '{$forbidden}'");
         }
     });
 });
