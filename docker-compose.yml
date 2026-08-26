@@ -85,7 +85,7 @@ services:
       - ./backend:/app
     command: >
       sh -c "
-        php artisan db:roles --superuser=postgres &&
+        php artisan db:roles --superuser=postgres --superuser-password=postgres &&
         php artisan migrate --database=pgsql_migrator --force &&
         php artisan db:seed --force &&
         echo 'setup complete'
