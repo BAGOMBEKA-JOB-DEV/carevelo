@@ -63,7 +63,7 @@
       "continue": "Continue on the payment page",
       "doNotPayTwice": "Go back to the same payment page rather than starting a new one, and do not pay {clinic} another way until you know how this one ended. Otherwise the money could be taken twice.",
       "notPaidYet": "This page will say you have paid only once the payment page tells us so.",
-      "checking": "This page checks again by itself while it is open. Finish on the payment page and come back here to see it confirmed.",
+      "checking": "This page checks again by itself while it is open, and will update as soon as we are told how this payment ended.",
       "startAgainTitle": "If you would rather start again",
       "startAgain": "Starting again sends a fresh payment to {clinic}'s payment provider and leaves the first one as it is. If the first one did go through, paying again would take the money twice — press Check again first."
     },
