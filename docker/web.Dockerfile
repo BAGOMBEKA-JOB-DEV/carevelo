@@ -23,12 +23,17 @@ WORKDIR /app
 # The timeouts are raised because the defaults assume a fast link and turn a slow
 # success into a failure.
 # ---------------------------------------------------------------------------
-ENV PNPM_HOME=/pnpm
-RUN pnpm config set store-dir /pnpm/store --global \
- && pnpm config set network-concurrency 4 --global \
- && pnpm config set fetch-retries 5 --global \
- && pnpm config set fetch-retry-maxtimeout 600000 --global \
- && pnpm config set fetch-timeout 600000 --global
+# WRITTEN AS A FILE RATHER THAN THROUGH `pnpm config set --global`, which refuses
+# to run unless PNPM_HOME/bin is on PATH -- it wants to manage a shell profile,
+# which a container image has no use for. The file is what that command would
+# have produced, and pnpm reads it from the home directory whatever the workdir.
+RUN printf '%s\n' \
+      'store-dir=/pnpm/store' \
+      'network-concurrency=4' \
+      'fetch-retries=5' \
+      'fetch-retry-maxtimeout=600000' \
+      'fetch-timeout=600000' \
+      > /root/.npmrc
 
 # ~150 MB of Chromium this image will never open. `@playwright/test` is a ROOT
 # devDependency, so it is pulled in by a workspace install, and installing it
