@@ -1,37 +1,40 @@
-# The Laravel API, the queue worker and the scheduler all run from this image.
-#
-# ONE IMAGE, THREE PROCESSES, and that is deliberate. They share a codebase and a
-# configuration; splitting them into three images would mean three things to keep
-# in step and three chances for a worker to run last week's code against this
-# week's schema. The compose file runs the same image with different commands.
 # syntax=docker/dockerfile:1
-FROM php:8.3-cli-alpine
+#
+# The Laravel API, the queue worker, the scheduler, Reverb and the one-shot
+# setup job all run from this image. All five services pin
+# `image: carevelo-api:dev` so Compose builds it once rather than five times.
+#
+# ONE IMAGE, FIVE PROCESSES, deliberately. They share a codebase and a
+# configuration; splitting them would mean five things to keep in step and five
+# chances for a worker to run last week's code against this week's schema.
+#
+# ============================================================================
+# IT INSTALLS NO PHP PACKAGES. It runs against the host's `backend/vendor`,
+# mounted by compose -- see docker/web.Dockerfile for the full reasoning. Short
+# version: an earlier build fetched everything over a 9-42 KiB/s link and never
+# finished, and the host already has it all.
+#
+# `php:8.3-cli` rather than `-alpine` so the runtime is glibc and matches the
+# host, the same reason the web image is `node:22` rather than `node:22-alpine`.
+#
+# THE EXTENSIONS ARE STILL COMPILED IN, and must be: they are PHP runtime
+# extensions, not Composer packages, so they are not in vendor/ and no mount can
+# supply them. That is one `docker-php-ext-install`, not 377 tarballs.
+# ============================================================================
+FROM php:8.3-cli
 
 # intl for the Africa/Kampala date handling, pdo_pgsql for the database, zip and
 # gd for the prescription PDF, pcntl for the queue worker's signal handling --
 # without it `queue:work` cannot shut down gracefully and a deploy kills a job
 # mid-flight.
-RUN apk add --no-cache postgresql-dev icu-dev libzip-dev oniguruma-dev freetype-dev \
-      libjpeg-turbo-dev libpng-dev git unzip \
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      libpq-dev libicu-dev libzip-dev libonig-dev libfreetype6-dev \
+      libjpeg62-turbo-dev libpng-dev unzip \
  && docker-php-ext-configure gd --with-freetype --with-jpeg \
  && docker-php-ext-install -j"$(nproc)" pdo_pgsql intl zip bcmath gd pcntl opcache \
- && apk del postgresql-dev icu-dev libzip-dev
-
-COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+ && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-
-# DEPENDENCIES BEFORE SOURCE, so a code change does not reinstall the world.
-# --no-scripts because artisan is not here yet; scripts run after the copy below.
-COPY backend/composer.json backend/composer.lock ./
-# A cache mount for the same reason the web image has one: on a slow connection a
-# failed build must not throw away what it already downloaded, or the retry fails
-# identically and you are in a loop.
-RUN --mount=type=cache,id=composer-cache,target=/tmp/composer \
-    COMPOSER_HOME=/tmp/composer composer install --no-interaction --no-scripts --prefer-dist
-
-COPY backend/ ./
-RUN composer dump-autoload --optimize
 
 EXPOSE 8000
 CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]

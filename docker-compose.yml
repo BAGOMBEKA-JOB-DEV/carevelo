@@ -145,8 +145,11 @@ services:
     environment:
       NEXT_PUBLIC_API_ORIGIN: http://localhost:8000
     volumes:
+      # NO anonymous /app/node_modules volume. One used to sit here and it was
+      # the whole problem: it masked the host's node_modules with an empty one,
+      # which forced the image to install its own -- 377 packages over a link
+      # that could not carry them. The host's install is mounted straight in.
       - ./frontend:/app
-      - /app/node_modules
     ports: ["3000:3000"]
     command: pnpm --filter @carevelo/patient-portal dev --hostname 0.0.0.0
 
@@ -156,7 +159,7 @@ services:
     depends_on: [api]
     environment:
       NEXT_PUBLIC_API_ORIGIN: http://localhost:8000
-    volumes: [./frontend:/app, /app/node_modules]
+    volumes: [./frontend:/app]
     ports: ["3001:3001"]
     command: pnpm --filter @carevelo/clinic-console dev --hostname 0.0.0.0
 
@@ -166,7 +169,7 @@ services:
     depends_on: [api]
     environment:
       NEXT_PUBLIC_API_ORIGIN: http://localhost:8000
-    volumes: [./frontend:/app, /app/node_modules]
+    volumes: [./frontend:/app]
     ports: ["3002:3002"]
     command: pnpm --filter @carevelo/rider-view dev --hostname 0.0.0.0
 
@@ -176,7 +179,7 @@ services:
     depends_on: [api]
     environment:
       NEXT_PUBLIC_API_ORIGIN: http://localhost:8000
-    volumes: [./frontend:/app, /app/node_modules]
+    volumes: [./frontend:/app]
     ports: ["3003:3003"]
     command: pnpm --filter @carevelo/platform-admin dev --hostname 0.0.0.0
 
