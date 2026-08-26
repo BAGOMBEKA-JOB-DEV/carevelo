@@ -53,6 +53,11 @@ export {
   type TenantRegisterScreenProps,
 } from './components/TenantRegisterScreen'
 export { ProvisionScreen, type ProvisionScreenProps } from './components/ProvisionScreen'
+/* The subscription register — who owes us money, as distinct from who our clinics are. */
+export {
+  BillingRegisterScreen,
+  type BillingRegisterScreenProps,
+} from './components/BillingRegisterScreen'
 
 /* ---- Reads and writes, for the route layer and for the break-glass domain ----
    `listTenants` and `getHealth` throw `ApiError` on failure; the screens above catch for

@@ -122,14 +122,28 @@ export async function BillingRegisterScreen({
    */
   const now = Date.now()
 
-  /* The status filter is the API's own and is validated against the contract's closed set
-     before it is sent. An unknown value is dropped rather than forwarded, which would come
-     back a 422 about a parameter the operator did not type. */
-  const filter = STATUSES.includes(status as never) ? status : undefined
+  /*
+   * The status filter is the API's own and is validated against the contract's closed set
+   * before it is sent. An unknown value is dropped rather than forwarded, which would come
+   * back a 422 about a parameter the operator did not type.
+   *
+   * A TYPE GUARD RATHER THAN `as never`, and the query is BUILT rather than declared. Both
+   * are `exactOptionalPropertyTypes`, which is on in this workspace: `TenantQuery` comes
+   * from the generated contract, so `status` is `status?: TenantStatus` and NOT
+   * `TenantStatus | undefined`. Writing `{ status: undefined }` is therefore a type error
+   * rather than an omission, and casting it away would have hidden the one thing the flag
+   * exists to tell us — that "absent" and "present but undefined" are different requests.
+   * Spreading the key only when it has a value sends no parameter at all, which is what
+   * "no filter" actually means to the API.
+   */
+  const filter = STATUSES.find((state) => state === status)
 
   let register
   try {
-    register = await readSubscriptionRegister({ status: filter as never, cursor }, PER_PAGE)
+    register = await readSubscriptionRegister(
+      { ...(filter ? { status: filter } : {}), ...(cursor ? { cursor } : {}) },
+      PER_PAGE,
+    )
   } catch {
     /*
      * The register itself could not be read — not one clinic's subscription, the page. A

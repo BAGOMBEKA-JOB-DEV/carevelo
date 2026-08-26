@@ -103,6 +103,15 @@ export type PlatformPaths = {
   export: string
   /** Where the break-glass domain is mounted, for the one link between them. */
   breakGlass: string
+  /**
+   * Where the subscription register is mounted. Receives `?status=&cursor=&tenant=`.
+   *
+   * Separate from `register` on purpose. That screen answers "who are our clinics and what
+   * lifecycle state are they in"; this one answers "who owes us money". They overlap in
+   * their rows and in nothing else, and a single screen carrying both would make the
+   * commercial question the operator opens the console for compete with an operational one.
+   */
+  billing: string
 }
 
 /**
