@@ -27,11 +27,23 @@ FROM php:8.3-cli
 # gd for the prescription PDF, pcntl for the queue worker's signal handling --
 # without it `queue:work` cannot shut down gracefully and a deploy kills a job
 # mid-flight.
+#
+# REDIS COMES FROM PECL, NOT FROM docker-php-ext-install, because it is not
+# bundled with PHP. Leaving it out is a late and confusing failure rather than an
+# obvious one: the container boots, migrations start, and the FIFTH migration
+# dies with `Class "Redis" not found` -- because that is the first line to touch
+# the cache. docker/api.env drives cache, queue and session through Redis, so
+# nothing here works without it.
+#
+# `printf '\n' | pecl install` answers the one prompt it asks (igbinary/lzf
+# support) with the default; an unanswered prompt hangs the build forever.
 RUN apt-get update && apt-get install -y --no-install-recommends \
       libpq-dev libicu-dev libzip-dev libonig-dev libfreetype6-dev \
       libjpeg62-turbo-dev libpng-dev unzip \
  && docker-php-ext-configure gd --with-freetype --with-jpeg \
  && docker-php-ext-install -j"$(nproc)" pdo_pgsql intl zip bcmath gd pcntl opcache \
+ && printf '\n' | pecl install redis \
+ && docker-php-ext-enable redis \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
