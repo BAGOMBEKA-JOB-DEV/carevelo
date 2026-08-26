@@ -1,0 +1,180 @@
+/* ============================================================
+   Consultation media — the only pixels in this design system that hold a moving picture.
+
+   THESE CLASSES EXIST BECAUSE A VIDEO TILE IS NOT A LAYOUT PROBLEM. Stack, Inline and Grid
+   model the distance BETWEEN things, and every one of their props takes a scale key, which
+   is exactly right for the rest of the product and useless here: a `<video>` needs an
+   aspect ratio, an object-fit and a background to show while the first frame is still on
+   its way, and none of those are distances. The alternative was `style={{}}` at the call
+   site in two apps, which is the 477 this system was built to retire, and it is banned by
+   an ESLint rule that would have had to be argued with rather than obeyed.
+
+   BOTH APPS RENDER THE SAME PANE, so it is here rather than written twice. The patient
+   portal has no stylesheet of its own — it imports `@carevelo/ui/tokens.css` and nothing
+   else — so a class defined in the console's `console.css` would be invisible to the
+   patient, which is the half of the consultation that matters most.
+
+   THE COLOURS ARE TOKENS, INCLUDING THE ONE NOBODY LOOKS AT. `--surface-sunken` behind a
+   tile is what the patient sees for the second or two before a first frame decodes, and on
+   a mid-range Android on Ugandan mobile data that second or two is often much longer. A
+   hard-coded #000 would be a black rectangle in a light theme, which reads as a dead
+   screen; the sunken surface reads as a container waiting for something.
+
+   @see docs/70-decisions/0004-video-provider-selection.md
+   @see deploy/livekit/README.md — what the network under this actually does
+   ============================================================ */
+
+/* ---- The pane ----
+
+   A column, because everything in it is a full-width row: the status line, the tiles, the
+   controls. `gap` rather than margins on the children so that a row which does not render
+   — there is no remote tile until somebody else arrives — leaves no space behind it. */
+.media-stage {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+/* ---- The tiles ----
+
+   ONE COLUMN ON A PHONE AND TWO FROM 560px. Not a `repeat(auto-fit, minmax())`, which is
+   the reflex: with two participants that formula puts them side by side at 400px wide,
+   where each tile is 200px across and neither face is legible. A consultation has exactly
+   two seats, so the breakpoint is chosen against that number rather than against a general
+   grid.
+
+   `align-items: start` so a tile that is a short "camera is off" line does not stretch to
+   the height of a tile holding a picture. */
+.media-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-4);
+  align-items: start;
+}
+
+@media (min-width: 560px) {
+  .media-grid--pair { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* ---- One participant ----
+
+   `min-width: 0` because a grid item's default `min-width: auto` refuses to shrink below
+   its content, and a 640px video track inside a 360px column is exactly that case: without
+   it the grid silently overflows the card and the whole page scrolls sideways. */
+.media-tile {
+  position: relative;
+  min-width: 0;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-md);
+  background: var(--surface-sunken);
+  overflow: hidden;
+}
+
+/* 4:3 rather than 16:9, and it is a decision about faces rather than about video.
+
+   A phone held upright in a consultation frames a head and shoulders. 16:9 is a landscape
+   ratio: in portrait it crops the top of the head or leaves two bands of room either side
+   of it. 4:3 is close to what the front camera of a mid-range Android actually produces and
+   wastes the least of it. */
+.media-tile__frame {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  display: grid;
+  place-items: center;
+}
+
+.media-tile__video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* THE LOCAL PREVIEW IS MIRRORED AND THE REMOTE ONE IS NOT.
+
+   Everybody expects their own image to behave like a mirror, because every camera app they
+   have ever used does. Nobody expects the person they are talking to to be mirrored, and
+   doing it to them flips any text they hold up — a medicine box, a referral slip, a
+   handwritten dose — which on this screen is a thing that actually happens. */
+.media-tile__video--mirrored { transform: scaleX(-1); }
+
+/* What fills a tile when there is no picture: the ordinary state here, not the failure.
+
+   The camera is off by default for both sides — see LiveKitStage — so this is what most of
+   a voice consultation looks like, and it has to read as a deliberate state rather than as
+   something that failed to load. Hence a centred line of text on the sunken surface, and
+   no spinner: a spinner says "wait", and there is nothing to wait for. */
+.media-tile__quiet {
+  padding: var(--space-6);
+  text-align: center;
+  color: var(--ink-muted);
+  font-size: 14px;
+}
+
+/* The role, over the bottom of the tile.
+
+   `--ink` on a translucent `--surface` rather than white on black: the tile behind it may
+   be a bright frame or the empty sunken surface, and a fixed pair of colours is unreadable
+   against one of them. `backdrop-filter` is progressive — where it is not supported the
+   85% surface is still opaque enough to read against. */
+.media-tile__label {
+  position: absolute;
+  inset-inline-start: var(--space-3);
+  inset-block-end: var(--space-3);
+  padding: 2px var(--space-3);
+  border-radius: var(--r-sm);
+  background: color-mix(in srgb, var(--surface) 85%, transparent);
+  backdrop-filter: blur(6px);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.6;
+}
+
+/* ---- The status line ----
+
+   A row that wraps, because "Connecting…" and a connection-quality word sit beside each
+   other on a wide screen and stack on a narrow one, and a fixed row would push the second
+   off the edge of a 360px phone. */
+.media-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: 13px;
+  color: var(--ink-muted);
+}
+
+/* A dot carrying the connection state, next to a word carrying the same thing.
+
+   THE WORD IS THE MESSAGE AND THE DOT IS THE SECOND OPINION — the same rule the status
+   badges in the room follow. A dot alone says nothing to a screen reader and less to a
+   colour-blind patient, so there is always a word, and this is decoration: `aria-hidden`
+   at the call site. */
+.media-dot {
+  inline-size: 8px;
+  block-size: 8px;
+  border-radius: 50%;
+  flex: none;
+  background: var(--ink-faint);
+}
+
+.media-dot--live { background: var(--good); }
+.media-dot--wait { background: var(--warn); }
+.media-dot--dead { background: var(--bad); }
+
+/* ---- The controls ----
+
+   A wrapping row of real buttons. `.btn` is `inline-flex`, so these are laid out by a flex
+   row rather than dropped into a Stack, where the column's default `stretch` would pull
+   each one the full width of the card and turn "Turn my camera on" into the page's primary
+   action.
+
+   THEY WRAP RATHER THAN SCROLL. Three controls at a comfortable tap size do not fit across
+   a 360px phone, and a horizontally scrolling control bar hides whichever control is off
+   the edge — which here would be the one that turns the camera off. */
+.media-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}

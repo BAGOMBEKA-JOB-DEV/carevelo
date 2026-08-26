@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\V1\ClinicalNoteController;
 use App\Http\Controllers\Api\V1\ClinicianController;
 use App\Http\Controllers\Api\V1\ConsentController;
 use App\Http\Controllers\Api\V1\ConsultationController;
+use App\Http\Controllers\Api\V1\ConsultationMessageController;
 use App\Http\Controllers\Api\V1\DeliveryController;
 use App\Http\Controllers\Api\V1\DispenseOrderController;
 use App\Http\Controllers\Api\V1\JoinTokenController;
@@ -233,6 +234,28 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         // silently rewritten is not a medical record.
         Route::patch('consultations/{consultation}/notes/{note}', [ClinicalNoteController::class, 'addendum'])
             ->name('notes.addendum');
+
+        /*
+         * Consultation chat -- a clinical record, not ephemeral messaging.
+         *
+         * The fallback the threat model and the integrations document both
+         * already promise for a video outage ("falls back to chat, which we
+         * serve ourselves"), and the reason it sits here beside the notes rather
+         * than in some messaging namespace: a message inside an encounter is
+         * clinical text, subject to the same isolation, the same export and the
+         * same break-glass as the notes it sits next to.
+         *
+         * Two verbs and no more. There is no PATCH and no DELETE, because a
+         * conversation is corrected by saying something else.
+         *
+         * Both authorise ConsultationPolicy::participate -- the patient and the
+         * conducting clinician, and nobody else. `conduct` would have locked the
+         * patient out of their own consultation.
+         */
+        Route::get('consultations/{consultation}/messages', [ConsultationMessageController::class, 'index'])
+            ->name('consultations.messages.index');
+        Route::post('consultations/{consultation}/messages', [ConsultationMessageController::class, 'store'])
+            ->name('consultations.messages.store');
 
         // --- Prescriptions (H3) -----------------------------------------
         // No PUT/PATCH: prescriptions are immutable after issue.

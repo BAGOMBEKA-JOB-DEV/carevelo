@@ -17,6 +17,13 @@
  *
  *   ConsultationScreen   the entire journey behind one link — lobby, room, and every
  *                        honest reason for neither. A route renders this and nothing else.
+ *                        The room now carries a working chat panel rather than a notice
+ *                        saying chat does not exist: `consultation_messages` is a real table
+ *                        and `ConsultationMessageController` is a real route, so the
+ *                        placeholder went the moment the endpoint arrived and not before.
+ *                        Nothing new is exported for it — the transcript is loaded by
+ *                        `loadConsultationEntry` with everything else, because reads are
+ *                        audited and one screen should be one read.
  *   EmergencyGuidance    the clinic's standing emergency guidance, exported so that any
  *                        other patient-facing screen that needs it carries the SAME words
  *                        rather than a second, drifting copy. H3 requires it to be

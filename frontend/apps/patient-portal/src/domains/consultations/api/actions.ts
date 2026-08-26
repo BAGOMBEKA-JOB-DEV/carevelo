@@ -2,11 +2,13 @@
 
 import { redirect } from 'next/navigation'
 import { findConsultationForAppointment, roomSignature } from './consultations'
+import { listMessages, sendMessage } from './messages'
 import { consultationHref } from './paths'
 import { enterRoom, forgetRoom } from './room'
+import type { SendResult } from '../model/chat'
 
 /**
- * The three things a patient can actually DO in this domain.
+ * The four things a patient can actually DO in this domain.
  *
  * WHY THEY ARE SERVER ACTIONS AND NOT CLIENT HANDLERS. `<form action={serverAction}>`
  * posts natively: it works before the bundle arrives, with JavaScript switched off, and on
@@ -108,5 +110,59 @@ export async function leaveConsultation(formData: FormData): Promise<void> {
  * achieves is a signature for a consultation that is already theirs.
  */
 export async function checkRoom(appointmentId: string): Promise<string> {
-  return roomSignature(await findConsultationForAppointment(appointmentId))
+  const consultation = await findConsultationForAppointment(appointmentId)
+
+  if (consultation === null) {
+    return roomSignature(null)
+  }
+
+  /*
+   * THE TRANSCRIPT IS COUNTED HERE, AND IT IS WHAT MAKES CHAT LIVE.
+   *
+   * The count goes into the signature; a message arriving changes it; `RoomLive` sees the
+   * difference and calls `router.refresh()`, and the SERVER renders the new line. The
+   * browser is told only that something moved — never what was said. That is the same rule
+   * `ConsultationMessageSent` obeys on its own broadcast, applied to a poll.
+   *
+   * IT COSTS AN AUDIT EVENT EVERY FIFTEEN SECONDS, and that is worth stating rather than
+   * discovering. `index` writes `consultation_message.viewed` with a count on every read, so
+   * a live consultation writes roughly four an minute per participant. Reads of a clinical
+   * record are audited on purpose — "who read my consultation" is only answerable by having
+   * recorded every read — and the alternative is chat that is fresh only when somebody
+   * reloads, which is not chat. `RoomLive` bounds it: the timer stops while the tab is
+   * hidden and never starts for an ended consultation.
+   *
+   * A FAILED READ COUNTS AS ZERO rather than throwing. This runs on a timer in a browser;
+   * an exception here would surface as an unhandled rejection in a console and change
+   * nothing on screen. A wrong count costs one missed tick of freshness — the next one
+   * corrects it — and never correctness, because the server render is what draws.
+   */
+  return roomSignature(consultation, (await listMessages(consultation.id))?.length ?? 0)
+}
+
+/**
+ * Say something to the clinician.
+ *
+ * A MODULE-LEVEL `'use server'` EXPORT because `ChatComposer` is a client component, and a
+ * client component can only reach across the boundary through one of these. It takes its
+ * two arguments from the browser and treats both as arguments to an AUTHORISED CALL rather
+ * than as assertions: `ConsultationPolicy::participate` admits exactly two people — the
+ * patient the encounter belongs to and the clinician conducting it — and row-level security
+ * decides which consultation exists at all. A forged identifier resolves to a 404.
+ *
+ * THERE IS NO `author_role` PARAMETER AND THERE MUST NOT BE. The server derives which side
+ * is speaking from the authorisation decision it has just taken; the form request has no
+ * such field and `RejectsUnknownFields` turns an attempt into a 422. A client able to assert
+ * it could put words into the other participant's mouth inside a clinical record.
+ *
+ * RETURNS A VALUE FOR EVERY OUTCOME AND THROWS NOTHING — see `api/messages.ts`. A thrown
+ * Server Action inside a client component becomes an error boundary, and an error boundary
+ * here is a patient losing the screen they are being treated on, along with what they had
+ * typed into it.
+ */
+export async function sendConsultationMessage(
+  consultationId: string,
+  body: string,
+): Promise<SendResult> {
+  return sendMessage(consultationId, body)
 }

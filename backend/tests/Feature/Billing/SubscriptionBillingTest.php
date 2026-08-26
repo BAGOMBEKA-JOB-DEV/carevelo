@@ -495,11 +495,11 @@ it('never returns the platform credentials in any response body, log line or aud
 
     foreach ($secrets as $secret) {
         foreach ($bodies as $index => $body) {
-            expect((string) $body)->not->toContain($secret, "Response {$index} leaked a platform credential.");
+            expect(str_contains((string) $body, $secret))->toBeFalse("Response {$index} leaked a platform credential.");
         }
 
         foreach ($lines as $line) {
-            expect($line)->not->toContain($secret, 'A platform credential reached the log.');
+            expect(str_contains($line, $secret))->toBeFalse('A platform credential reached the log.');
         }
     }
 
@@ -514,7 +514,7 @@ it('never returns the platform credentials in any response body, log line or aud
         $rendered = $event->action.' '.(json_encode($event->metadata) ?: '');
 
         foreach ($secrets as $secret) {
-            expect($rendered)->not->toContain($secret, 'A platform credential reached the audit trail.');
+            expect(str_contains($rendered, $secret))->toBeFalse('A platform credential reached the audit trail.');
         }
     }
 });

@@ -92,6 +92,27 @@ class AuditLog
             'password', 'secret', 'token', 'api_key', 'secret_key',
             'diagnosis', 'notes', 'medicine', 'medicine_name', 'prescription_text',
             'given_name', 'family_name', 'patient_name', 'phone', 'email', 'address',
+
+            /*
+             * Added with consultation chat, and the names are the point.
+             *
+             * `notes` above catches the note domain's obvious mistake. Chat
+             * brought a new one with a far friendlier-looking key: a caller who
+             * would never write `'diagnosis' => ...` into an audit event will
+             * write `'body' => ...` or `'message' => ...` without a second
+             * thought, because in a chat domain those read as the name of the
+             * thing rather than as clinical content. They are clinical content
+             * -- a clinician's chat line is an instruction and a patient's is
+             * history -- and audit_events is exported, readable by clinic
+             * administrators and append-only, so a leak here cannot be taken
+             * back.
+             *
+             * `transcript` is here for the plausible next mistake rather than a
+             * present one: the first thing anybody adds to this domain is a
+             * bulk read, and the first thing they reach for to describe it is
+             * that word.
+             */
+            'body', 'message', 'message_body', 'transcript',
         ];
 
         return array_diff_key($metadata, array_flip($forbidden));

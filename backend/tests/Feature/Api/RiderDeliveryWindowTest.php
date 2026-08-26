@@ -281,6 +281,6 @@ it('gives finished work no wider a payload than live work', function () {
         'diagnosis', 'medicine', 'prescription', 'clinical', 'note',
         'dosage', 'directions', 'condition', 'failure_reason', 'dispense_order',
     ] as $term) {
-        expect($body)->not->toContain($term, "Rider completed payload leaked '{$term}'");
+        expect(str_contains($body, $term))->toBeFalse("Rider completed payload leaked '{$term}'");
     }
 });

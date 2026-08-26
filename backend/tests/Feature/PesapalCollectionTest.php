@@ -651,14 +651,14 @@ it('lets no consumer secret or bearer token reach a response, a log or an audit 
 
     foreach ($secrets as $secret) {
         foreach ($bodies as $index => $body) {
-            expect((string) $body)->not->toContain($secret, "Response {$index} leaked a credential.");
+            expect(str_contains((string) $body, $secret))->toBeFalse("Response {$index} leaked a credential.");
         }
 
         foreach ($lines as $line) {
-            expect($line)->not->toContain($secret, 'A credential reached the log.');
+            expect(str_contains($line, $secret))->toBeFalse('A credential reached the log.');
         }
 
-        expect($auditTrail)->not->toContain($secret, 'A credential reached the audit trail.');
+        expect(str_contains($auditTrail, $secret))->toBeFalse('A credential reached the audit trail.');
     }
 
     // And the verification still told the administrator something they can act

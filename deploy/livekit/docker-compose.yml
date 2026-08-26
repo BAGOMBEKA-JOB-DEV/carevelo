@@ -1,0 +1,170 @@
+# Carevelo consultation media -- PRODUCTION
+#
+# Three services on one VPS: a reverse proxy that terminates TLS and gets the
+# certificate, the LiveKit SFU, and a TURN relay. ADR-0004 chose to run this
+# ourselves rather than pay per minute, and README.md is honest about what that
+# costs. Read it before running this file; it is not a `docker compose up` and
+# walk away.
+#
+# Copy .env.example to .env and livekit.yaml.example to livekit.yaml, fill both
+# in, then:
+#
+#   docker compose up -d
+#
+# EVERY SERVICE USES HOST NETWORKING, AND NOT FOR CONVENIENCE. WebRTC negotiates
+# by exchanging candidate IP addresses inside signalling messages. A container on
+# a bridge network knows only its 172.x address, advertises that to a patient's
+# phone, and the call negotiates successfully and then connects to nothing --
+# which presents as "it says connecting and then fails", with clean logs
+# everywhere. Docker's userland proxy also mangles the source address of UDP
+# packets, which breaks both ICE and coturn's view of who is calling it. Host
+# networking removes both problems, and its cost is that these processes bind
+# real ports on a real interface, so the firewall in README.md is not optional.
+
+services:
+
+  # --- TLS termination and certificates -------------------------------------
+  #
+  # A browser on an https page cannot open a ws:// socket, so the signalling
+  # connection has to be wss://, which means a publicly trusted certificate for
+  # the hostname the client dials. Caddy gets and renews one from Let's Encrypt
+  # by itself, which is the single largest reason it is here rather than nginx.
+  #
+  # It also, quietly, is where coturn's certificate comes from -- see the volume
+  # note on that service.
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    network_mode: host
+    env_file: .env
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+  # --- The SFU --------------------------------------------------------------
+  #
+  # LiveKit forwards streams; it does not transcode them, which is why a
+  # two-core box carries far more concurrent consultations than people expect.
+  # See README.md, "What size VPS", for the arithmetic.
+  livekit:
+    image: livekit/livekit-server:v1.8
+    restart: unless-stopped
+    network_mode: host
+    command: ["--config", "/etc/livekit.yaml"]
+    volumes:
+      # Not livekit.yaml.example. The real file is gitignored because it carries
+      # the API secret and the TURN password; the example next to it is the
+      # documented template.
+      - ./livekit.yaml:/etc/livekit.yaml:ro
+    depends_on:
+      - coturn
+
+  # --- The TURN relay -------------------------------------------------------
+  #
+  # THIS SERVICE IS NOT OPTIONAL AND IT IS NOT A FALLBACK. Ugandan mobile
+  # carriers put subscribers behind carrier-grade NAT, so a large share of
+  # patients have no address the SFU can send to and no way to open one. Without
+  # a relay those consultations fail while others succeed, by carrier and by
+  # handset, which is the hardest possible thing to diagnose after the fact.
+  # README.md, "What breaks without TURN", spells that out.
+  #
+  # A separate service rather than LiveKit's own embedded TURN, for one reason
+  # that is worth the extra file: it is the component whose bandwidth bill and
+  # abuse surface need watching, and having it as its own process means it can be
+  # restarted, rate-limited, moved to its own host or put on port 443 without
+  # touching the media server.
+  coturn:
+    image: coturn/coturn:4.6
+    restart: unless-stopped
+    network_mode: host
+
+    # Root, deliberately, and this is the one place in this file where a comment
+    # is load-bearing. The image drops to an unprivileged user by default, and
+    # the certificate below is written by Caddy as mode 0600 inside a 0700
+    # directory owned by root -- so an unprivileged coturn starts, fails to read
+    # the key, and silently serves TURN without TLS. The alternative is a renewal
+    # hook that copies and chowns the certificate on every renewal, which is one
+    # more thing to forget every ninety days.
+    user: root
+
+    volumes:
+      # Caddy's certificate store, read-only. Sharing it is what keeps this
+      # deployment to ONE certificate and one renewal path: the TURN relay and
+      # the signalling endpoint are the same hostname, so they are the same cert.
+      #
+      # coturn does NOT reload certificates. See README.md for the monthly
+      # restart that renewal therefore requires -- it is a real chore and
+      # pretending otherwise is how a TURN relay ends up serving an expired
+      # certificate that only some clients refuse.
+      - caddy_data:/caddy:ro
+
+    command:
+      # No default config file. Everything is stated here, where Compose can
+      # interpolate .env and where each flag can be explained.
+      - -n
+      - --log-file=stdout
+      - --simple-log
+
+      # The classic TURN ports. 3478/udp is what almost every client will use
+      # first; 3478/tcp and 5349/tcp (TLS) are for networks that drop UDP.
+      - --listening-port=3478
+      - --tls-listening-port=5349
+      - --listening-ip=0.0.0.0
+
+      # Long-term credentials. The username and password are handed to every
+      # browser as an ICE server, so they are not secret from users -- they are
+      # what stops the open internet relaying through us. Rotate them by changing
+      # .env and livekit.yaml together; they must match.
+      - --lt-cred-mech
+      - --realm=${MEDIA_DOMAIN}
+      - --user=carevelo:${TURN_PASSWORD}
+
+      # THE ANTI-THEFT RULE, AND THE REASON A LEAKED TURN PASSWORD IS SURVIVABLE.
+      # A TURN server will relay to anywhere it is asked to, which makes an open
+      # one a free proxy and, on a metered VPS, somebody else's traffic on our
+      # bill. Deny every destination, then allow exactly one: our own SFU. A
+      # relay that can only reach the media server is useless for anything but
+      # joining a consultation.
+      - --denied-peer-ip=0.0.0.0-255.255.255.255
+      - --allowed-peer-ip=${MEDIA_PUBLIC_IP}
+      - --no-multicast-peers
+
+      # The relay port range. Each relayed participant takes one port, so this
+      # sizes the number of simultaneous CGNAT participants -- 140 is far more
+      # than a clinic list will produce, and it is a much smaller hole in the
+      # firewall than coturn's default 49152-65535.
+      - --min-port=49160
+      - --max-port=49300
+
+      # The certificate. A publicly trusted one for MEDIA_DOMAIN: browsers
+      # validate a turns: URI against the hostname exactly as they validate
+      # https, and a self-signed certificate here means every TLS relay attempt
+      # fails on the clients that needed it most.
+      #
+      # NOTE WHAT THIS TLS IS AND IS NOT FOR. WebRTC media is already encrypted
+      # end to end with DTLS-SRTP whichever path it takes, so this certificate
+      # adds no confidentiality to a consultation. It exists so the relay looks
+      # like ordinary TLS to a middlebox that would otherwise drop it.
+      - --cert=/caddy/caddy/certificates/acme-v02.api.letsencrypt.org-directory/${MEDIA_DOMAIN}/${MEDIA_DOMAIN}.crt
+      - --pkey=/caddy/caddy/certificates/acme-v02.api.letsencrypt.org-directory/${MEDIA_DOMAIN}/${MEDIA_DOMAIN}.key
+
+      # Announce the public address explicitly. On a provider that gives the
+      # instance a private address behind 1:1 NAT (AWS, GCP, Azure) coturn
+      # otherwise advertises the private one and every allocation is unreachable.
+      # On a VPS with a directly attached public IP this is simply correct.
+      - --external-ip=${MEDIA_PUBLIC_IP}
+
+      # No telnet CLI. It listens on 5766 by default with a default password.
+      - --no-cli
+
+      # Not a STUN server for the world. LiveKit's own ICE gathering does not
+      # need it and leaving it on invites reflection abuse.
+      - --no-stun
+
+    depends_on:
+      - caddy
+
+volumes:
+  caddy_data:
+  caddy_config:

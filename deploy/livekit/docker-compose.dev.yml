@@ -1,0 +1,43 @@
+# Carevelo consultation media -- LOCAL DEVELOPMENT ONLY
+#
+# One container, no TLS, no TURN, no reverse proxy. It exists so a developer can
+# open a working consultation on their own machine without provisioning a server,
+# and it is deliberately NOT a small version of production: production is
+# docker-compose.yml next to this file, and it has two more services and a
+# certificate.
+#
+# NO TURN HERE, AND THAT IS FINE ONLY HERE. Both browsers and the SFU are on the
+# same machine, so ICE finds a host candidate on the loopback interface every
+# time. On a real network they will not, and that is the entire reason
+# docker-compose.yml runs coturn -- see the README, section "What breaks without
+# TURN", before assuming this file proves anything about whether video works.
+#
+#   docker compose -f docker-compose.dev.yml up
+#
+# Then the three LIVEKIT_ lines in backend/.env.example already point at it.
+
+services:
+  livekit:
+    image: livekit/livekit-server:v1.8
+    restart: unless-stopped
+
+    # Host networking, exactly as in production. WebRTC hands out candidate
+    # addresses inside the signalling messages, so a container that only knows
+    # its own bridge address advertises 172.x to a browser that cannot reach it
+    # -- the call negotiates, then connects to nothing. Host networking sidesteps
+    # the whole class of problem, and using it here too means the local setup
+    # fails the same ways production does rather than differently.
+    network_mode: host
+
+    command:
+      # --dev relaxes the production key-length check, logs at debug, and is the
+      # switch that must never appear in docker-compose.yml.
+      - --dev
+      - --bind
+      - 0.0.0.0
+
+    environment:
+      # The same pair as backend/.env.example, which is why video works
+      # immediately after `composer setup`. PUBLIC, in a git repository, and
+      # worthless: it signs tokens for a server listening on this laptop.
+      LIVEKIT_KEYS: "devkey: devsecret-devsecret-devsecret-32"

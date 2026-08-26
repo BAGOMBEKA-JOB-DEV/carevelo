@@ -65,6 +65,7 @@ export async function ConsultationScreen({
         bookedMode={state.bookedMode}
         credentials={state.credentials}
         consultation={state.consultation}
+        messages={state.messages}
         clinicianName={clinicianName}
         emergencyGuidance={emergencyGuidance}
       />

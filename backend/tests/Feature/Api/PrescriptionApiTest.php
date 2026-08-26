@@ -109,8 +109,7 @@ it('issues a prescription in the clinician\'s own name, never Carevelo\'s', func
     expect($response->json('data.issued_by.name'))->toBe($user->name)
         ->and($response->json('data.issued_at'))->not->toBeNull();
 
-    expect(strtolower(json_encode($response->json()) ?: ''))
-        ->not->toContain('carevelo', 'The rendered prescription named Carevelo as issuer');
+    expect(str_contains(strtolower(json_encode($response->json()) ?: ''), 'carevelo'))->toBeFalse('The rendered prescription named Carevelo as issuer');
 });
 
 it('refuses to issue a prescription for a clinician without prescribing rights', function () {
@@ -224,7 +223,7 @@ it('audits the issue with identifiers only, never what was prescribed', function
     $recorded = strtolower(json_encode($events->toArray()) ?: '');
 
     foreach (['amoxicillin', 'capsule', 'directions', 'medicine'] as $clinical) {
-        expect($recorded)->not->toContain($clinical, "The audit event leaked '{$clinical}'");
+        expect(str_contains($recorded, $clinical))->toBeFalse("The audit event leaked '{$clinical}'");
     }
 });
 

@@ -145,11 +145,11 @@ it('never returns a credential it was just given, to anybody', function () {
 
     foreach (h1PaySecretValues() as $secret) {
         foreach ($bodies as $index => $body) {
-            expect((string) $body)->not->toContain($secret, "Response {$index} leaked a credential.");
+            expect(str_contains((string) $body, $secret))->toBeFalse("Response {$index} leaked a credential.");
         }
 
         foreach ($lines as $line) {
-            expect($line)->not->toContain($secret, 'A credential reached the log.');
+            expect(str_contains($line, $secret))->toBeFalse('A credential reached the log.');
         }
     }
 });

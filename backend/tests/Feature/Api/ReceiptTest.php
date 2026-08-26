@@ -151,7 +151,7 @@ it('exports the clinic\'s own payment records as CSV, aggregator reference inclu
     // variance -- each would be an assertion about funds that never passed
     // through us, and a clinic trusting it would reconcile against fiction.
     foreach (['balance', 'wallet', 'float', 'escrow', 'payout', 'settlement', 'total'] as $forbidden) {
-        expect(strtolower($csv))->not->toContain($forbidden, "The export implies custody: '{$forbidden}'");
+        expect(str_contains(strtolower($csv), $forbidden))->toBeFalse("The export implies custody: '{$forbidden}'");
     }
 });
 

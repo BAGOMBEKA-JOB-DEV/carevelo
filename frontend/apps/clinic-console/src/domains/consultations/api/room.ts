@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers'
 import { ApiError, type operations } from '@carevelo/api-client'
+import { isMediaConfigured } from '../model/media'
 import { writingApi } from './gateway'
 
 /**
@@ -47,10 +48,37 @@ type RedeemedCredentials =
 /**
  * What the console remembers about an entry. NOT a contract type.
  *
- * Deliberately narrowed to the four fields the platform guarantees plus the appointment they
- * belong to. The provider's own keys are not carried: nothing in this build can use them, and
- * a cookie is a poor place to keep a credential nobody reads. When a provider lands,
- * `MediaPane` is where its keys are consumed and this type widens to carry them.
+ * IT NOW CARRIES THE PROVIDER'S OWN TWO KEYS, which is the change, and the reason they were
+ * kept out until now has been answered rather than overruled. The old note said a credential
+ * admitting its holder to a named patient's consultation, sitting in a cookie for ninety
+ * minutes "with nothing able to spend it", was exposure bought for nothing. That was right:
+ * the cost was real and the benefit was zero. There is a client in this build now, so the
+ * benefit is the consultation itself, and the cost is the same one the session cookie this
+ * console already runs on has always carried.
+ *
+ * WHAT KEEPS THAT DEFENSIBLE IS THE THREE THINGS THE COOKIE ALREADY DID:
+ *
+ *   httpOnly     no script on this page can read it, which matters more now than it did
+ *                when it held nothing. The token reaches the browser as a PROP on a client
+ *                component — serialised into the RSC payload by a server component that
+ *                read the cookie — and never through `document.cookie`.
+ *   sameSite     it does not travel to another origin's request.
+ *   the room     the grant inside the token is scoped to ONE room and cannot join another.
+ *                See `LiveKitAccessToken` — `video.room` is the whole of its authority, and
+ *                `roomAdmin`, `roomList`, `roomRecord` and `canPublishData` are all false.
+ *
+ * THIS MATTERS MORE ON A CLINIC TERMINAL THAN ON A PATIENT'S HANDSET, which is worth saying
+ * where the decision is: a console is shared, and the cookie has always been the thing that
+ * a sign-out has to remove. `forgetRoom()` is that removal and it now removes a real
+ * credential rather than a description of one.
+ *
+ * BOTH ARE NULLABLE, AND NULL IS A REAL STATE RATHER THAN A DEFENSIVE ONE. An unconfigured
+ * clinic's redeem response carries neither key, so an entry brokered by
+ * `UnconfiguredVideoProvider` stores null for both and the pane takes the honest branch. So
+ * does an entry remembered by the build BEFORE this one, which is why `mediaState` still has
+ * a `no-client` member — see ../model/media.ts.
+ *
+ * @see backend/app/Support/Video/LiveKitAccessToken.php — the grant, written out in full
  */
 export interface RoomCredentials {
   readonly appointmentId: string
@@ -58,10 +86,35 @@ export interface RoomCredentials {
   readonly room: string
   /** A ROLE — 'clinician' or 'patient' — never a person. It is the only label the provider ever learns. */
   readonly participant: string
-  /** Which provider brokered it. `unconfigured` until ADR-0004 chooses one. */
+  /** Which provider brokered it. `unconfigured` when no media server is configured. */
   readonly provider: string
   /** False means: say so plainly, rather than opening a dead room. */
   readonly configured: boolean
+  /**
+   * The media server's signalling address, `wss://…` in production.
+   *
+   * Null when no media server is configured. The media leg is browser <-> SFU and never
+   * traverses the Laravel API, so this is the one moment the address is handed out.
+   */
+  readonly url: string | null
+  /**
+   * The media credential. A JWT, minted per participant per redemption.
+   *
+   * NOT THE SAME CREDENTIAL AS THE JOIN TOKEN AND NOT SUBJECT TO THE SAME RULE, which is
+   * the distinction most likely to be got wrong here. The JOIN token is single-use —
+   * `redeem()` re-reads it `FOR UPDATE` so two tabs cannot both be admitted — and was spent
+   * to obtain this. THIS one is a bearer credential with a lifetime — one hour, from
+   * `video.livekit.token_ttl`, clamped by `LiveKitAccessToken` — and may be presented to
+   * the SFU as many times as the connection needs, which is what lets the pane reconnect
+   * after a clinic's wifi drops without a fresh round trip to this API.
+   *
+   * IT OUTLIVES NOTHING AND IS OUTLIVED BY THE COOKIE. `REMEMBER_SECONDS` is ninety minutes
+   * and this is sixty, deliberately: the ROOM must stay open after the media credential
+   * dies, because the note, the prescribing and the record are all still working and
+   * throwing the clinician back to the door would take those away mid-encounter. The SDK's
+   * failed connect is the authority on expiry, not this cookie.
+   */
+  readonly token: string | null
 }
 
 const ROOM_COOKIE = 'carevelo_console_room'
@@ -171,6 +224,15 @@ export async function readRoomCredentials(
     participant,
     provider,
     configured: record.configured === true,
+    /*
+     * READ BACK THROUGH THE SAME NARROWING AS EVERYTHING ELSE, so a cookie written by an
+     * older build — which has neither key — comes back as null rather than as `undefined`
+     * shaped like a string. `text()` rejects a non-string and an empty one alike, which is
+     * what makes the `no-client` branch reachable instead of a client being handed an
+     * address that is not one.
+     */
+    url: text(record.url),
+    token: text(record.token),
   }
 }
 
@@ -206,12 +268,29 @@ async function remember(
     participant: credentials.participant ?? '',
     provider: credentials.provider ?? 'unknown',
     /*
-     * A STRING ON THE WIRE, COMPARED AS ONE. The backend sends 'false'/'true' because
-     * `VideoProvider::credentialsFor` is contracted as `array<string, string>`.
-     * `Boolean('false')` is true, and that single coercion would open a dead room on every
-     * unconfigured tenant — which is exactly the failure this flag exists to prevent.
+     * A STRING ON THE WIRE, COMPARED AS ONE — and the comparison is now a named function in
+     * ../model/media.ts rather than an inline `=== 'true'`.
+     *
+     * The backend sends 'false'/'true' because `VideoProvider::credentialsFor` is contracted
+     * as `array<string, string>`. `Boolean('false')` is true, and that single coercion would
+     * open a dead room on every unconfigured tenant — the exact failure this flag exists to
+     * prevent. It was described in three comments and asserted nowhere, because this module
+     * imports `next/headers` and cannot be loaded by the unit runner. That is precisely why
+     * the decision moved to a module that can.
      */
-    configured: credentials.configured === 'true',
+    configured: isMediaConfigured(credentials.configured),
+
+    /*
+     * THE PROVIDER'S OWN TWO KEYS, and `?? null` rather than `?? ''`.
+     *
+     * The redeem response is typed as an open `{ [key: string]: string }` — the keys belong
+     * to the provider — so both of these are `string | undefined` at this line, and an
+     * unconfigured clinic sends neither. Empty string would be a value that LOOKS present:
+     * the pane's question is "is there an address", and an empty one answers yes to any
+     * check that is not exactly right. Null answers no to every one of them.
+     */
+    url: credentials.url ?? null,
+    token: credentials.token ?? null,
   }
 
   ;(await cookies()).set({

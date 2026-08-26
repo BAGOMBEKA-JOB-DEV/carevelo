@@ -594,13 +594,13 @@ it('makes no claim that the money reached the clinic', function () {
     // Custody vocabulary. Its absence is a compliance control, not a naming
     // preference -- see ForbiddenIdentifiersTest and ADR-0003.
     foreach (['wallet', 'balance', 'escrow', 'payout', 'settlement'] as $forbidden) {
-        expect($json)->not->toContain($forbidden, "The takings view leaked '{$forbidden}'");
+        expect(str_contains($json, $forbidden))->toBeFalse("The takings view leaked '{$forbidden}'");
     }
 
     // Words that would assert the money arrived. "Received" and "earned" are
     // the two the placeholder and the acceptance criterion name outright.
     foreach (['received', 'earned', 'revenue', 'deposited', 'cleared'] as $overclaim) {
-        expect($json)->not->toContain($overclaim, "The takings view claimed '{$overclaim}'");
+        expect(str_contains($json, $overclaim))->toBeFalse("The takings view claimed '{$overclaim}'");
     }
 
     // And every figure carries the qualifier that makes it true. `_confirmed_`

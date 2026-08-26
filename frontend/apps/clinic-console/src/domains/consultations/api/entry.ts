@@ -1,6 +1,8 @@
 import { findConsultationForAppointment, getAppointment, getPatient, listConsultations } from './consultations'
+import { listMessages } from './messages'
 import { listNotes } from './notes'
 import { readRoomCredentials, type RoomCredentials } from './room'
+import type { ConsultationMessage } from '../model/chat'
 import { asMode, type Appointment, type ClinicalNote, type Consultation, type ConsultationMode, type Patient } from '../model/types'
 
 /**
@@ -73,6 +75,21 @@ export type RoomState =
       /** Null until the clinician starts it, which the door does in the same action. */
       readonly consultation: Consultation | null
       readonly notes: readonly ClinicalNote[]
+      /**
+       * The chat transcript, or null when it could not be read.
+       *
+       * NULL IS NOT EMPTY. `[]` is "the patient has written nothing"; null is "we could not
+       * read what they wrote", and a clinician answering the first when the second is true is
+       * a clinician working blind on a screen that looks complete. The panel draws them
+       * differently and `chatPanelState` decides which, in a function a test drives.
+       *
+       * NULL IS ALSO THE ORDINARY ANSWER FOR A COLLEAGUE'S CONSULTATION, and that is not a
+       * bug. `ConsultationPolicy::participate` admits the patient and the clinician
+       * conducting THIS encounter, and nobody else — narrower than the note's `view`, which
+       * is clinic-wide. A covering clinician reading the record legitimately sees the notes
+       * and legitimately cannot see the conversation.
+       */
+      readonly messages: readonly ConsultationMessage[] | null
       readonly history: readonly Consultation[]
     }
 
@@ -132,6 +149,17 @@ export async function loadRoom(appointmentId: string): Promise<RoomState> {
       credentials,
       consultation,
       notes,
+      /*
+       * Loaded here with everything else, for the reason stated at the top of this function:
+       * reads are audited, and `consultation_message.viewed` is one more event in a trail
+       * that has to answer "who read my consultation" without a footnote about component
+       * structure. A panel fetching its own would put two reads in the log for one screen.
+       *
+       * No consultation record means no transcript endpoint to call — the messages hang off
+       * the consultation, not the appointment — and an empty list rather than null, because
+       * "nothing has been written" is exactly true at that moment.
+       */
+      messages: consultation === null ? [] : await listMessages(consultation.id),
       history: await previousEncounters(appointment.patient_id, consultation?.id ?? null),
     }
   }

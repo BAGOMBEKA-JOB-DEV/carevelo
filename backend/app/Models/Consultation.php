@@ -17,6 +17,8 @@ use Illuminate\Support\Facades\Date;
  *
  * @property string $id
  * @property string $tenant_id
+ * @property ?string $patient_id
+ * @property ?string $clinician_id
  * @property ConsultationMode $mode_used
  * @property ?ConsultationOutcome $outcome
  */
@@ -65,6 +67,26 @@ class Consultation extends Model implements RestrictableToPatient
     public function notes(): HasMany
     {
         return $this->hasMany(ClinicalNote::class);
+    }
+
+    /**
+     * The chat transcript, oldest first.
+     *
+     * Alongside notes() rather than somewhere else, because it is the same
+     * class of thing: clinical text authored inside this encounter. The
+     * ordering is fixed here rather than left to each caller -- a transcript
+     * read back in the wrong order is a different conversation. created_at
+     * first, then id, because ULIDs sort lexicographically by generation time
+     * and two messages sent inside the same second must still come back in the
+     * order they were sent.
+     *
+     * @return HasMany<ConsultationMessage, $this>
+     */
+    public function messages(): HasMany
+    {
+        return $this->hasMany(ConsultationMessage::class)
+            ->orderBy('created_at')
+            ->orderBy('id');
     }
 
     /**

@@ -74,7 +74,7 @@ it('returns the catalogue with no clinical content in any template body', functi
         $body = mb_strtolower((string) $template['body']);
 
         foreach ($prohibited as $term) {
-            expect($body)->not->toContain($term, "Template [{$key}] contains '{$term}'");
+            expect(str_contains($body, $term))->toBeFalse("Template [{$key}] contains '{$term}'");
         }
 
         // Every message identifies the clinic as sender. One a patient cannot
@@ -111,7 +111,7 @@ it('says nothing about a result beyond the fact that one exists', function () {
             continue;
         }
 
-        expect($body)->not->toContain('result', "Template [{$template['key']}] mentions a result");
+        expect(str_contains($body, 'result'))->toBeFalse("Template [{$template['key']}] mentions a result");
     }
 });
 
@@ -182,7 +182,7 @@ it('reports SMS consumption without claiming to hold anything', function () {
     $body = strtolower(json_encode($response->json()) ?: '');
 
     foreach (['wallet', 'escrow', 'payout', 'settlement', 'balance'] as $forbidden) {
-        expect($body)->not->toContain($forbidden, "The SMS report implies custody: '{$forbidden}'");
+        expect(str_contains($body, $forbidden))->toBeFalse("The SMS report implies custody: '{$forbidden}'");
     }
 });
 

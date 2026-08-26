@@ -69,6 +69,46 @@ it('has no forbidden identifier in any table name', function () {
     expect($violations)->toBeEmpty(implode("\n", $violations));
 });
 
+/**
+ * A file's source with every comment removed, lower-cased.
+ *
+ * ONE implementation, shared by both source-code checks below. Two copies of a
+ * compliance control drifting apart is a failure this repository has already
+ * met: RejectsUnknownFields existed as four near-identical copies and the
+ * weakest of them quietly permitted what the others refused.
+ *
+ * WHY COMMENTS ARE STRIPPED AT ALL: the documentation deliberately NAMES these
+ * things in order to forbid them, and that must not trip the check.
+ *
+ * `//[^\n]*` RATHER THAN `//.*$`, AND THE DIFFERENCE IS THE WHOLE CONTROL. A
+ * block comment spans lines, so the first alternative needs the `s` modifier --
+ * and `s` applies to the pattern, not to one branch of it, so `.` also matched
+ * a newline inside `//.*$`. `.*` is greedy; it therefore ran from the FIRST
+ * line comment in a file to the last byte of the file, where `$` duly matched.
+ * Everything below that point was deleted before the search ever looked at it.
+ *
+ * That was not a cosmetic defect in a test. Measured against the files listed
+ * in the checks below, this control was reading between 5% and 35% of them --
+ * RecurringChargeResolver.php has its first line comment at line 62 of 291, so
+ * the resolver that applies Pesapal's word about CAREVELO'S OWN revenue was
+ * scanned down to line 62 and no further. A `settlement` or a `payout` anywhere
+ * beneath it passed the build in silence, which is the precise failure mode a
+ * compliance check must not have: green, and inert.
+ *
+ * Verified rather than reasoned about: renaming extendPaidThrough() to
+ * extendSettlementDate() in that file was NOT detected by the old pattern and
+ * IS detected by this one.
+ *
+ * A character class cannot cross a line however greedy it is, so the two
+ * alternatives no longer interfere and `m` is no longer needed.
+ */
+function sourceWithoutComments(string $path): string
+{
+    $source = strtolower(file_get_contents($path) ?: '');
+
+    return preg_replace('#/\*.*?\*/|//[^\n]*#s', '', $source) ?? '';
+}
+
 it('has no forbidden identifier in payment source code', function () {
     // 'float' is excluded here: it is a PHP type name and would match
     // legitimate code. The column and table checks above still cover it, which
@@ -124,6 +164,29 @@ it('has no forbidden identifier in payment source code', function () {
          */
         base_path('app/Services/Payments/Pesapal/PesapalCredentials.php'),
         base_path('app/Services/Payments/Pesapal/PesapalClient.php'),
+
+        /*
+         * Consultation media, which is in a payments check for a reason that is
+         * not obvious and is worth one paragraph.
+         *
+         * ADR-0004 chose to self-host the media server, and the argument that
+         * decided it was arithmetic about money: a per-minute provider takes
+         * between a tenth and three times a UGX 150,000 subscription. That turned
+         * a directory which had never discussed money into one that discusses
+         * almost nothing else -- a fixed server bill, bandwidth we pay for, a
+         * relay whose traffic is on our meter. The vocabulary of paying for
+         * infrastructure sits one word away from the vocabulary of holding
+         * somebody else's money, and "the media budget" is exactly the kind of
+         * phrase that grows a `balance` without anybody deciding to add one.
+         *
+         * This list is an allowlist, so a new file is uncovered until it is
+         * written down. A new file in app/Support/Video belongs in it.
+         */
+        base_path('app/Support/Video/VideoProvider.php'),
+        base_path('app/Support/Video/LiveKitVideoProvider.php'),
+        base_path('app/Support/Video/LiveKitAccessToken.php'),
+        base_path('app/Support/Video/UnconfiguredVideoProvider.php'),
+        base_path('config/video.php'),
     ];
 
     $violations = [];
@@ -133,37 +196,7 @@ it('has no forbidden identifier in payment source code', function () {
             continue;
         }
 
-        $source = strtolower(file_get_contents($path) ?: '');
-
-        /*
-         * Strip comments: the documentation deliberately NAMES these things in
-         * order to forbid them, and that must not trip the check.
-         *
-         * `//[^\n]*` RATHER THAN `//.*$`, AND THE DIFFERENCE IS THE WHOLE
-         * CONTROL. A block comment spans lines, so the first alternative needs
-         * the `s` modifier -- and `s` applies to the pattern, not to one branch
-         * of it, so `.` also matched a newline inside `//.*$`. `.*` is greedy;
-         * it therefore ran from the FIRST line comment in a file to the last
-         * byte of the file, where `$` duly matched. Everything below that point
-         * was deleted before the search ever looked at it.
-         *
-         * That was not a cosmetic defect in a test. Measured against the files
-         * named above, this control was reading between 5% and 35% of them --
-         * RecurringChargeResolver.php has its first line comment at line 62 of
-         * 291, so the resolver that applies Pesapal's word about CAREVELO'S OWN
-         * revenue was scanned down to line 62 and no further. A `settlement` or
-         * a `payout` anywhere beneath it passed the build in silence, which is
-         * the precise failure mode a compliance check must not have: green, and
-         * inert.
-         *
-         * Verified rather than reasoned about: renaming extendPaidThrough() to
-         * extendSettlementDate() in that file was NOT detected by the old
-         * pattern and IS detected by this one.
-         *
-         * A character class cannot cross a line however greedy it is, so the
-         * two alternatives no longer interfere and `m` is no longer needed.
-         */
-        $source = preg_replace('#/\*.*?\*/|//[^\n]*#s', '', $source) ?? '';
+        $source = sourceWithoutComments($path);
 
         foreach ($codeForbidden as $forbidden) {
             if (str_contains($source, $forbidden)) {
@@ -173,6 +206,73 @@ it('has no forbidden identifier in payment source code', function () {
     }
 
     expect($violations)->toBeEmpty(implode("\n", $violations));
+});
+
+it('has no forbidden identifier in consultation chat source code', function () {
+    /*
+     * THE CHAT SURFACE, ON ITS OWN LIST AND WITH ITS OWN WORD LIST.
+     *
+     * The check above reads the files where money is decided, requested and
+     * recorded. This one reads a domain that touches no money at all, and it
+     * exists because of what chat IS: the one place in the product where a
+     * clinic types free prose TO A PATIENT, in-band, inside a clinical record.
+     *
+     * `balance` is checked here and is NOT checked above. That is the entire
+     * reason this is a separate test rather than six more entries in the
+     * payments array. The payments check excludes `balance` and `float` because
+     * `float` is a PHP type name, and the schema checks at the top of this file
+     * already cover the place a stored figure would actually have to live -- a
+     * column. But the mistake chat invites is not a column. It is a hardcoded
+     * string: a system-message template, a validation message or a canned
+     * prompt saying "your outstanding balance is". The house rule bans these
+     * words in COPY as well as in code, and a template string in a controller
+     * or a form request is copy that this check can actually read.
+     *
+     * `float` stays excluded for the same reason as above: it is a PHP type.
+     *
+     * THIS LIST IS AN ALLOWLIST, so every file is uncovered until it is written
+     * down here. A new file in the consultation chat domain belongs in it, and
+     * so does any file that grows a message template.
+     */
+    $chatForbidden = ['wallet', 'balance', 'escrow', 'payout', 'settlement'];
+
+    $paths = [
+        base_path('app/Models/ConsultationMessage.php'),
+        base_path('app/Models/ConsultationMessageAuthor.php'),
+        base_path('app/Http/Controllers/Api/V1/ConsultationMessageController.php'),
+        base_path('app/Http/Requests/V1/Consultations/StoreConsultationMessageRequest.php'),
+        base_path('app/Http/Resources/V1/ConsultationMessageResource.php'),
+        base_path('app/Events/ConsultationMessageSent.php'),
+
+        // The ability that decides who may speak. Not obviously chat, and that
+        // is why it is named: a policy is where an exception gets written, and
+        // "except when the clinic is chasing an unpaid consultation" is exactly
+        // the kind of exception somebody would try to express here.
+        base_path('app/Policies/ConsultationPolicy.php'),
+    ];
+
+    $violations = [];
+
+    foreach ($paths as $path) {
+        if (! file_exists($path)) {
+            $violations[] = basename($path).' is on the allowlist but does not exist';
+
+            continue;
+        }
+
+        $source = sourceWithoutComments($path);
+
+        foreach ($chatForbidden as $forbidden) {
+            if (str_contains($source, $forbidden)) {
+                $violations[] = basename($path)." contains '{$forbidden}'";
+            }
+        }
+    }
+
+    expect($violations)->toBeEmpty(
+        "Carevelo never takes custody of patient funds, and a clinic must never \n"
+        ."say otherwise to a patient inside a clinical record.\n".implode("\n", $violations)
+    );
 });
 
 it('offers no way to refund from platform funds', function () {

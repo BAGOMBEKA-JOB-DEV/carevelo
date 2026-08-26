@@ -66,6 +66,34 @@ class BreakGlassGrant extends Model
     public const SCOPES = [
         'patient_record',
         'consultation',
+
+        /*
+         * A SCOPE OF ITS OWN, AND THE ALTERNATIVE WAS FOLDING CHAT INTO
+         * `consultation`. That would have been wrong, and quietly so.
+         *
+         * This list already draws exactly this distinction once: `consultation`
+         * is the encounter as an operational record -- who, when, in which mode,
+         * with what outcome -- and `clinical_note` is the text written inside
+         * it. The split exists because they are different disclosures, and the
+         * commonest real grant is the first: a support ticket saying "the clinic
+         * cannot open a record". An operator investigating that needs the
+         * encounter, not what the patient told their doctor.
+         *
+         * A chat message is text authored inside the encounter, so folding it
+         * into `consultation` would have made every scheduling-bug grant
+         * silently unlock a transcript, which is the precise failure the
+         * note/consultation split was drawn to prevent. Folding it into
+         * `clinical_note` would be closer but still wrong in the place it costs
+         * most: the clinic is TOLD the scope, and permits() compares against it,
+         * so a grant that says "clinical_note" and reads a conversation has
+         * misdescribed itself to the controller whose consent makes it lawful.
+         *
+         * The cost of the honest choice is that an investigation needing both
+         * needs two grants, each notified and audited. The friction is the
+         * control -- MAX_DURATION_HOURS says the same thing above.
+         */
+        'consultation_message',
+
         'clinical_note',
         'prescription',
         'dispensing',
