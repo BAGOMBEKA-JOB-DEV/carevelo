@@ -49,16 +49,32 @@ type RedeemedCredentials =
 /**
  * What the portal remembers about an entry. NOT a contract type.
  *
- * Deliberately narrowed to the four fields the platform guarantees plus the appointment
- * it belongs to. The provider's own keys are STILL not carried, and that is now a live
- * decision rather than a placeholder: LiveKit has landed on the backend, so a configured
- * clinic's redeem response really does carry `url` and `token` in `credentials` below.
- * They are not persisted because this build has no client able to open a media session —
- * and a credential that admits its holder to a named patient's consultation, sitting in a
- * cookie for ninety minutes with nothing able to spend it, is exposure bought for nothing.
+ * IT NOW CARRIES THE PROVIDER'S OWN TWO KEYS, which is the change, and the reason they were
+ * kept out until now has been answered rather than overruled. The old note said a credential
+ * admitting its holder to a named patient's consultation, sitting in a cookie for ninety
+ * minutes "with nothing able to spend it", was exposure bought for nothing. That was right:
+ * the cost was real and the benefit was zero. There is a client in this build now, so the
+ * benefit is the consultation itself, and the cost is the same cost every session cookie on
+ * this portal already carries.
  *
- * Adding the two fields here is step 1 of the three written on
- * `components/VideoStage.tsx`, which is the seam the media SDK lands in.
+ * WHAT KEEPS THAT DEFENSIBLE IS THE THREE THINGS THE COOKIE ALREADY DID:
+ *
+ *   httpOnly     no script on this page can read it, which matters more now than it did
+ *                when it held nothing. The token reaches the browser as a PROP on a client
+ *                component — serialised into the RSC payload by a server component that
+ *                read the cookie — and never through `document.cookie`.
+ *   sameSite     it does not travel to another origin's request.
+ *   the room     the grant inside the token is scoped to ONE room and cannot join another.
+ *                See `LiveKitAccessToken` — `video.room` is the whole of its authority, and
+ *                `roomAdmin`, `roomList`, `roomRecord` and `canPublishData` are all false.
+ *
+ * BOTH ARE NULLABLE, AND NULL IS A REAL STATE RATHER THAN A DEFENSIVE ONE. An unconfigured
+ * clinic's redeem response carries neither key, so an entry brokered by
+ * `UnconfiguredVideoProvider` stores null for both and the pane takes the honest branch. So
+ * does an entry remembered by the build BEFORE this one, which is why `mediaState` still has
+ * a `no-client` member — see ../model/media.ts.
+ *
+ * @see backend/app/Support/Video/LiveKitAccessToken.php — the grant, written out in full
  */
 export interface RoomCredentials {
   readonly appointmentId: string
@@ -66,10 +82,34 @@ export interface RoomCredentials {
   readonly room: string
   /** A ROLE — 'patient' or 'clinician' — never a person. */
   readonly participant: string
-  /** Which provider brokered it. `unconfigured` until ADR-0004 chooses one. */
+  /** Which provider brokered it. `unconfigured` when no media server is configured. */
   readonly provider: string
   /** False means: say so, rather than opening a dead room. */
   readonly configured: boolean
+  /**
+   * The media server's signalling address, `wss://…` in production.
+   *
+   * Null when no media server is configured. The media leg is browser <-> SFU and never
+   * traverses the Laravel API, so this is the one moment the address is handed out.
+   */
+  readonly url: string | null
+  /**
+   * The media credential. A JWT, minted per participant per redemption.
+   *
+   * NOT THE SAME CREDENTIAL AS THE JOIN TOKEN AND NOT SUBJECT TO THE SAME RULE, which is
+   * the distinction most likely to be got wrong here. The JOIN token is single-use and was
+   * spent to obtain this. THIS one is a bearer credential with a lifetime — one hour, from
+   * `video.livekit.token_ttl`, clamped by `LiveKitAccessToken` — and may be presented to
+   * the SFU as many times as the connection needs, which is what lets a client reconnect
+   * through a tunnel or a dropped 3G moment without a new round trip to this API.
+   *
+   * IT OUTLIVES NOTHING AND IS OUTLIVED BY THE COOKIE. `REMEMBER_SECONDS` is ninety
+   * minutes and this is sixty, deliberately: the ROOM must stay open after the media
+   * credential dies, because the note, the record and the chat are all still working and
+   * throwing the patient back to the lobby would take those away too. The SDK's failed
+   * connect is the authority on expiry, not this cookie, and the recovery is the door.
+   */
+  readonly token: string | null
 }
 
 const ROOM_COOKIE = 'carevelo_consultation_room'
@@ -176,6 +216,15 @@ export async function readRoomCredentials(appointmentId: string): Promise<RoomCr
     participant,
     provider,
     configured: record.configured === true,
+    /*
+     * READ BACK THROUGH THE SAME NARROWING AS EVERYTHING ELSE, so a cookie written by an
+     * older build — which has neither key — comes back as null rather than as `undefined`
+     * shaped like a string. `string()` rejects a non-string and an empty one alike, which
+     * is what makes the `no-client` branch reachable instead of a client being handed an
+     * address that is not one.
+     */
+    url: string(record.url),
+    token: string(record.token),
   }
 }
 
@@ -218,6 +267,19 @@ async function remember(appointmentId: string, credentials: RedeemedCredentials[
      * runner — which is exactly why the decision moved to a module that can.
      */
     configured: isMediaConfigured(credentials.configured),
+
+    /*
+     * THE PROVIDER'S OWN TWO KEYS, and `?? null` rather than `?? ''`.
+     *
+     * The redeem response is typed as an open `{ [key: string]: string }` — the keys belong
+     * to the provider — so both of these are `string | undefined` at this line, and an
+     * unconfigured clinic sends neither. Empty string would be a value that LOOKS present:
+     * `Boolean('')` is false today, but the pane's question is "is there an address", and
+     * an empty one answers yes to any check that is not exactly right. Null answers no to
+     * every one of them.
+     */
+    url: credentials.url ?? null,
+    token: credentials.token ?? null,
   }
 
   ;(await cookies()).set({

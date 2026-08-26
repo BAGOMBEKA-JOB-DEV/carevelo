@@ -121,7 +121,18 @@ describe('the token layer', () => {
       (m) => m[1],
     )
 
-    expect(order).toEqual(['colors', 'typography', 'spacing', 'reset', 'components', 'layout', 'site', 'auth'])
+    /*
+     * `media` sits between `components` and `layout`, and the position is a decision.
+     *
+     * It reads the colour and metric tokens like every other component layer, so it cannot
+     * come before them. It must come before `layout` for the same reason `components` does:
+     * the two have collided before — `.field` meant a form row in one file and a page frame
+     * in the other, identical specificity, later import won, and every form in the product
+     * silently became a 100vh column. Nothing in `media` shares a name with anything (every
+     * selector is `.media-*`), and the collision test below is what keeps that true rather
+     * than this ordering.
+     */
+    expect(order).toEqual(['colors', 'typography', 'spacing', 'reset', 'components', 'media', 'layout', 'site', 'auth'])
   })
 
   it('imports every token file, so none is dead', () => {

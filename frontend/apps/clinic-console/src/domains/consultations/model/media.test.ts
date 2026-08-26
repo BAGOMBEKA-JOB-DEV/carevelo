@@ -39,12 +39,41 @@ describe('isMediaConfigured', () => {
 })
 
 describe('mediaState', () => {
-  it('sends an unconfigured clinic to the honest fallback', () => {
-    expect(mediaState(false)).toBe('unconfigured')
+  const URL = 'wss://media.example.ug'
+  const TOKEN = 'header.claims.signature'
+
+  it('sends an unconfigured clinic to the honest fallback, credentials or not', () => {
+    /*
+     * `configured` OUTRANKS EVERYTHING, and the second case is the one worth asserting: if a
+     * url and a token somehow arrive alongside `configured: false`, the answer is still to
+     * hold the consultation the way the clinic already does. The flag is the platform's own
+     * statement about whether this clinic has a media server, and a console that opened a
+     * pane because two other fields looked promising would be second-guessing it.
+     */
+    expect(mediaState(false, null, null)).toEqual({ kind: 'unconfigured' })
+    expect(mediaState(false, URL, TOKEN)).toEqual({ kind: 'unconfigured' })
   })
 
-  it('sends a configured clinic to the seam, which is not the same as working video', () => {
-    expect(mediaState(true)).toBe('no-client')
+  it('opens the room when a configured clinic sent both halves', () => {
+    expect(mediaState(true, URL, TOKEN)).toEqual({ kind: 'ready', url: URL, token: TOKEN })
+  })
+
+  it('refuses to open a room on half a credential', () => {
+    /*
+     * THIS IS THE DEPLOY CASE AND IT IS THE REASON `no-client` OUTLIVED THE SDK.
+     *
+     * An entry is remembered in a cookie for ninety minutes, and the build before this one
+     * stored neither of these fields. So for ninety minutes after a deploy, clinicians in
+     * live consultations arrive holding `configured: true` and nothing to connect with.
+     * `ready` here would hand them a client pointed at `undefined`, which does not throw and
+     * does not log — it sits on "connecting" while a patient waits.
+     *
+     * A url with no token and a token with no url are in the list for the same reason: one
+     * cannot authenticate and the other has nowhere to go, so neither is half-open.
+     */
+    expect(mediaState(true, null, null)).toEqual({ kind: 'no-client' })
+    expect(mediaState(true, URL, null)).toEqual({ kind: 'no-client' })
+    expect(mediaState(true, null, TOKEN)).toEqual({ kind: 'no-client' })
   })
 })
 

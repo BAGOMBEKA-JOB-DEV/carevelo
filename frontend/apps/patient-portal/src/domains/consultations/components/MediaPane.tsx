@@ -11,10 +11,15 @@ import { VideoStage } from './VideoStage'
  * IT IS A TWO-WAY SWITCH AND NOTHING MORE. THAT IS THE WHOLE JOB.
  * ================================================================================
  *
- * ADR-0004 is now Accepted — LiveKit, SELF-HOSTED, chosen on cost — so the branch that used
- * to be unreachable is reachable, and the file has been split along the seam rather than
- * grown. `VideoStage` owns everything about a clinic that HAS a media server; this component
- * owns the choice and the honest fallback for a clinic that does not.
+ * ADR-0004 is now Accepted — LiveKit, SELF-HOSTED, chosen on cost — and the client SDK has
+ * landed behind `VideoStage`, so the branch below this one really does open a picture now.
+ * The split is unchanged by that: `VideoStage` owns everything about a clinic that HAS a
+ * media server, this component owns the choice and the honest fallback for a clinic that
+ * does not, and NEITHER of those two jobs got bigger when video started working.
+ *
+ * The three-way question — no server, a server we cannot reach, a server we can — is decided
+ * once by `mediaState` below and handed down as a narrowed value. This component reads only
+ * the first answer.
  *
  * THE UNCONFIGURED BRANCH BELOW IS UNCHANGED, DELIBERATELY, AND IT IS NOT A PLACEHOLDER.
  * It is the correct product behaviour for every clinic that has not deployed an SFU, which
@@ -49,7 +54,15 @@ export async function MediaPane({
 }) {
   const t = await getTranslations('Consultations')
 
-  if (mediaState(credentials.configured) === 'unconfigured') {
+  /*
+   * DECIDED ONCE, HERE, AND HANDED DOWN NARROWED. `VideoStage` takes the state rather than
+   * the raw credentials precisely so that it cannot re-derive it: two copies of this call
+   * with two different arguments is how one screen ends up disagreeing with the other about
+   * whether a clinic has video.
+   */
+  const state = mediaState(credentials.configured, credentials.url, credentials.token)
+
+  if (state.kind === 'unconfigured') {
     return (
       <Notice tone="warn" icon="phone" title={t('mediaUnavailableTitle')} announce={false}>
         <Stack gap="3">
@@ -63,7 +76,7 @@ export async function MediaPane({
     )
   }
 
-  // A media server IS configured for this clinic. Everything about that case, including the
-  // exact three steps for wiring the LiveKit SDK, is in one file.
-  return <VideoStage clinic={clinic} phone={phone} credentials={credentials} />
+  // A media server IS configured for this clinic. Everything about that case — the working
+  // room and the honest dead end when an old entry carries no credential — is in one file.
+  return <VideoStage clinic={clinic} phone={phone} credentials={credentials} state={state} />
 }

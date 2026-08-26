@@ -88,22 +88,68 @@ export function asParticipant(value: unknown): ParticipantLabel | null {
  * What the media pane should draw, decided in one place.
  *
  *   unconfigured  no media server for this clinic. The honest degradation: say so, and give
- *                 the telephone number. This is the state every clinic is in today.
- *   no-client     a media server IS configured and brokered a session, and this build has
- *                 no client able to open it. See VideoStage — that is the seam.
+ *                 the telephone number. This is the state a clinic that has not deployed an
+ *                 SFU is in, and `UnconfiguredVideoProvider` exists on the backend to keep
+ *                 it a WORKING state rather than an error one.
+ *   no-client     a media server IS configured and brokered a session, and there is no
+ *                 address or credential here to open it with.
+ *   ready         a session was brokered and this build carries both halves of it. The SDK
+ *                 opens the room. See LiveKitStage.
  *
- * THERE IS NO `ready` MEMBER, and its absence is the honest part. A third state would be a
- * branch nothing in this build can reach, type-checked and never executed, which is exactly
- * the shape of thing this codebase keeps finding: fully described, fully exported, never
- * once run. When the client SDK lands, `ready` is added here, `VideoStage` grows the branch
- * that renders it, and the test below fails until both are done.
+ * `ready` IS NEW AND `no-client` DID NOT GO WITH IT, WHICH IS THE PART WORTH READING.
+ *
+ * The obvious change when the SDK landed was to collapse this to two members — configured
+ * means ready — and it would have been wrong for a reason that only shows up on a deploy.
+ * The entry is remembered in a cookie for ninety minutes. A patient who entered the room on
+ * the PREVIOUS build is holding a cookie that says `configured: true` and carries no `url`
+ * and no `token`, because the previous build deliberately did not store them. Ninety
+ * minutes of patients would have met a client asked to connect to `undefined`, which
+ * presents as a room that sits on "connecting" forever — the exact frozen frame the whole
+ * degradation design exists to prevent.
+ *
+ * So `no-client` survives as what it always was: a session was brokered and this page cannot
+ * open it. It is now reachable by a stale cookie rather than by a missing dependency, and
+ * both resolve the same way — leave and come back in, which mints a fresh credential.
+ *
+ * A CLOSED UNION AND NOT A STRING, WHICH IS A CHANGE AND IS THE POINT OF THE CHANGE.
+ *
+ * `ready` is the only member that has anything to hand a caller, and it has to hand over
+ * two values that are `string | null` everywhere upstream. As a bare string this type could
+ * say "ready" and the compiler would still make the pane re-test both fields before it
+ * could pass them on — so the condition would live in two places, and the second copy is
+ * the one that drifts. Carrying the pair inside the member instead means a screen cannot
+ * render half-initialised, because the compiler will not let it read a field the state does
+ * not have. `ConsultationEntry` in ../api/consultations.ts is the same shape for the same
+ * reason, and this is the smaller sibling of it.
  */
-export type MediaState = 'unconfigured' | 'no-client'
+export type MediaState =
+  | { readonly kind: 'unconfigured' }
+  | { readonly kind: 'no-client' }
+  | { readonly kind: 'ready'; readonly url: string; readonly token: string }
 
 /**
  * @param configured Already coerced by `isMediaConfigured` upstream, in `api/room.ts`,
  *                   which is the only place the wire value is read.
+ * @param url The media server's address, or null when the entry carries none.
+ * @param token The media credential, or null when the entry carries none.
  */
-export function mediaState(configured: boolean): MediaState {
-  return configured ? 'no-client' : 'unconfigured'
+export function mediaState(
+  configured: boolean,
+  url: string | null,
+  token: string | null,
+): MediaState {
+  if (!configured) {
+    return { kind: 'unconfigured' }
+  }
+
+  /*
+   * BOTH, NOT EITHER. A URL with no token cannot authenticate and a token with no URL has
+   * nowhere to go, so "half configured" is not a state worth having: it is `no-client`,
+   * exactly as if neither had arrived, and it takes the same honest screen.
+   */
+  if (url === null || token === null) {
+    return { kind: 'no-client' }
+  }
+
+  return { kind: 'ready', url, token }
 }
