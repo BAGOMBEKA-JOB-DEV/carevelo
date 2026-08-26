@@ -1,0 +1,10 @@
+# Kept deliberately small: the build copies dependency manifests first and then
+# source, so anything heavy that slips in here invalidates the cache on every
+# code change.
+**/node_modules
+**/vendor
+**/.next
+**/.git
+**/storage/logs/*
+**/storage/framework/cache/*
+**/e2e/**/*.png

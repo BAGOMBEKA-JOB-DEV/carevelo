@@ -1,0 +1,201 @@
+# Carevelo, whole, in one command.
+#
+#   docker compose up
+#
+# THIS IS A DEVELOPMENT STACK. It runs `next dev` and `artisan serve`, mounts the
+# source, and uses the passwords in .env.example. What a production compose needs
+# instead is written at the bottom of this file, because the gap between the two
+# is the sort of thing that gets discovered at the wrong moment.
+#
+# TENANCY IS RESOLVED FROM THE HOST HEADER, so every app must be reached as
+# `kira.localhost`, never `localhost` -- a request to `localhost` resolves to no
+# clinic and renders the 404 page, which looks exactly like a broken first run.
+# Most browsers resolve *.localhost to 127.0.0.1 without an /etc/hosts entry;
+# see README if yours does not.
+
+name: carevelo
+
+services:
+  # ---------------------------------------------------------------------------
+  # PostgreSQL. THE TWO ROLES ARE THE TENANT-ISOLATION CONTROL, NOT A CONVENTION.
+  #
+  # PostgreSQL exempts a table's OWNER from row-level security. So the schema is
+  # owned by `carevelo_migrator`, and the application connects as `carevelo_app`,
+  # which owns nothing and holds NOBYPASSRLS. Collapse them into one role and the
+  # database still works perfectly while every isolation policy becomes SILENTLY
+  # INERT -- the most dangerous failure available in this project, because
+  # nothing goes red.
+  #
+  # The roles are created by `php artisan db:roles` (idempotent, and it detects
+  # the superuser) rather than by init SQL here, so there is one implementation
+  # of that rule and it cannot drift from the application's own.
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: carevelo
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d carevelo"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    ports:
+      - "5433:5432"   # 5433 on the host: a local PostgreSQL may already hold 5432.
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # ---------------------------------------------------------------------------
+  # One-shot setup: roles, migrations, seed. Everything else waits on it.
+  # Separated from the API so that a failure here is legible as a failure of
+  # setup rather than a web server that will not boot.
+  # ---------------------------------------------------------------------------
+  setup:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    depends_on:
+      postgres: { condition: service_healthy }
+    env_file: [docker/api.env]
+    volumes:
+      - ./backend:/app
+    command: >
+      sh -c "
+        php artisan key:generate --force &&
+        php artisan db:roles --superuser=postgres &&
+        php artisan migrate --database=pgsql_migrator --force &&
+        php artisan db:seed --force &&
+        echo 'setup complete'
+      "
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    depends_on:
+      setup: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+    env_file: [docker/api.env]
+    volumes:
+      - ./backend:/app
+    ports:
+      - "8000:8000"
+
+  # THE WORKER AND THE SCHEDULER ARE NOT OPTIONAL. Payment reconciliation runs
+  # every minute and subscription lapse-suspension is scheduled; a stack with the
+  # API up and neither of these running looks completely healthy and quietly does
+  # nothing, which is the worst kind of broken.
+  worker:
+    build: { context: ., dockerfile: docker/api.Dockerfile }
+    depends_on:
+      setup: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+    env_file: [docker/api.env]
+    volumes: [./backend:/app]
+    command: php artisan queue:work --tries=3 --timeout=90
+
+  scheduler:
+    build: { context: ., dockerfile: docker/api.Dockerfile }
+    depends_on:
+      setup: { condition: service_completed_successfully }
+    env_file: [docker/api.env]
+    volumes: [./backend:/app]
+    command: php artisan schedule:work
+
+  reverb:
+    build: { context: ., dockerfile: docker/api.Dockerfile }
+    depends_on:
+      setup: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+    env_file: [docker/api.env]
+    volumes: [./backend:/app]
+    command: php artisan reverb:start --host=0.0.0.0 --port=8080
+    ports:
+      - "8080:8080"
+
+  # ---------------------------------------------------------------------------
+  # The four surfaces. Same image, different app, ports matching each app's own
+  # `dev` script so a container and a local run are reachable at the same URL.
+  # ---------------------------------------------------------------------------
+  patient-portal:
+    build: { context: ., dockerfile: docker/web.Dockerfile }
+    depends_on: [api]
+    environment:
+      NEXT_PUBLIC_API_ORIGIN: http://localhost:8000
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports: ["3000:3000"]
+    command: pnpm --filter @carevelo/patient-portal dev --hostname 0.0.0.0
+
+  clinic-console:
+    build: { context: ., dockerfile: docker/web.Dockerfile }
+    depends_on: [api]
+    environment:
+      NEXT_PUBLIC_API_ORIGIN: http://localhost:8000
+    volumes: [./frontend:/app, /app/node_modules]
+    ports: ["3001:3001"]
+    command: pnpm --filter @carevelo/clinic-console dev --hostname 0.0.0.0
+
+  rider-view:
+    build: { context: ., dockerfile: docker/web.Dockerfile }
+    depends_on: [api]
+    environment:
+      NEXT_PUBLIC_API_ORIGIN: http://localhost:8000
+    volumes: [./frontend:/app, /app/node_modules]
+    ports: ["3002:3002"]
+    command: pnpm --filter @carevelo/rider-view dev --hostname 0.0.0.0
+
+  platform-admin:
+    build: { context: ., dockerfile: docker/web.Dockerfile }
+    depends_on: [api]
+    environment:
+      NEXT_PUBLIC_API_ORIGIN: http://localhost:8000
+    volumes: [./frontend:/app, /app/node_modules]
+    ports: ["3003:3003"]
+    command: pnpm --filter @carevelo/platform-admin dev --hostname 0.0.0.0
+
+  # ---------------------------------------------------------------------------
+  # The self-hosted media server, for consultations. Zero per-minute cost, which
+  # is why it is ours to run -- see ADR-0004.
+  #
+  # THIS IS THE DEV VARIANT: one container, no TLS, NO TURN. It is enough to
+  # prove a call connects between two browsers on this machine and it proves
+  # NOTHING about a real one: Ugandan mobile carriers sit behind carrier-grade
+  # NAT, so without TURN the clinician connects and the patient does not, silently
+  # and per-carrier. deploy/livekit/docker-compose.yml is the real one.
+  # ---------------------------------------------------------------------------
+  livekit:
+    image: livekit/livekit-server:latest
+    command: --dev --bind 0.0.0.0
+    ports:
+      - "7880:7880"
+      - "7881:7881"
+      - "7882:7882/udp"
+
+volumes:
+  postgres-data:
+
+# -----------------------------------------------------------------------------
+# WHAT A PRODUCTION COMPOSE NEEDS THAT THIS ONE DOES NOT
+#
+#  - Built assets, not dev servers: `next build` + `next start`, and PHP-FPM
+#    behind nginx rather than `artisan serve`, which is single-threaded and
+#    documented as unsuitable for production.
+#  - Real secrets from a secret store. Everything here is from .env.example and
+#    is public knowledge.
+#  - TLS, and the real deploy/livekit stack WITH coturn. See its README --
+#    without TURN a large share of Ugandan patients cannot connect at all.
+#  - No source mounts, so the image is what runs.
+#  - Backups for postgres-data, and a restore that somebody has actually tested.
+#  - Health checks and restart policies on every service, not just the two here.
+# -----------------------------------------------------------------------------
