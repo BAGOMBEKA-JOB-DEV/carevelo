@@ -1,10 +1,23 @@
 /**
  * The consultations domain's PUBLIC SURFACE.
  *
- * The clinician consultation room — the video pane, the patient's history within this tenant,
- * the SOAP note editor and the record — on one mobile-first screen. Everything else in this
- * folder is internal, and `.dependency-cruiser.cjs` makes reaching past this file a build
- * failure rather than a code-review note.
+ * The clinician consultation room — the video pane, the CHAT PANEL, the patient's history
+ * within this tenant, the SOAP note editor and the record — on one mobile-first screen.
+ * Everything else in this folder is internal, and `.dependency-cruiser.cjs` makes reaching
+ * past this file a build failure rather than a code-review note.
+ *
+ * THE CHAT PANEL IS NEW AND IT CLOSES AN ASYMMETRY RATHER THAN ADDING A FEATURE. The patient
+ * portal has carried a chat panel since it was built — honestly saying that typing there
+ * would reach nobody — while this console carried nothing at all, not even a placeholder, and
+ * `ModeControl` has always offered the clinician the choice of stepping the consultation down
+ * into `chat`. A mode with no surface behind it is a clinical record that says the encounter
+ * was held by chat when nothing on either side could carry one.
+ *
+ * Nothing new is exported for it. The panel is composed inside `ConsultationRoom` and the
+ * transcript arrives on `RoomState`, so the route's call is unchanged — which is the whole
+ * point of `loadRoom` being one function: reads are audited, and a screen that fetched its
+ * own transcript would put a second `consultation_message.viewed` in the trail for one
+ * screen.
  *
  * ------------------------------------------------------------------------------------
  * WHAT IS BEHIND THIS LINE AND MUST STAY THERE
@@ -16,9 +29,13 @@
  * wanted "just the credentials" would be a screen able to open a room without spending a
  * token, and the whole point of two calls is that nobody can.
  *
- * The note draft's storage contract is behind here too. It is the only clinical data this
- * product may put in client storage, and the rules that make that survivable — cleared on
- * submission, cleared on sign-out, conflicts shown and never resolved — belong in one place.
+ * The draft storage contract is behind here too — the note's, and now the chat composer's.
+ * These are the only clinical data this product may put in client storage, and the rules that
+ * make that survivable — cleared on submission, cleared on sign-out, conflicts shown and never
+ * resolved — belong in one place. THERE ARE TWO PREFIXES NOW, `carevelo.note-draft.v1.` and
+ * `carevelo.chat-draft.v1.`, and `clearAllDrafts()` sweeps both. A third added without
+ * extending that sweep would leave clinical text on a shared clinic handset after a sign-out
+ * that reported success — see the long note on the function itself.
  *
  * ------------------------------------------------------------------------------------
  * WHAT THE ROUTE LAYER HAS TO DO, EXACTLY
