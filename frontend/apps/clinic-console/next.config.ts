@@ -29,7 +29,26 @@ const config: NextConfig = {
         headers: [
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'Referrer-Policy', value: 'same-origin' },
-          { key: 'Permissions-Policy', value: 'geolocation=(), payment=()' },
+          /*
+           * `camera` and `microphone` are STATED rather than left to the default, and the
+           * default is what they already resolve to: an omitted feature falls back to an
+           * allowlist of `self`, which is why the consultation room worked here while the
+           * identical code in the patient portal could not open a microphone at all — that
+           * app listed them with an EMPTY allowlist, from a comment written when the plan
+           * was a managed provider hosting the call on its own origin.
+           *
+           * Writing them out means the two apps now say the same thing in the same place. A
+           * future sweep that tightens this header has to delete a line with a reason on it
+           * rather than add one nobody notices, and the failure that would cause is close to
+           * undiagnosable: the room connects, both tiles render, and neither person can speak.
+           *
+           * `(self)` and not `*`: the capability is granted to this console's own document
+           * and to nothing it embeds.
+           */
+          {
+            key: 'Permissions-Policy',
+            value: 'camera=(self), microphone=(self), geolocation=(), payment=()',
+          },
           // Clinical data must not sit in a shared cache.
           { key: 'Cache-Control', value: 'no-store' },
         ],
