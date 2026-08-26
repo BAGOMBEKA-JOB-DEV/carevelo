@@ -285,6 +285,77 @@ export const STANDING_LABEL: Record<Standing, string> = {
 }
 
 /**
+ * Pesapal's own hosted pages, and the only hosts a hand-off link may point at.
+ *
+ * The pair `PesapalClient::baseUrl()` chooses between. Both are listed because this app
+ * cannot tell which environment the platform merchant account is configured for -- that
+ * lives in `config/billing.php` and is not on the wire, correctly, since it is a fact about
+ * Carevelo's own deployment and no client's business.
+ */
+const PESAPAL_HOSTS = ['pay.pesapal.com', 'cybqa.pesapal.com'] as const
+
+/**
+ * A hand-off URL that is safe to put in front of an operator, or nothing.
+ *
+ * ==================================================================
+ * WHY THIS EXISTS AT ALL, GIVEN THE BACKEND ALREADY CHECKED
+ * ==================================================================
+ *
+ * `PesapalClient::submitOrderUsing()` refuses a `redirect_url` that is not https on the
+ * environment's own Pesapal host, and says why: "Accepting an arbitrary string here would
+ * make a compromised or mistaken response into an open redirect with a clinic's name on it."
+ * That check is real and it still runs.
+ *
+ * IT DOES NOT COVER THIS RENDER, because between the check and the link the value leaves the
+ * server. The collect action redirects with the URL on the query string -- deliberately, so
+ * the operator can read it rather than be sent to it -- and a query string is not a channel,
+ * it is an input. By the time it arrives back as `searchParams.message` nothing distinguishes
+ * the URL Pesapal returned from one somebody typed into the address bar.
+ *
+ * WHAT THAT WOULD BE WORTH TO AN ATTACKER, stated plainly because it is the reason this is a
+ * validator and not a formatting nicety. The notice it lands in is titled "Send this to the
+ * clinic's administrator" and instructs the operator to forward it to a paying customer, so
+ * a crafted `/billing?problem=collection_started&message=https://...` is a phishing page
+ * delivered by Carevelo staff, to a clinic, with Carevelo's console as the referrer. A tenant
+ * id is not a secret -- it is in every row's link on this very screen -- so the link needs no
+ * privileged knowledge to construct.
+ *
+ * SO THE HOST IS CHECKED WHERE THE STRING BECOMES AN `href`, which is the only place that
+ * knows the value is about to be trusted. Anything else -- a relative path, `javascript:`,
+ * a look-alike host like `pay.pesapal.com.evil.example` -- returns null and the notice is not
+ * drawn, which is the same answer as a collection that never happened.
+ *
+ * The comparison is on the parsed host and never on a substring, for the reason the backend
+ * gives in the same words: `https://pay.pesapal.com.evil.example` contains `pay.pesapal.com`
+ * and is not Pesapal.
+ *
+ * @see backend/app/Services/Payments/Pesapal/PesapalClient.php -- isPesapalUrl()
+ */
+export function pesapalHandoffUrl(value: string | undefined): string | null {
+  if (value === undefined || value === '') {
+    return null
+  }
+
+  let parsed: URL
+
+  try {
+    parsed = new URL(value)
+  } catch {
+    // Not absolute, or not a URL at all. Either way there is nothing here that came from
+    // Pesapal, and a relative href on this screen would point back into the console.
+    return null
+  }
+
+  if (parsed.protocol !== 'https:') {
+    return null
+  }
+
+  return PESAPAL_HOSTS.includes(parsed.hostname as (typeof PESAPAL_HOSTS)[number])
+    ? parsed.toString()
+    : null
+}
+
+/**
  * What each standing MEANS, and what the operator does about it.
  *
  * NOT ONE OF THESE SENTENCES PREDICTS A SUSPENSION. The grace period lives in

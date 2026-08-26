@@ -104,6 +104,17 @@ export type SubscriptionRegister = {
   readonly rows: readonly SubscriptionRow[]
   /** The cursor for the next page of the register, or null. Opaque; never constructed. */
   readonly nextCursor: string | null
+  /**
+   * The cursor for the PREVIOUS page, or null on the first one.
+   *
+   * The API's own `meta.prev_cursor`, carried through rather than derived. The register
+   * previously offered a "Previous" control built from the filter alone, which is the FIRST
+   * page and not the previous one -- so from page four it silently returned the operator to
+   * page one, with a label saying otherwise. A keyset page cannot be walked backwards by
+   * arithmetic; the only thing that knows where the previous page starts is the cursor the
+   * API minted for it. `TenantRegisterScreen` beside this has always used it.
+   */
+  readonly prevCursor: string | null
   /** The cursor this page was reached by, so the pager can offer a way back. */
   readonly cursor: string | undefined
   /**
@@ -161,6 +172,7 @@ export async function readSubscriptionRegister(
   return {
     rows,
     nextCursor: page.meta.next_cursor,
+    prevCursor: page.meta.prev_cursor,
     cursor: query.cursor,
     unreadable: rows.filter((row) => row.subscription === null).length,
   }

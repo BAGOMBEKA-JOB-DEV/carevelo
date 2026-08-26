@@ -25,6 +25,7 @@ import {
   chargeTone,
   isOnTrial,
   knownPlan,
+  pesapalHandoffUrl,
   standingOf,
   type Plan,
   type Subscription,
@@ -157,6 +158,32 @@ export function SubscriptionPanel({
   const onTrial = isOnTrial(subscription)
   const current = knownPlan(subscription.plan)
 
+  /*
+    THE HAND-OFF URL IS AN INPUT BY THE TIME IT REACHES HERE, NOT A RESULT.
+
+    It arrived on the query string, which is how the collect action gets it back to a screen
+    the operator can read it from rather than be redirected to. That makes it identical, on
+    arrival, to a string somebody typed into the address bar -- and the notice below tells the
+    operator to forward it to a clinic. So it is checked against Pesapal's own hosts before it
+    becomes an `href`; anything else is dropped and the notice is simply not drawn. See
+    `pesapalHandoffUrl`, which carries the whole argument.
+  */
+  const handoffLink = pesapalHandoffUrl(handoffUrl)
+
+  /*
+    WHETHER THE TRIAL DATE IS IN THE PAST, rather than assuming it is.
+
+    `isOnTrial` is false as soon as a paid period exists, and a paid period does not clear
+    `trial_ends_at` -- `RecurringChargeResolver::extendPaidThrough()` writes one and leaves
+    the other alone. A clinic that converted early therefore has a trial date still ahead of
+    it while this panel is drawing the "not on trial" branch, and the word beside that date
+    has to be decided by comparing it with `now` instead of by which branch we are in.
+    Saying "Ended" over a future date is a small lie on a screen whose whole job is to be
+    the trustworthy account of what a clinic owes.
+  */
+  const trialEndsAt = subscription.trial_ends_at === null ? null : Date.parse(subscription.trial_ends_at)
+  const trialIsPast = trialEndsAt !== null && !Number.isNaN(trialEndsAt) && trialEndsAt < now
+
   const returnTo: PanelReturn = {
     registerPath: paths.billing,
     status,
@@ -264,21 +291,68 @@ export function SubscriptionPanel({
           </Notice>
         ) : null}
 
-        {handoffUrl === undefined ? null : (
+        {/*
+          A COLLECTION THAT STARTED AND WHOSE LINK WE WILL NOT SHOW.
+
+          `handoffUrl` is only ever set when the collect action redirected with
+          `collection_started`, so arriving here with a value that did not survive
+          `pesapalHandoffUrl` means one of two things: somebody crafted the query string, or
+          Pesapal answered from a host this build does not know. Either way the order may be
+          real, and a screen that simply drew nothing would leave an operator pressing the
+          button again into a refusal they have no explanation for.
+
+          This panel's own rule, stated where the collect button is hidden-or-not: "a control
+          that vanishes without explanation is indistinguishable from a bug". The same
+          applies to a notice.
+        */}
+        {handoffUrl !== undefined && handoffLink === null ? (
+          <Notice tone="warn" icon="shield" title="The hand-off link was not one we will show">
+            <p>
+              A collection was started for this clinic, but the address that came back is not
+              an https page on Pesapal&rsquo;s own hosts, so it is not being displayed &mdash;
+              a link an operator forwards to a clinic has to be one we can vouch for.
+            </p>
+            <p>
+              Do not start another collection: if the order reached Pesapal, a second one is
+              refused and two recurring mandates would charge the clinic twice a month. Check
+              this clinic in Pesapal&rsquo;s own console, and look at the most recent charge
+              below for the reference to quote.
+            </p>
+          </Notice>
+        ) : null}
+
+        {handoffLink === null ? null : (
           <Notice tone="info" icon="ext" title="Send this to the clinic’s administrator">
             <p>
               Pesapal has the recurring instruction. The clinic&rsquo;s own administrator
               authorises it on this page &mdash; not you, and not from this browser:
             </p>
             <p>
-              <a className="lnk mono" href={handoffUrl} rel="noreferrer noopener">
-                {handoffUrl}
+              <a className="lnk mono" href={handoffLink} rel="noreferrer noopener">
+                {handoffLink}
               </a>
             </p>
+            {/*
+              WHAT LOSING THIS COSTS, SAID ACCURATELY.
+
+              This paragraph used to say the collection was "already authorised at Pesapal"
+              if the link were lost. It is not, and the difference is the whole of what the
+              operator has to do next. `SubscriptionBilling::start()` submits the order and
+              writes the charge as `initiated`; nothing is authorised until the clinic's
+              administrator completes the page above. But `refuseSecondMandate()` blocks on
+              that same `initiated` charge -- so a lost link is a dead end, and the only way
+              out of it is cancelling the order at Pesapal by hand before starting again.
+
+              Telling an operator that a stuck collection is "already authorised" is the one
+              wording that guarantees nobody goes and unsticks it.
+            */}
             <p>
-              It is shown once, here, and is not stored. If it is lost, the collection is
-              already authorised at Pesapal and a second one is refused &mdash; two recurring
-              mandates would charge the clinic twice a month until the clinic noticed.
+              It is shown once, here, and is not stored. Nothing is collected until the
+              clinic&rsquo;s administrator authorises it on that page. If the link is lost,
+              this clinic cannot simply be collected from again &mdash; the order counts as
+              live and a second one is refused, because two recurring mandates would charge
+              the clinic twice a month until the clinic noticed. Cancel the existing order in
+              Pesapal&rsquo;s own console first, then start the collection again.
             </p>
           </Notice>
         )}
@@ -343,7 +417,8 @@ export function SubscriptionPanel({
                     'No trial date set.'
                   ) : (
                     <>
-                      Ended <DateTime value={subscription.trial_ends_at} />
+                      {trialIsPast ? 'Ended' : 'Ends'}{' '}
+                      <DateTime value={subscription.trial_ends_at} />
                     </>
                   )}
                 </p>

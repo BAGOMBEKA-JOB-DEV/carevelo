@@ -4,6 +4,7 @@ import {
   isOnTrial,
   knownPlan,
   paidThroughAt,
+  pesapalHandoffUrl,
   standingOf,
 } from './subscription'
 
@@ -214,5 +215,45 @@ describe('a plan this build has never heard of', () => {
   it('is null rather than mislabelled as one of the three', () => {
     expect(knownPlan('enterprise')).toBeNull()
     expect(knownPlan(null)).toBeNull()
+  })
+})
+
+/**
+ * The hand-off link, which arrives as an INPUT and is treated as one.
+ *
+ * The collect action puts Pesapal's `redirect_url` on the query string so the operator can
+ * read it rather than be redirected to it. That is the right shape and it means the value
+ * comes back indistinguishable from anything else somebody can put in a query string --
+ * while the notice it lands in tells the operator to forward it to a paying clinic.
+ *
+ * So these are not shape tests. Each one is a URL somebody would use, and the assertion is
+ * that it never becomes an `href` on Carevelo's console.
+ */
+describe('the Pesapal hand-off link', () => {
+  it('accepts the two hosts Pesapal actually serves its pages from', () => {
+    const live = 'https://pay.pesapal.com/v3/pesapaliframe/PesapalIframe3/Index?OrderTrackingId=abc'
+    const sandbox = 'https://cybqa.pesapal.com/pesapaliframe/PesapalIframe3/Index?OrderTrackingId=abc'
+
+    expect(pesapalHandoffUrl(live)).toBe(live)
+    expect(pesapalHandoffUrl(sandbox)).toBe(sandbox)
+  })
+
+  it('refuses a look-alike host, which is the whole reason the check parses rather than matches', () => {
+    // Contains `pay.pesapal.com` and is not Pesapal -- the backend refuses the same string
+    // for the same stated reason in PesapalClient::isPesapalUrl().
+    expect(pesapalHandoffUrl('https://pay.pesapal.com.evil.example/pay')).toBeNull()
+    expect(pesapalHandoffUrl('https://evil.example/pay.pesapal.com')).toBeNull()
+  })
+
+  it('refuses anything that is not https on one of those hosts', () => {
+    expect(pesapalHandoffUrl('http://pay.pesapal.com/v3/pay')).toBeNull()
+    expect(pesapalHandoffUrl('javascript:alert(1)')).toBeNull()
+    expect(pesapalHandoffUrl('/billing?tenant=someone-else')).toBeNull()
+    expect(pesapalHandoffUrl('not a url at all')).toBeNull()
+  })
+
+  it('treats absent and empty as nothing to show', () => {
+    expect(pesapalHandoffUrl(undefined)).toBeNull()
+    expect(pesapalHandoffUrl('')).toBeNull()
   })
 })

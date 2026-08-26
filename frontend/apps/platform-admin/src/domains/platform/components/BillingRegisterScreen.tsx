@@ -251,7 +251,19 @@ export async function BillingRegisterScreen({
                 ? undefined
                 : href(paths.billing, { status, cursor: register.nextCursor })
             }
-            previousHref={cursor === undefined ? undefined : href(paths.billing, { status })}
+            /*
+              THE API'S OWN `prev_cursor`, NOT THE FILTER ON ITS OWN.
+              This control used to be built from `{ status }` alone, which is the address of
+              the FIRST page -- so from page four "Previous" returned the operator to page
+              one while claiming to step back by one. A keyset page has no arithmetic
+              previous; the cursor the API minted is the only thing that knows where it
+              starts. `TenantRegisterScreen` beside this has always read it.
+            */
+            previousHref={
+              register.prevCursor === null
+                ? undefined
+                : href(paths.billing, { status, cursor: register.prevCursor })
+            }
             summary={`${register.rows.length} of the register, ${PER_PAGE} to a page`}
           />
         </Stack>
