@@ -66,6 +66,19 @@ export async function patientApi(): Promise<ApiClient> {
     baseUrl: apiOrigin(host),
     headers: {
       host,
+      /*
+       * ORIGIN IS WHAT MAKES THE COOKIE COUNT, and its absence is why three of these
+       * screens reported "your session has ended" to a patient who had just signed in.
+       *
+       * Sanctum decides a request is STATEFUL -- that it should authenticate by cookie
+       * at all -- from the Origin or Referer host. Send the cookie without one and it
+       * falls through to token authentication, finds no bearer token, and answers 401.
+       * The session is perfectly valid; it is simply never consulted.
+       *
+       * Nothing catches this but a browser: typecheck, lint and the unit tests all pass,
+       * and the visual baselines photographed the resulting error screen and matched it.
+       */
+      Origin: `http://${host}`,
       // Assigned only when present: exactOptionalPropertyTypes distinguishes "absent"
       // from "explicitly undefined", and a literal undefined would be sent as a header.
       ...(cookie === null ? {} : { cookie }),
