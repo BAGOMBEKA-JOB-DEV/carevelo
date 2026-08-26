@@ -1,11 +1,18 @@
 /**
- * The four screens that live under /payments, and the tab bar across the top of each.
+ * The five screens that live under /payments, and the tab bar across the top of each.
  *
  * WHY MONEY, MESSAGES AND THE AUDIT TRAIL SHARE A SECTION. They are the clinic's record of
  * what it did and what it told people: a payment record, the message that announced it, and
  * the immutable line that says who acted. An administrator answering "was this patient
  * charged, were they told, and who at this clinic did it?" moves between all three within a
  * minute, and the nav in `src/components/sections.ts` has one entry for the lot.
+ *
+ * `Confirmed payments` JOINED THEM WHEN `GET /v1/revenue` LANDED, and it belongs beside
+ * reconciliation rather than anywhere else in the console: both are administrator-only,
+ * both are read from the same payment records, and the pair answers the two halves of the
+ * same question — what came in over a month, and which single collection to go and check.
+ * The tab is deliberately NOT called "Revenue". Not one field on that screen is, and a tab
+ * label is the part a person quotes back to you on the phone.
  *
  * The alternative would be three top-level nav entries, which is very likely where this
  * ends up — the audit log is not a payments screen by any reading. That list belongs to
@@ -30,6 +37,11 @@ export const MONEY_TABS = [
     label: 'Money desk',
   },
   {
+    id: 'confirmed',
+    href: '/payments/confirmed',
+    label: 'Confirmed payments',
+  },
+  {
     id: 'reconciliation',
     href: '/payments/reconciliation',
     label: 'Reconciliation',
@@ -50,7 +62,7 @@ export type MoneyTabId = (typeof MONEY_TABS)[number]['id']
 
 /**
  * `active` is REQUIRED and has no null case, because every route under /payments is one of
- * these four. A screen that could not name its own tab would be a screen that does not
+ * these five. A screen that could not name its own tab would be a screen that does not
  * belong in this section.
  *
  * `aria-current="page"` alongside the colour, for the same reason `ConsoleShell` does it:

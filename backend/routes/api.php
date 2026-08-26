@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\Admin\WorkingHoursController;
 use App\Http\Controllers\Api\Auth\AuthController;
 use App\Http\Controllers\Api\Auth\InvitationController;
 use App\Http\Controllers\Api\Platform\BreakGlassController;
+use App\Http\Controllers\Api\Platform\PlatformSubscriptionController;
 use App\Http\Controllers\Api\Platform\PlatformTenantController;
 use App\Http\Controllers\Api\V1\AppointmentController;
 use App\Http\Controllers\Api\V1\AuditEventController;
@@ -29,12 +30,14 @@ use App\Http\Controllers\Api\V1\Platform\PlatformAuthController;
 use App\Http\Controllers\Api\V1\Platform\TotpEnrolmentController;
 use App\Http\Controllers\Api\V1\PrescriptionController;
 use App\Http\Controllers\Api\V1\ReconciliationController;
+use App\Http\Controllers\Api\V1\RevenueController;
 use App\Http\Controllers\Api\V1\RiderDeliveryController;
 use App\Http\Controllers\Api\V1\SubstitutionController;
 use App\Http\Controllers\Api\V1\TenantController;
 use App\Http\Controllers\HealthController;
 use App\Http\Controllers\Webhooks\AggregatorWebhookController;
 use App\Http\Controllers\Webhooks\PesapalIpnController;
+use App\Http\Controllers\Webhooks\PlatformBillingIpnController;
 use App\Http\Middleware\BindTenantContext;
 use App\Http\Middleware\RequirePasswordChange;
 use App\Http\Middleware\RequireSecondFactor;
@@ -293,6 +296,29 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         Route::get('reconciliation/export', [ReconciliationController::class, 'export'])
             ->name('reconciliation.export');
 
+        /*
+         * "What did this clinic take?" -- answered at last, and labelled.
+         *
+         * The clinic console carried a placeholder where this screen belongs,
+         * because the only figures the platform held were counts of ATTEMPTS and
+         * summing those would have asserted that every attempt reported as
+         * succeeded reached the clinic's account. Pesapal's GetTransactionStatus
+         * supplies the missing observation -- a COMPLETED with a confirmation
+         * code, refused unless the amount agrees with what we asked for -- so
+         * there is now something real to report.
+         *
+         * The path says `revenue` because that is the question a clinic owner
+         * arrives with. NOT ONE FIELD IN THE RESPONSE DOES: every figure is
+         * `aggregator_confirmed_`, because money never passes through Carevelo
+         * and nobody here can see the clinic's bank account. What the aggregator
+         * confirmed and what reached the bank are different statements.
+         *
+         * Administrator only, on PaymentIntentPolicy::reconcile -- the same gate
+         * as the reconciliation view beside it, reused rather than duplicated so
+         * the two cannot drift apart.
+         */
+        Route::get('revenue', [RevenueController::class, 'index'])->name('revenue.index');
+
         // --- Notifications and audit ------------------------------------
         Route::get('notifications', [NotificationController::class, 'index'])->name('notifications.index');
         Route::get('notification-templates', [NotificationController::class, 'templates'])
@@ -414,6 +440,34 @@ Route::prefix('v1/platform')->name('api.v1.platform.')
         Route::post('tenants/{tenant}/export', [PlatformTenantController::class, 'export'])->name('tenants.export');
         Route::get('health', [PlatformTenantController::class, 'health'])->name('health');
 
+        /*
+         * ---- The clinic's subscription to the software ----
+         *
+         * "Self-service plan selection and billing" was an explicit H1 non-goal
+         * -- early plans are agreed in conversation, which is how this market
+         * buys -- and the amendment in that PRD explains what changed. What has
+         * not changed is WHO AGREES A PRICE: these routes are the platform's, an
+         * operator records what was agreed, and there is deliberately no route
+         * under `/v1/tenant` by which a clinic administrator could set its own
+         * plan or its own price.
+         *
+         * CAREVELO IS THE MERCHANT for what these collect, and it is the only
+         * place in the product where that is true. A clinic's own aggregator
+         * account is unreachable from here: SubscriptionBilling takes platform
+         * credentials from configuration and has no AggregatorAccount in scope.
+         *
+         * `collect` is separate from `subscription` on purpose. Recording a
+         * commercial agreement and asking Pesapal for money are different acts,
+         * and a support operator fixing a typo in a price must not thereby
+         * charge a clinic.
+         */
+        Route::get('tenants/{tenant}/subscription', [PlatformSubscriptionController::class, 'show'])
+            ->name('subscription.show');
+        Route::put('tenants/{tenant}/subscription', [PlatformSubscriptionController::class, 'update'])
+            ->name('subscription.update');
+        Route::post('tenants/{tenant}/subscription/collect', [PlatformSubscriptionController::class, 'collect'])
+            ->name('subscription.collect');
+
         // Time-boxed, reason-recorded, TENANT-NOTIFIED, audited.
         Route::post('break-glass', [BreakGlassController::class, 'store'])->name('break-glass.store');
         Route::get('break-glass', [BreakGlassController::class, 'index'])->name('break-glass.index');
@@ -502,6 +556,37 @@ Route::prefix('health')->name('health.')
 | @see docs/70-decisions/0012-pesapal-unsigned-ipn.md
 |
 */
+/*
+ * CAREVELO'S OWN subscription revenue, and the only endpoint where the merchant
+ * is us rather than a clinic.
+ *
+ * NO TENANT IN THE PATH, and that absence is the design. The clinic a recurring
+ * transaction concerns is named by `subscription_transaction_info.
+ * account_reference` in Pesapal's GetTransactionStatus RESPONSE -- the
+ * `account_number` we set when the subscription was created -- and by nothing
+ * in the request. A tenant segment here would be a field an anonymous caller
+ * chooses, sitting next to a resolver that must not read one.
+ *
+ * Declared before `webhooks/pesapal/{tenant}` because reading it after would
+ * invite the question. The two cannot actually collide -- two path segments
+ * against three -- and a test asserts that a billing notification reaches this
+ * controller rather than the per-clinic one, because "cannot collide" is a claim
+ * about a router, and routers get reordered.
+ *
+ * GET and POST, like its neighbour: Pesapal registers a notification type per
+ * URL and both have been observed. Neither is trusted more than the other,
+ * because neither is trusted at all.
+ *
+ * @see docs/70-decisions/0012-pesapal-unsigned-ipn.md
+ * @see docs/70-decisions/0003-non-custodial-payment-architecture.md
+ */
+Route::match(['get', 'post'], 'webhooks/pesapal-billing', PlatformBillingIpnController::class)
+    ->name('webhooks.pesapal-billing')
+    ->withoutMiddleware([
+        ResolveTenant::class,
+        BindTenantContext::class,
+    ]);
+
 Route::match(['get', 'post'], 'webhooks/pesapal/{tenant}', PesapalIpnController::class)
     ->name('webhooks.pesapal')
     ->withoutMiddleware([

@@ -182,7 +182,8 @@ class PaymentIntentController extends Controller
         try {
             // The CLINIC'S OWN credentials, pushed into the call rather than
             // resolved inside it. There is no platform merchant account to fall
-            // back on, because no such account exists.
+            // back on: the one Carevelo holds collects the clinic's SUBSCRIPTION
+            // and is unreachable from a PaymentIntent.
             return $this->gateway->initiateCollection($account, $intent);
         } catch (AggregatorUnavailable $e) {
             Log::info('payment.no_collection_handoff', [

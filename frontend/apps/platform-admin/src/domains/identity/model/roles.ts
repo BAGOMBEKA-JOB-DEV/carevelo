@@ -27,6 +27,13 @@ import type { components } from '@carevelo/api-client'
  *   Break-glass — request           platform_support ✓   platform_admin ✓
  *   Audit log — read                platform_support metadata   platform_admin metadata
  *
+ * SUBSCRIPTION BILLING SPLITS ACROSS THAT LINE RATHER THAN SITTING ON ONE SIDE OF IT, and
+ * the split is the API's own. Reading a clinic's plan and paid-through date is `viewAny` —
+ * the register's ability, both roles — because support is asked "is this clinic paid up?"
+ * constantly and can answer it from metadata alone. Recording a price and starting a
+ * collection are `TenantPolicy::update`, `platform_admin` only, alongside suspension: they
+ * are the acts that change what a clinic owes and whether Pesapal charges it.
+ *
  * Break-glass is deliberately available to BOTH, and it is worth understanding why rather
  * than reading it as an oversight: support is the role that meets the incident first, and
  * a control that forces an escalation before anything can be looked at produces either a
@@ -67,6 +74,29 @@ export type Capabilities = {
   readonly exportTenantData: boolean
   /** `POST /v1/platform/break-glass`. Both roles. */
   readonly requestBreakGlass: boolean
+  /**
+   * `GET /v1/platform/tenants/{tenant}/subscription`. BOTH ROLES, and that is the API's
+   * choice rather than a relaxation made here: the controller authorises with `viewAny` —
+   * the same ability as the register itself — because "is this clinic paid up?" is a
+   * metadata question support fields all day and can answer without touching anything
+   * clinical.
+   */
+  readonly readBilling: boolean
+  /**
+   * `PUT .../subscription` and `POST .../subscription/collect`. `platform_admin` alone.
+   *
+   * ONE CAPABILITY FOR TWO ENDPOINTS, because there is one ability behind them:
+   * `TenantPolicy::update`, the same gate as suspending a clinic. Two capabilities derived
+   * from one ability would be two things to keep in step with one, and the day the policy
+   * changed only one of them would follow.
+   *
+   * The endpoints stay separate for a reason this app has to honour even though the
+   * capability does not distinguish them: recording a commercial agreement and asking
+   * Pesapal for money are different acts, and a support operator correcting a typo in a
+   * price must not thereby charge a clinic. There is no "save and collect" control anywhere
+   * in this app.
+   */
+  readonly administerBilling: boolean
 }
 
 const NOTHING: Capabilities = {
@@ -75,6 +105,8 @@ const NOTHING: Capabilities = {
   changeLifecycle: false,
   exportTenantData: false,
   requestBreakGlass: false,
+  readBilling: false,
+  administerBilling: false,
 }
 
 /** The roles on this account that are platform roles, in the order the API listed them. */
@@ -105,6 +137,8 @@ export function capabilitiesFor(roles: readonly string[]): Capabilities {
     changeLifecycle: admin,
     exportTenantData: admin,
     requestBreakGlass: true,
+    readBilling: true,
+    administerBilling: admin,
   }
 }
 

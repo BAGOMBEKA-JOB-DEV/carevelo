@@ -8,7 +8,7 @@
  * ------------------------------------------------------------------
  * WHAT A ROUTE HAS TO DO WITH THIS, IN FULL.
  *
- * Three screens and one route handler, all under /payments, each of them thin.
+ * Four screens and one route handler, all under /payments, each of them thin.
  *
  * 1. THE DESK, at `app/payments/page.tsx`:
  *
@@ -29,7 +29,21 @@
  *    asking otherwise is a guaranteed 409 and a wasted round trip on a screen somebody is
  *    standing at a counter waiting for.
  *
- * 3. RECONCILIATION, at `app/payments/reconciliation/page.tsx`:
+ * 3. CONFIRMED PAYMENTS, at `app/payments/confirmed/page.tsx`:
+ *
+ *      const result = await getAggregatorConfirmedPayments(params.from, params.to, params.cursor)
+ *
+ *    All three parameters go through UNINTERPRETED and none is defaulted. The API resolves
+ *    the window in the CLINIC's own days and answers the clinic's current month when
+ *    neither date is given; a default computed in this Node process is the server's idea of
+ *    the month, which in a UTC container is the wrong month for a Kampala owner for three
+ *    hours at each end of it. `cursor` is opaque and is handed back exactly as it arrived —
+ *    there is no `page` on this endpoint and `?page=2` is a 422, not a discarded parameter.
+ *
+ *    `result.ok === false` is NOT an error page, for the same reason as reconciliation:
+ *    403 means the reader is not a clinic administrator, which is the boundary working.
+ *
+ * 4. RECONCILIATION, at `app/payments/reconciliation/page.tsx`:
  *
  *      const result = await getReconciliation(params.date)
  *
@@ -41,7 +55,7 @@
  *    `result.ok === false` is NOT an error page. A 403 here means the reader is not a
  *    clinic administrator, which is the boundary working; the screen renders it as such.
  *
- * 4. THE CSV, at `app/payments/reconciliation/export/route.ts`:
+ * 5. THE CSV, at `app/payments/reconciliation/export/route.ts`:
  *
  *      const result = await exportReconciliation(from, to)
  *
@@ -63,9 +77,22 @@
  * A disabled button would read as a feature somebody has been denied rather than one that
  * does not exist, so there is not one.
  *
- * A REVENUE FIGURE. See `RevenuePlaceholder`: there is no endpoint that can answer it, and
- * the only numbers available are counts of recorded attempts rather than observations of
- * money. A clinic makes decisions on that number, so it must not be invented.
+ * A REVENUE FIGURE. THIS PARAGRAPH USED TO SAY THE OPPOSITE OF WHAT IT SAYS NOW, and the
+ * half that changed is worth separating from the half that did not.
+ *
+ * It said there was no endpoint that could answer "what did we take this month?" honestly,
+ * because the only numbers available were counts of recorded ATTEMPTS rather than
+ * observations of money, and a clinic makes decisions on that number so it must not be
+ * invented. `GET /v1/revenue` answers a narrower question that IS honest: what the clinic's
+ * OWN aggregator reported as completed, with the amount checked against the amount we asked
+ * it to collect. `AggregatorConfirmedScreen` shows that and nothing more.
+ *
+ * WHAT STILL DOES NOT EXIST HERE, and will not: a figure called revenue, received, earned,
+ * collected or takings; a total that claims money reached the clinic's account; a chart of
+ * a trend the endpoint returns no series for. Money never passes through Carevelo, no
+ * account exists here for it to pass through, and nobody here can see the clinic's bank
+ * account — so "the aggregator confirmed it" and "the money arrived" stay different
+ * statements, and only the first is this domain's to make.
  *
  * A LIST OF PAYMENTS. `GET /v1/payment-intents` does not exist. An attempt is reached by
  * its id, or through reconciliation, which is administrator-only.
@@ -74,10 +101,15 @@
 /* ---- Data. For a route that must 404, or hand a result to a screen. ---- */
 export { getPaymentIntent, getReceipt } from './api/paymentIntents'
 export { exportReconciliation, getReconciliation } from './api/reconciliation'
+export { getAggregatorConfirmedPayments } from './api/revenue'
 export { isSucceeded, type PaymentIntent, type Receipt } from './api/types'
 
 /* ---- Screens. ---- */
 export { MoneyDeskScreen } from './components/MoneyDeskScreen'
+export {
+  AggregatorConfirmedScreen,
+  type AggregatorConfirmedScreenProps,
+} from './components/AggregatorConfirmedScreen'
 export { PaymentRecordScreen, type PaymentRecordScreenProps } from './components/PaymentRecordScreen'
 export { ReconciliationScreen, type ReconciliationScreenProps } from './components/ReconciliationScreen'
 

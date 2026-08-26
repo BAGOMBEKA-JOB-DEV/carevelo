@@ -62,3 +62,18 @@ Schedule::command('consultations:abandon-stale')
     ->everyFifteenMinutes()
     ->withoutOverlapping()
     ->onOneServer();
+
+/*
+ * Hourly, not per-minute, and not daily.
+ *
+ * Suspension is the highest-consequence automatic act in this system -- it stops
+ * a clinic's staff working -- so it runs often enough that reactivation after a
+ * late payment is felt within the hour, and rarely enough that it is never the
+ * job racing a payment that landed thirty seconds ago. The grace period in
+ * config/billing.php is what actually protects against that; this is only how
+ * quickly the sweep notices.
+ */
+Schedule::command('billing:suspend-lapsed')
+    ->hourly()
+    ->withoutOverlapping()
+    ->onOneServer();

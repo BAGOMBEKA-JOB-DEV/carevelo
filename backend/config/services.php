@@ -29,13 +29,22 @@ return [
     ],
 
     /*
-     * Pesapal.
+     * Pesapal, for PATIENT payments to a CLINIC.
      *
      * NO CREDENTIALS HERE, and there never will be. A Pesapal consumer key and
-     * secret belong to a CLINIC, live encrypted on that clinic's
-     * aggregator_accounts row, and are passed into every call. There is no
-     * platform merchant account for a platform credential to authenticate --
-     * custody would trigger the NPS Act 2020 PSP and e-money categories.
+     * secret used to collect from a patient belong to a CLINIC, live encrypted
+     * on that clinic's aggregator_accounts row, and are passed into every call.
+     * There is no platform merchant account anywhere in this path -- custody of
+     * patient funds would trigger the NPS Act 2020 PSP and e-money categories.
+     *
+     * ONE THING HAS CHANGED SINCE THAT WAS WRITTEN, and it is worth stating
+     * here rather than leaving a reader to find it: config/billing.php now
+     * holds credentials for a Pesapal account that IS Carevelo's own. That
+     * account collects the clinic's SUBSCRIPTION to the software -- our own
+     * revenue, which ADR-0003 SS-Consequences names as the only revenue we
+     * take -- and it is unreachable from this path. It is not an exception to
+     * the rule above; the rule above is about patient money, and no patient
+     * money can reach it.
      *
      * See docs/70-decisions/0003-non-custodial-payment-architecture.md
      */

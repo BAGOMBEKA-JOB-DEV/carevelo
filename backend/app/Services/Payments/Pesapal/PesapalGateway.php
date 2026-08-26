@@ -17,9 +17,14 @@ use App\Services\Payments\PaymentGateway;
  * The merchant account is the CLINIC'S OWN -- one Pesapal account per clinic,
  * chosen so that ADR-0003 survives a second aggregator intact. The patient pays
  * Pesapal, Pesapal settles to the clinic, and Carevelo is the software that
- * introduced them. There is no platform merchant account here or anywhere,
- * because custody would put us inside the NPS Act 2020 PSP and e-money
- * categories at UGX 250m-10bn of capital.
+ * introduced them. There is no platform merchant account anywhere in THIS path,
+ * because custody of a patient's funds would put us inside the NPS Act 2020 PSP
+ * and e-money categories at UGX 250m-10bn of capital.
+ *
+ * Carevelo's own merchant account exists for one thing -- collecting a clinic's
+ * SUBSCRIPTION to the software -- and this class cannot reach it. It takes an
+ * AggregatorAccount, which always names a clinic, and the platform credentials
+ * cannot be built from one. @see App\Services\Billing\SubscriptionBilling.
  *
  * WHAT MAKES PESAPAL DIFFERENT FROM FLUTTERWAVE, and why the port had to widen:
  * Flutterwave's collection is started by the client and read back by us.

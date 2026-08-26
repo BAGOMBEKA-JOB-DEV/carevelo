@@ -47,6 +47,7 @@ export const PLATFORM_PATHS: PlatformPaths = {
   provision: '/tenants/new',
   export: '/tenants/export',
   breakGlass: '/break-glass',
+  billing: '/billing',
 }
 
 export const AUDIT_PATHS: AuditPaths = {

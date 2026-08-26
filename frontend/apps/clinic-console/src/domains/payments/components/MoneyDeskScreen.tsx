@@ -1,7 +1,6 @@
 import { redirect } from 'next/navigation'
 import { Button, Card, Field, Grid, Input, Notice, PageHeader, Stack } from '@carevelo/ui'
 import { NonCustodialNotice } from './NonCustodialNotice'
-import { RevenuePlaceholder } from './RevenuePlaceholder'
 
 /**
  * The landing screen for money, messages and the audit trail.
@@ -100,9 +99,35 @@ export function MoneyDeskScreen({
         </Stack>
       </Card>
 
-      <RevenuePlaceholder />
+      {/*
+        `RevenuePlaceholder` STOOD HERE AND IS GONE, WHICH IS THE ONE CHANGE ON THIS SCREEN
+        WORTH EXPLAINING.
 
-      <Grid cols={3}>
+        It was a card that said, at length, that there was no endpoint able to answer "what
+        did we take this month?" honestly — the only figures the platform held were counts
+        of ATTEMPTS, and adding those up would have asserted that every attempt reported as
+        succeeded reached the clinic's account. That argument was right and it has not been
+        withdrawn; `AggregatorConfirmedScreen` carries it, and the figure there is still
+        never called revenue.
+
+        WHAT CHANGED IS WHERE IT LIVES, AND WHY IT COULD NOT STAY HERE. The placeholder
+        fetched nothing, so it was safe on a screen most often open in front of a front-desk
+        clerk. The real screen reads an endpoint that admits `clinic_admin` alone, so a card
+        here would answer 403 for most of the people looking at it — which reads as broken
+        software rather than as a boundary working. It is a link, like reconciliation beside
+        it, and the sentence says who it is for before anybody clicks.
+      */}
+      <Grid cols={2}>
+        <Card>
+          <h3 className="title-sm">
+            <a href="/payments/confirmed">Confirmed payments</a>
+          </h3>
+          <p className="muted">
+            What your own aggregator reported as completed over a month, by service and by
+            how the collection was started. Not a statement of what reached your bank
+            account &mdash; nobody at Carevelo can see that. Clinic administrator only.
+          </p>
+        </Card>
         <Card>
           <h3 className="title-sm">
             <a href="/payments/reconciliation">Reconciliation</a>

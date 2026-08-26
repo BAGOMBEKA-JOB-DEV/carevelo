@@ -2,16 +2,16 @@ import type { components, operations } from '@carevelo/api-client'
 
 /**
  * The shapes this domain reads, every one of them taken from the generated contract rather
- * than described a second time here — plus the two places where the contract is provably
- * lossy and something has to stand in for it.
+ * than described a second time here — plus the places where the contract is provably lossy
+ * and something has to stand in for it.
  *
  * ------------------------------------------------------------------
  * ON THE PARSERS BELOW, WHICH LOOK LIKE HAND-WRITTEN API TYPES AND ARE NOT.
  *
  * The house rule is absolute: never hand-write an API type, because a hand-written type is
- * a second copy of the contract that drifts silently. Two fields on the reconciliation
- * response make that impossible to obey literally, and pretending otherwise would be worse
- * than saying so.
+ * a second copy of the contract that drifts silently. Several fields across the
+ * reconciliation and revenue responses make that impossible to obey literally, and
+ * pretending otherwise would be worse than saying so.
  *
  *   `GET /v1/reconciliation` is generated as `data.intents: string[]`. It is not an array
  *   of strings. `ReconciliationController::index()` builds each row with a `->map()` that
@@ -26,6 +26,18 @@ import type { components, operations } from '@carevelo/api-client'
  *   in the contract; it is simply attached to a different field, and `MoneyAmount` below
  *   aliases it from there.
  *
+ *   `GET /v1/revenue` loses THREE fields to the same two causes, and it loses them on the
+ *   one screen in this product where a number must never be wrong.
+ *   `AggregatorConfirmedPaymentsResource.aggregator_confirmed_total` is
+ *   `Record<string, never>` because it returns `Money::of(...)` rather than the
+ *   `->jsonSerialize()` that `DispenseOrderResource` calls — the same cast, invisible in
+ *   the same way. `by_method_recorded` and `by_service` are `unknown[]` because both are
+ *   built by `array_map` over a closure returning a plain PHP array, which is the
+ *   `->map()` problem again. The one-line fix is in the backend resource and is reported
+ *   in the handover rather than reached for from here; a frontend agent editing a
+ *   compliance-reviewed resource to make its own screen typecheck is how a contract stops
+ *   meaning anything.
+ *
  * SO THE RULE IS KEPT WHERE IT CAN BE AND ITS PURPOSE IS KEPT WHERE IT CANNOT. Every field
  * the contract does describe is used from the contract. The fields it lost are read at
  * runtime by a parser that CHECKS each one and returns `null` when it is not what was
@@ -39,6 +51,7 @@ import type { components, operations } from '@carevelo/api-client'
  *
  * @see packages/api-client/src/generated/schema.d.ts — generated from docs/40-api/openapi.yaml
  * @see backend/app/Http/Controllers/Api/V1/ReconciliationController.php
+ * @see backend/app/Http/Resources/V1/AggregatorConfirmedPaymentsResource.php
  */
 
 /** A record of a payment ATTEMPT. Note what is absent from it: anything Carevelo holds. */
@@ -297,5 +310,262 @@ export function reconciliationRowFrom(value: unknown): ReconciliationRow | null 
     initiatedAt: stringField(source, 'initiated_at'),
     resolvedAt: stringField(source, 'resolved_at'),
     flags,
+  }
+}
+
+/* ==================================================================
+   WHAT THE CLINIC'S OWN AGGREGATOR CONFIRMED — `GET /v1/revenue`
+   ================================================================== */
+
+/**
+ * The revenue response's envelope, which the generator DID describe in full.
+ *
+ * `meta` is the important half and it survived generation intact, which matters more here
+ * than anywhere else in this domain: `not_money_in_the_bank` is the sentence the endpoint
+ * exists to keep true, and it is shipped in the payload rather than left in the
+ * documentation precisely so the screen renders the API's words and not a paraphrase
+ * written here that could drift away from them.
+ */
+type RevenueResponse = operations['v1.revenue.index']['responses'][200]['content']['application/json']
+
+/**
+ * The caveats, in the API's own words.
+ *
+ * ALL THREE SENTENCES ARE RENDERED FROM THE PAYLOAD AND NONE IS RESTATED HERE. The backend
+ * put them on the wire rather than only in its documentation for exactly this reason — "the
+ * payload is what a clinic owner's screen is built from, and a caveat nobody ships is a
+ * caveat nobody reads" — so a paraphrase written in this file would be the second copy that
+ * whole argument exists to prevent.
+ *
+ * `doesNotCount` IS RE-READ AT RUNTIME RATHER THAN TRUSTED, despite the contract typing it
+ * as a tuple of five exact string literals. That tuple is a generator artefact: it inlined
+ * `AggregatorConfirmedPaymentsResource::DOES_NOT_COUNT` as a literal type, which is a
+ * promise the API never made. The backend is free to add a sixth exclusion, and on the day
+ * it does, a screen holding five fixed strings would show five of six — an unlisted
+ * exclusion being a figure an administrator goes on trusting for a reason that has stopped
+ * being true. So it is narrowed to `string[]` and rendered however long it turns out to be.
+ */
+export type RevenueCaveats = {
+  /** What the figure IS. One sentence, and the only positive claim on the screen. */
+  readonly counts: string
+  /** What it is not. Deliberately no numbers — see the resource. */
+  readonly doesNotCount: readonly string[]
+  /** The sentence the whole endpoint exists to keep true. Never abridged, never rewritten. */
+  readonly notMoneyInTheBank: string
+}
+
+/** The generated envelope, kept so the field names above are checked against the contract. */
+export type RevenueMeta = RevenueResponse['meta']
+
+/** One row of "how the collection was opened", which is OURS to say and not the aggregator's. */
+export type ConfirmedByMethod = {
+  /** `_recorded`, never `_confirmed`. See the note on the naming rule below. */
+  readonly methodRecorded: string
+  readonly count: number
+  readonly total: MoneyAmount
+}
+
+/** One row of "what was paid for". */
+export type ConfirmedByService = {
+  /**
+   * Null when the confirmed payment was not for a bookable service — a dispensing order has
+   * none — or when the service row it named no longer exists. Null is not zero and is not
+   * "other"; `paidFor` says which of the two it was.
+   */
+  readonly serviceId: string | null
+  readonly serviceName: string | null
+  /** `appointment` or `dispense_order`. A display catalogue with an open fallback; see below. */
+  readonly paidFor: string
+  readonly count: number
+  readonly total: MoneyAmount
+}
+
+/**
+ * One window of confirmations, narrowed.
+ *
+ * EVERY FIELD NAME KEEPS THE API'S DISTINCTION and none of them is shortened on the way in.
+ * The wire says `aggregator_confirmed_total` rather than `total` because the key is what
+ * carries the caveat when a value is read in isolation, and a client that renamed it
+ * `total` on arrival would throw away the one thing the backend spent a resource docblock
+ * protecting. So `total` here is only ever reached through a value typed
+ * `AggregatorConfirmedPayments`, whose own name says whose observation it is.
+ *
+ * `total` IS NULLABLE AND IS NEVER RECOMPUTED. If the amount does not arrive in the shape
+ * this build expects, the screen says it cannot show the figure. It does not add up the
+ * breakdown rows instead: the breakdown is ONE CURSOR PAGE of services and the total is
+ * computed by the database over the whole window, so they are not the same quantity and
+ * summing the visible rows would produce a smaller number that looks exactly as
+ * authoritative. There is no arithmetic on money in this browser.
+ */
+export type AggregatorConfirmedPayments = {
+  /** The window is over CONFIRMATIONS, not bookings. Bare `YYYY-MM-DD` in the clinic's own days. */
+  readonly confirmedFrom: string
+  readonly confirmedTo: string
+  /** Stated by the API rather than assumed, so the dates and the figure cannot disagree. */
+  readonly clinicTimezone: string
+  readonly count: number
+  readonly total: MoneyAmount | null
+  readonly byMethodRecorded: readonly ConfirmedByMethod[]
+  readonly byService: readonly ConfirmedByService[]
+  /**
+   * Rows the API sent that could not be read in the expected shape, counted per breakdown.
+   *
+   * SURFACED, NEVER SWALLOWED — the same rule the reconciliation day follows and for a
+   * sharper reason. A breakdown quietly missing one service is a breakdown an owner reads
+   * as "that service took nothing this month", which is a decision about a service line.
+   */
+  readonly unreadableMethodRows: number
+  readonly unreadableServiceRows: number
+  readonly caveats: RevenueCaveats
+  /** Opaque, produced only by this endpoint, and the only way to the next page of services. */
+  readonly byServiceNextCursor: string | null
+}
+
+/**
+ * The caveats as the API sent them, or nothing at all.
+ *
+ * RETURNS NULL RATHER THAN A DEFAULT SENTENCE, and this is the one refusal in this file
+ * that is about compliance rather than about correctness. If the API stops sending
+ * `not_money_in_the_bank`, the honest response is a screen that says it cannot show the
+ * figures — not a screen that draws them under a reassuring sentence this app made up. The
+ * caveat is not decoration around the number; it is the condition on which the number may
+ * be shown at all.
+ *
+ * @see docs/70-decisions/0003-non-custodial-payment-architecture.md
+ */
+export function revenueCaveatsFrom(value: unknown): RevenueCaveats | null {
+  if (typeof value !== 'object' || value === null) {
+    return null
+  }
+
+  const source = value as Record<string, unknown>
+  const counts = source['counts']
+  const notMoneyInTheBank = source['not_money_in_the_bank']
+  const doesNotCount = source['does_not_count']
+
+  if (typeof counts !== 'string' || counts === '') {
+    return null
+  }
+
+  if (typeof notMoneyInTheBank !== 'string' || notMoneyInTheBank === '') {
+    return null
+  }
+
+  return {
+    counts,
+    // An exclusion that did not arrive as a string is dropped from the list rather than
+    // rendered as "[object Object]" beside four real ones. The list being shorter than the
+    // API's is reported by the screen through the same "some of this could not be read"
+    // route as an unreadable breakdown row.
+    doesNotCount: Array.isArray(doesNotCount)
+      ? doesNotCount.filter((line): line is string => typeof line === 'string' && line !== '')
+      : [],
+    notMoneyInTheBank,
+  }
+}
+
+/**
+ * What a confirmed payment was for, when there is no service to name.
+ *
+ * A DISPLAY CATALOGUE WITH AN OPEN FALLBACK, exactly like `PAYMENT_METHODS` above. The
+ * backend's `payable_type` is a hand-rolled string and the contract types it `string`, so
+ * an unrecognised value renders as itself rather than throwing or being dropped — a
+ * category of takings that vanished from the breakdown is the failure this screen must not
+ * have.
+ *
+ * @see backend/app/Models/PaymentIntent.php — PATIENT_OWNED_PAYABLES
+ */
+export const PAID_FOR = {
+  appointment: 'Appointment',
+  dispense_order: 'Medicines dispensed',
+} as const satisfies Record<string, string>
+
+export type PaidForValue = keyof typeof PAID_FOR
+
+export function paidForLabel(paidFor: string): string {
+  return paidFor in PAID_FOR ? PAID_FOR[paidFor as PaidForValue] : paidFor
+}
+
+/**
+ * The heading a breakdown row is filed under.
+ *
+ * THE SERVICE NAME WINS WHERE THERE IS ONE, and where there is not, the row is filed under
+ * what it was paid for rather than under an invented service. The backend argues this in
+ * the resource: "a dispensing order has no bookable service, and inventing a heading for it
+ * would file medicines under a service that doesn't exist." An "Other" bucket would do the
+ * same damage more quietly, by putting a deleted service and a dispensing order in one row
+ * that means neither.
+ *
+ * A service that has since been deleted arrives with an id and no name. It is named by what
+ * it was paid for, and `serviceId` is still on the row so the screen can say the service
+ * itself is gone rather than implying the takings were never for one.
+ */
+export function serviceHeading(row: ConfirmedByService): string {
+  return row.serviceName ?? paidForLabel(row.paidFor)
+}
+
+/** A positive-or-zero integer count, or null. Never a float and never a negative. */
+function countFrom(value: unknown): number | null {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : null
+}
+
+/**
+ * Narrow one `by_method_recorded` row, or refuse it.
+ *
+ * `method_recorded` IS READ FROM THE FIELD OF THAT NAME AND FROM NO OTHER. The backend is
+ * emphatic that `_recorded` is what we wrote down when the collection was opened and
+ * `_confirmed` is what the aggregator told us, and that the two words are never swapped —
+ * Pesapal returns a `payment_method` on GetTransactionStatus and nothing stores it. A
+ * parser that fell back to a `method` key would quietly reintroduce the claim the field
+ * name was built to refuse.
+ */
+export function confirmedByMethodFrom(value: unknown): ConfirmedByMethod | null {
+  if (typeof value !== 'object' || value === null) {
+    return null
+  }
+
+  const source = value as Record<string, unknown>
+  const methodRecorded = source['method_recorded']
+  const count = countFrom(source['aggregator_confirmed_count'])
+  const total = moneyFrom(source['aggregator_confirmed_total'])
+
+  if (typeof methodRecorded !== 'string' || methodRecorded === '' || count === null || total === null) {
+    return null
+  }
+
+  return { methodRecorded, count, total }
+}
+
+/**
+ * Narrow one `by_service` row, or refuse it.
+ *
+ * `service_id` AND `service_name` MAY BE NULL AND THAT IS NOT A FAILURE — it is the API
+ * saying this row was not for a bookable service, or was for one that has since been
+ * deleted. Only `paid_for`, the count and the amount are required, because those three are
+ * what makes the row a fact about money; without any one of them there is nothing to
+ * render that would not be a guess.
+ */
+export function confirmedByServiceFrom(value: unknown): ConfirmedByService | null {
+  if (typeof value !== 'object' || value === null) {
+    return null
+  }
+
+  const source = value as Record<string, unknown>
+  const serviceId = source['service_id']
+  const serviceName = source['service_name']
+  const paidFor = source['paid_for']
+  const count = countFrom(source['aggregator_confirmed_count'])
+  const total = moneyFrom(source['aggregator_confirmed_total'])
+
+  if (typeof paidFor !== 'string' || paidFor === '' || count === null || total === null) {
+    return null
+  }
+
+  return {
+    serviceId: typeof serviceId === 'string' && serviceId !== '' ? serviceId : null,
+    serviceName: typeof serviceName === 'string' && serviceName !== '' ? serviceName : null,
+    paidFor,
+    count,
+    total,
   }
 }

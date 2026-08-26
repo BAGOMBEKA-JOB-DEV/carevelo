@@ -1524,6 +1524,91 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/webhooks/pesapal-billing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Receive a Pesapal notification about a subscription transaction
+         * @description Trusted for nothing. `OrderTrackingId` is the only field read, and it is
+         *     used solely as the `orderTrackingId` argument to an authenticated call to
+         *     Pesapal. Everything this endpoint acts on comes from that answer.
+         *
+         *     Always answers `{"received": true}` with 200, or a neutral 404 that does
+         *     not distinguish an unconfigured platform from an unreadable request.
+         */
+        get: operations["webhooks.pesapal-billing"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/tenants/{tenant}/subscription": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** What this clinic is on, and what became of its recent charges */
+        get: operations["v1.platform.subscription.show"];
+        /**
+         * Record the plan and the price a clinic agreed
+         * @description DOES NOT COLLECT ANYTHING. Recording a commercial agreement and asking
+         *     Pesapal for money are two different acts and are two different endpoints,
+         *     because a support operator correcting a typo in a price must not thereby
+         *     charge a clinic.
+         *
+         *     The price is not validated against a published list, and there is no such
+         *     list in the code. A clinic that negotiated a price keeps it, and a price
+         *     table would silently re-price every clinic on a tier the day it changed.
+         */
+        put: operations["v1.platform.subscription.update"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/tenants/{tenant}/subscription/collect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start the recurring collection at Pesapal
+         * @description CAREVELO IS THE MERCHANT and this is the only endpoint in the product for
+         *     which that is true. It moves no money: it records the charge we expect and
+         *     tells Pesapal a recurring collection is authorised against Carevelo's own
+         *     account, returning the page the clinic's administrator pays on.
+         *
+         *     A clinic's own Pesapal account is not reachable from here in any way.
+         *     SubscriptionBilling takes a PlatformMerchant, which can only produce
+         *     platform credentials from configuration; there is no AggregatorAccount in
+         *     scope and no query that could find one.
+         *
+         *     503 when the platform is unconfigured, which is the honest answer on a
+         *     deployment with no merchant account: it must never silently fall back to
+         *     collecting through a clinic's.
+         */
+        post: operations["v1.platform.subscription.collect"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/platform/tenants": {
         parameters: {
             query?: never;
@@ -1734,6 +1819,39 @@ export interface paths {
          *     no number at all.
          */
         get: operations["v1.reconciliation.export"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/revenue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GET /v1/revenue?from&to
+         * @description ClinicAdmin only, through `PaymentIntentPolicy::reconcile` -- the same
+         *     gate as the reconciliation view it sits beside, deliberately reusing that
+         *     ability rather than inventing a second one that could drift from it. A
+         *     clinic's whole takings are a commercial view of the business; a
+         *     pharmacist and a front-desk clerk have no business in it even though both
+         *     may take a payment.
+         *
+         *     A denial here is 403, not 404. That is not in tension with the house rule
+         *     that cross-tenant reads are 404: the caller is inside their own clinic and
+         *     the endpoint's existence is not a secret from them -- what they lack is
+         *     the role. A request from outside the tenant never reaches this method at
+         *     all, because ResolveTenant answers an unrecognised host with a neutral 404
+         *     and row-level security means another clinic's confirmations are not in the
+         *     query's result set to be leaked.
+         */
+        get: operations["v1.revenue.index"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2219,6 +2337,26 @@ export interface components {
              */
             fallback: string;
             credentials_are_write_only: boolean;
+        };
+        /** AggregatorConfirmedPaymentsResource */
+        AggregatorConfirmedPaymentsResource: {
+            /**
+             * @description The window is over CONFIRMATIONS. Named so a reader cannot take it
+             *     for the window in which the appointments were booked, which would
+             *     put a payment in the wrong month at every month boundary.
+             */
+            confirmed_from: string;
+            confirmed_to: string;
+            /**
+             * @description Stated rather than assumed. The dates above are the clinic's own
+             *     days, and a client rendering them in the browser's timezone would
+             *     silently disagree with the figure beside them.
+             */
+            clinic_timezone: string;
+            aggregator_confirmed_count: number;
+            aggregator_confirmed_total: Record<string, never>;
+            by_method_recorded: unknown[];
+            by_service: unknown[];
         };
         /**
          * App.Http.Requests.Admin.Tenant.UpdateTenantRequest
@@ -2856,6 +2994,51 @@ export interface components {
              *     before the rule existed.
              */
             password: string;
+        };
+        /** PlatformSubscriptionResource */
+        PlatformSubscriptionResource: {
+            tenant_id: string;
+            legal_name: string;
+            plan: string | null;
+            price: {
+                amount_minor: number;
+                currency: string;
+            } | null;
+            /**
+             * @description The two dates that decide whether staff can sign in tomorrow. UTC on the wire and rendered in Africa/Kampala by the client, like
+             *     every other instant this API returns.
+             */
+            trial_ends_at: string | null;
+            current_period_ends_at: string | null;
+            /**
+             * @description `suspended` means STAFF SIGN-IN IS BLOCKED and nothing else. It
+             *     does not mean the clinic's patients lose access to their own
+             *     records, it does not stop a delivery already in flight, and it
+             *     never means an export can be withheld. Stated on the wire because
+             *     a console showing "suspended" without it invites a support agent
+             *     to believe the clinic is switched off.
+             */
+            status: string;
+            recent_charges: {
+                id: string;
+                plan: string;
+                amount: {
+                    amount_minor: number;
+                    currency: string;
+                };
+                period_starts_on: string;
+                period_ends_on: string;
+                status: string;
+                merchant_reference: string;
+                /**
+                 * @description Pesapal's confirmation code. An identifier for a support
+                 *     conversation, never a fact anything acts on.
+                 */
+                aggregator_reference: string | null;
+                failure_code: string | null;
+                initiated_at: string;
+                resolved_at: string | null;
+            }[];
         };
         /** PlatformTenantResource */
         PlatformTenantResource: {
@@ -3508,6 +3691,17 @@ export interface components {
             /** Format: date-time */
             trial_ends_at?: string | null;
         };
+        /**
+         * SubscriptionPlan
+         * @description The published subscription tiers. A closed list rather than a string column with a hopeful name, because `plan` is reported on, filtered by and compared: free text would make all three meaningless within a month of the first bespoke deal.  NOTE WHAT IS NOT HERE: THE PRICE. Early plans in this market are agreed in conversation (Business Plan SS-G), and a clinic that negotiated a price keeps it. The amount lives on the tenant, so a change to a published price list can never silently re-price an existing clinic retroactively -- which a price table here would do, with nothing in the diff to show it.  So a tier says what a clinic GETS and the tenant says what it PAYS, and the two are permitted to disagree. That is not an accident of modelling; it is how the commercial relationship actually works.
+         *     | |
+         *     |---|
+         *     | `starter` <br/> A single-clinician practice. |
+         *     | `clinic` <br/> The ordinary case: one clinic, several clinicians, a dispensary. |
+         *     | `group` <br/> Several sites under one owner, each still its own tenant. |
+         * @enum {string}
+         */
+        SubscriptionPlan: "starter" | "clinic" | "group";
         /** SubstitutionResource */
         SubstitutionResource: {
             id: string;
@@ -3605,10 +3799,17 @@ export interface components {
          * UpdateAggregatorAccountRequest
          * @description The CLINIC'S OWN merchant credentials at a BoU-licensed aggregator.
          *
-         *     There is no platform merchant account. Carevelo has none, will never have
-         *     one, and could not use one without becoming a payment service provider under
-         *     the NPS Act 2020 -- so every credential in this payload belongs to the clinic
-         *     and every shilling collected with it settles directly to the clinic.
+         *     There is no platform merchant account ON THIS PATH, and none can be reached
+         *     from it. Carevelo could not collect a patient's payment into an account of
+         *     its own without becoming a payment service provider under the NPS Act 2020 --
+         *     so every credential in this payload belongs to the clinic, and every shilling
+         *     collected with it settles directly to the clinic.
+         *
+         *     Carevelo does hold one Pesapal merchant account, for the clinic's SUBSCRIPTION
+         *     to the software. It is unreachable from here: its credentials come from
+         *     configuration, this request cannot express them, and the endpoint behind it
+         *     writes an aggregator_accounts row -- a table subscription billing never
+         *     touches. @see docs/70-decisions/0003-non-custodial-payment-architecture.md
          *
          *     PUT rather than PATCH, and `secret_key` is required: a partial credential
          *     update produces a half-rotated key pair that fails at the aggregator hours
@@ -3740,6 +3941,30 @@ export interface components {
             role?: "clinic_admin" | "clinician" | "pharmacist" | "dispatcher" | "front_desk" | "rider";
             tenant_id?: string;
             password?: string;
+        };
+        /**
+         * UpdateSubscriptionRequest
+         * @description The plan a clinic is on, and what it agreed to pay.
+         *
+         *     TWO FIELDS AND BOTH ARE REQUIRED TOGETHER, which is a deliberate refusal of
+         *     the obvious convenience. A tier alone would have to imply a price from a list,
+         *     and the first bespoke deal would then make that list a lie; a price alone
+         *     would leave a clinic paying for something nobody can name. Early plans in this
+         *     market are agreed in conversation (Business Plan SS-G), so the endpoint that
+         *     records one records both halves of what was agreed.
+         *
+         *     WHOLE SHILLINGS ON THE WIRE. The column is minor units -- hundredths of a
+         *     shilling -- and every amount in this system is, but nobody in Uganda quotes
+         *     cents and a platform operator typing a monthly fee should type 250000. The
+         *     conversion happens here, once, in the one place a human types the number.
+         */
+        UpdateSubscriptionRequest: {
+            plan: components["schemas"]["SubscriptionPlan"];
+            /**
+             * @description Integer, not numeric: a decimal shilling does not exist and a
+             *     float here is the beginning of a rounding defect in a money field.
+             */
+            price: number;
         };
         /**
          * UpdateTenantRequest
@@ -6642,6 +6867,166 @@ export interface operations {
             401: components["responses"]["AuthenticationException"];
         };
     };
+    "webhooks.pesapal-billing": {
+        parameters: {
+            query?: {
+                /**
+                 * @description THE ONLY PLACE THE REQUEST IS TOUCHED. `input()` reads the query
+                 *      string and the body alike, which is what the route's GET|POST needs:
+                 *      Pesapal registers a notification type per URL and has been known to
+                 *      send either.
+                 */
+                OrderTrackingId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /**
+             * @description Nothing from the notification is stored. There is nothing in it worth
+             *     keeping: no status, no amount, no clinic, no signature.
+             */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        received: boolean;
+                    };
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        type: string;
+                        /** @constant */
+                        title: "Not found";
+                        /** @constant */
+                        status: 404;
+                        /** @constant */
+                        code: "not_found";
+                        detail: null;
+                        errors: string;
+                    };
+                };
+            };
+        };
+    };
+    "v1.platform.subscription.show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tenant ID */
+                tenant: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description `PlatformSubscriptionResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["PlatformSubscriptionResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            403: components["responses"]["AuthorizationException"];
+            404: components["responses"]["ModelNotFoundException"];
+        };
+    };
+    "v1.platform.subscription.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tenant ID */
+                tenant: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateSubscriptionRequest"];
+            };
+        };
+        responses: {
+            /** @description `PlatformSubscriptionResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["PlatformSubscriptionResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            403: components["responses"]["AuthorizationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "v1.platform.subscription.collect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tenant ID */
+                tenant: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            redirect_url: string | null;
+                            aggregator_tracking_id: string | null;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            403: components["responses"]["AuthorizationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        type: string;
+                        /** @constant */
+                        title: "Subscription billing is unavailable";
+                        /** @constant */
+                        status: 503;
+                        /** @constant */
+                        code: "billing_unavailable";
+                        detail: string;
+                        errors: string;
+                    };
+                };
+            };
+        };
+    };
     "v1.platform.tenants.index": {
         parameters: {
             query?: {
@@ -7090,6 +7475,59 @@ export interface operations {
                 };
                 content: {
                     "text/csv; charset=UTF-8": string;
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            403: components["responses"]["AuthorizationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "v1.revenue.index": {
+        parameters: {
+            query?: {
+                from?: string;
+                to?: string;
+                per_page?: number;
+                /**
+                 * @description Opaque, and produced only by this endpoint. There is no `page`
+                 *     and there will not be one: see the controller.
+                 */
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description `AggregatorConfirmedPaymentsResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["AggregatorConfirmedPaymentsResource"];
+                        meta: {
+                            counts: string;
+                            does_not_count: [
+                                "attempts the aggregator has not confirmed as completed, including every one still pending a patient's PIN",
+                                "attempts the aggregator reported as failed, and attempts that timed out without a later confirmation",
+                                "confirmations the aggregator afterwards reported as reversed",
+                                "cash handed over at the clinic and attested by a staff member, which no aggregator ever saw",
+                                "collections recorded against an aggregator account that is not live, which is test data by definition"
+                            ];
+                            /**
+                             * @description The sentence the whole endpoint exists to keep true. It is in
+                             *     the payload rather than only in the documentation because the
+                             *     payload is what a clinic owner's screen is built from, and a
+                             *     caveat nobody ships is a caveat nobody reads.
+                             */
+                            not_money_in_the_bank: string;
+                            /** @description Cursor, never an offset page number. Null on the last page. */
+                            by_service_next_cursor: string | null;
+                        };
+                    };
                 };
             };
             401: components["responses"]["AuthenticationException"];

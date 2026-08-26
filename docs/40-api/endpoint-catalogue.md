@@ -147,6 +147,7 @@ The rider endpoints are a separate namespace with distinct resource classes — 
 |---|---|---|
 | POST | `/webhooks/flutterwave/{tenant}` | Signature-verified against the tenant's secret |
 | GET · POST | `/webhooks/pesapal/{tenant}` | **Not signed, and not signable.** Trusted for nothing |
+| GET · POST | `/webhooks/pesapal-billing` | **Carevelo's own** subscription revenue. Not signed, trusted for nothing, and **takes no tenant** |
 
 All unauthenticated — an aggregator has no session with us — and all idempotent. **The two are not variants of each other**, and the second row used to say "Same", which was wrong in the way that matters.
 
@@ -156,7 +157,13 @@ Pesapal's notification carries `OrderTrackingId`, `OrderMerchantReference` and `
 
 An unknown tenant, an unconfigured clinic and an unknown tracking id all answer a neutral **404**, indistinguishable from one another.
 
-Detail in [Webhooks](webhooks.md); the reasoning in [ADR-0012](../70-decisions/0012-pesapal-unsigned-ipn.md).
+`/webhooks/pesapal-billing` is the third row and the only one where **Carevelo is the merchant**. It concerns the clinic's subscription to the software, never a patient's payment, and it reaches neither `aggregator_accounts` nor `payment_intents`.
+
+**It takes no tenant, and the absence is the design.** A recurring transaction is initiated by *Pesapal*, on the schedule it was given months earlier, so its `OrderTrackingId` is one this system has never seen and cannot look anything up by — and nothing in the notification says which clinic it concerns. `OrderNotificationType: RECURRING` says only what kind of event it is, and is not read. The clinic is named by `subscription_transaction_info.account_reference` in the **`GetTransactionStatus` response** — the `account_number` we set when the subscription was created, echoed back over an authenticated TLS connection by the party that took the money. A tenant segment in the path would be a field an anonymous caller chooses, sitting next to a resolver that must not read one.
+
+The reported amount is checked against what the clinic's register row says it agreed to pay, and a mismatch applies no state change. A paid-through date is extended only on an actual transition into `succeeded`, so a replayed notification extends nothing.
+
+Detail in [Webhooks](webhooks.md); the reasoning in [ADR-0012](../70-decisions/0012-pesapal-unsigned-ipn.md) and [ADR-0003](../70-decisions/0003-non-custodial-payment-architecture.md).
 
 ## Notifications & audit
 
@@ -178,8 +185,21 @@ Detail in [Webhooks](webhooks.md); the reasoning in [ADR-0012](../70-decisions/0
 | GET | `/v1/platform/break-glass` | O, S admin | The grant register. A clinic administrator sees grants against their own clinic |
 | GET | `/v1/platform/audit-events` | O | **Read-only.** Platform events in full; a clinic's events as **metadata only**. `?tenant_id=` chooses which trail is read |
 | GET | `/v1/platform/health` | O | |
+| GET | `/v1/platform/tenants/{id}/subscription` | O | Plan, agreed price, paid-through date, and the last 12 charges |
+| PUT | `/v1/platform/tenants/{id}/subscription` | O admin | Records what was **agreed in conversation**: `plan` and `price` (whole shillings). Collects nothing |
+| POST | `/v1/platform/tenants/{id}/subscription/collect` | O admin | Starts the monthly recurring collection at Pesapal. Returns the page the clinic's administrator pays on. **503** when the platform merchant account is unconfigured |
 
 Platform endpoints reach **no clinical data** without an active break-glass grant.
+
+### The subscription rows
+
+"Self-service plan selection and billing" was an explicit H1 non-goal, [amended](../10-product/prd-h1-clinic-onboarding.md) rather than quietly dropped. What that amendment kept is visible in the table above: **these are platform routes, and there is deliberately no counterpart under `/v1/tenant`.** A clinic administrator cannot set its own plan or its own price, because a price a clinic can write is a discount a clinic can grant itself.
+
+`PUT …/subscription` and `POST …/subscription/collect` are separate on purpose. Recording a commercial agreement and asking Pesapal for money are different acts, and a support operator correcting a typo in a price must not thereby charge a clinic.
+
+**Carevelo is the merchant here, and only here.** ADR-0003 §Consequences permits exactly this — "Revenue is subscription-only (§F)" — and nothing wider: a patient's payment still settles directly to the clinic through the clinic's own credentials, on a code path that cannot reach the platform account. Money is `{amount_minor, currency}` in every response, as everywhere else.
+
+Suspension for non-payment is performed by the `billing:suspend-lapsed` sweep, after a grace period, and is **commercial**: it blocks staff sign-in and does not touch a patient reading their own records, a delivery already in flight, or `POST /v1/platform/tenants/{id}/export`.
 
 `GET /v1/platform/audit-events` is the platform half of the evidence layer, and it exists because the other half is not reachable from a clinic: platform events — break-glass grants, tenant provisioning and suspension, TOTP enrolments, platform sign-ins — carry a null `tenant_id` and sit outside tenant row-level security, so nothing could read them back at all.
 

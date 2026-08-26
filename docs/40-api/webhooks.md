@@ -143,6 +143,25 @@ Nothing from the notification is stored. There is nothing in it worth keeping, a
 
 > **Do not "fix" this by trusting the body.** If a future Pesapal version signs its notifications, verify the signature *in addition to* the status call, never instead of it. Full reasoning in [ADR-0012](../70-decisions/0012-pesapal-unsigned-ipn.md).
 
+## The platform endpoint — Carevelo's own subscription revenue
+
+`GET|POST /webhooks/pesapal-billing`
+
+The third endpoint, and the only one where **Carevelo is the merchant**. It concerns a clinic's subscription to the software — our own revenue, which [ADR-0003](../70-decisions/0003-non-custodial-payment-architecture.md) §Consequences names as the only revenue we take. It touches neither `aggregator_accounts` nor `payment_intents`, and a patient's payment cannot reach it.
+
+Everything the unsigned endpoint above decides applies here unchanged: one field read from the request, the `Request` discarded before any work happens, the outcome read back from `GetTransactionStatus`, the reported amount checked against what was expected, idempotency claimed before the status call, and a neutral 404 that distinguishes nothing.
+
+**One thing is harder here, and it is the reason this endpoint exists separately.**
+
+A recurring transaction is initiated by *Pesapal*, on the schedule it was given when the subscription was created. So its `OrderTrackingId` is one this system has **never seen** and cannot look anything up by, and — unlike the per-clinic endpoint — **nothing in the request names a clinic**. There is no tenant in the path, deliberately: a tenant segment would be a field an anonymous caller chooses, sitting next to a resolver that must not read one. `OrderNotificationType: RECURRING` is not read either, because branching on it would let the forger select the trusted path.
+
+The payer is named by **`subscription_transaction_info.account_reference` in the `GetTransactionStatus` response** — the `account_number` we set at subscription time, which is the tenant id, echoed back over an authenticated TLS connection by the party that took the money. A response carrying no subscription information is one we cannot attribute, and an unattributable payment extends nobody's subscription.
+
+Two further rules, both about what a replay or a forgery can achieve:
+
+- A charge's amount is copied from the **clinic's agreed price on its register row**, never from what Pesapal reported. A row built from the reported amount would agree with itself, and the amount check would be inert.
+- The clinic's paid-through date moves **only on an actual transition into `succeeded`**, never on reading one. A replayed notification finds the charge already succeeded and extends nothing.
+
 ## The reconciliation backstop
 
 **A webhook is never the only path to resolution** (§H5.6). Missed and delayed webhooks are ordinary in this market, and an intent stuck in `pending` forever is a patient who does not know whether they paid.

@@ -6,7 +6,9 @@
 
 ## Context
 
-Pesapal is the second aggregator, added per clinic under ADR-0003: one Pesapal merchant account per clinic, funds patient → Pesapal → clinic, no platform merchant account.
+Pesapal is the second aggregator, added per clinic under ADR-0003: one Pesapal merchant account per clinic, funds patient → Pesapal → clinic, no platform merchant account anywhere in that path.
+
+*(Since 2026-08-24 Pesapal also collects clinics' **subscriptions to the software** into Carevelo's own merchant account. That is a separate endpoint, `/webhooks/pesapal-billing`, on which everything this ADR decides applies unchanged and one thing more: a recurring notification names no clinic at all, so the payer is read from `subscription_transaction_info.account_reference` in the status response and from nowhere else. See [ADR-0003 §The one merchant account Carevelo does hold](0003-non-custodial-payment-architecture.md).)*
 
 Its inbound notification (IPN) carries exactly three fields:
 

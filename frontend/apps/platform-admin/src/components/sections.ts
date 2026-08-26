@@ -24,7 +24,7 @@ export type Section = {
 }
 
 /** Sidebar order. */
-export const SECTION_IDS = ['tenants', 'break-glass', 'audit'] as const
+export const SECTION_IDS = ['tenants', 'billing', 'break-glass', 'audit'] as const
 
 export type SectionId = (typeof SECTION_IDS)[number]
 
@@ -32,6 +32,13 @@ export const SECTIONS: Record<SectionId, Section> = {
   tenants: {
     href: '/tenants',
     label: 'Tenants',
+  },
+
+  /* Carevelo's OWN subscription revenue, billed to clinics -- never a clinic's patient
+     payments, which go to that clinic's own Pesapal account and never pass through here. */
+  billing: {
+    href: '/billing',
+    label: 'Billing',
   },
 
   'break-glass': {

@@ -106,6 +106,55 @@ class TenancyServiceProvider extends ServiceProvider
         });
 
         /**
+         * Isolation for a table that holds PLATFORM rows and no tenant's rows.
+         *
+         * The mirror image of enableTenantIsolation(), and it exists for
+         * subscription billing: Carevelo invoicing a clinic for the software is
+         * OUR revenue, collected into OUR merchant account, and it must not
+         * become reachable from inside a clinic's session the way a clinic's own
+         * payment records are.
+         *
+         *   - tenant context unset -> every row is visible
+         *   - tenant context set   -> NO row is visible, and none may be written
+         *
+         * The second half is the one worth stating aloud. A table declared
+         * platform-scoped and left without a policy is readable from anywhere,
+         * which is fine for break_glass_grants -- a control surface the affected
+         * clinic is entitled to see -- and is not fine here: these rows name
+         * every clinic, what it pays and whether it has paid, so one clinic's
+         * session reading them would disclose its competitors' commercial terms.
+         *
+         * A tenant_id column may still be present. It says WHO IS BEING BILLED,
+         * not whose row this is, and that distinction is why the policy does not
+         * compare it against anything. Comparing it would be worse than useless:
+         * it would make the row visible to the clinic under RLS and thereby put
+         * platform revenue inside a tenant's blast radius, which is the exact
+         * blending of clinic money and Carevelo money that ADR-0003 forbids.
+         *
+         * @see docs/70-decisions/0003-non-custodial-payment-architecture.md
+         */
+        Schema::macro('enablePlatformOnlyIsolation', function (string $table): void {
+            $setting = Tenancy::TENANT_SETTING;
+
+            // Note the shape: the predicate does not mention any column. A row
+            // is visible because of WHO IS ASKING and never because of what it
+            // contains, so no future column can widen it by accident.
+            //
+            // current_setting(..., true) yields NULL when the setting was never
+            // established in this session, and '' when Tenancy::forget() cleared
+            // it. coalesce collapses both to the same platform case; anything
+            // else is a bound tenant and sees nothing.
+            $predicate = "coalesce(current_setting('{$setting}', true), '') = ''";
+
+            DB::statement("ALTER TABLE {$table} ENABLE ROW LEVEL SECURITY");
+            DB::statement("ALTER TABLE {$table} FORCE ROW LEVEL SECURITY");
+            DB::statement(
+                "CREATE POLICY platform_only ON {$table} ".
+                "USING ({$predicate}) WITH CHECK ({$predicate})"
+            );
+        });
+
+        /**
          * Marks a table as deliberately not tenant-scoped.
          *
          * Declarative only — it writes a comment the schema-conformance test

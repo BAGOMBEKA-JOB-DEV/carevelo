@@ -8,7 +8,7 @@ Every external service, what crosses the boundary, and — for each — what mus
 
 ## Principles
 
-1. **Per-tenant credentials wherever the service acts on the clinic's behalf.** Payments use the clinic's own aggregator account. There is no platform-level merchant account, because there is no platform account for funds to reach ([Payments Regulatory Boundary](../50-security-compliance/payments-regulatory-boundary.md)).
+1. **Per-tenant credentials wherever the service acts on the clinic's behalf.** Patient payments use the clinic's own aggregator account. There is no platform-level merchant account in that path, because there is no platform account for a patient's funds to reach ([Payments Regulatory Boundary](../50-security-compliance/payments-regulatory-boundary.md)). The single exception acts on **Carevelo's** behalf rather than a clinic's — subscription billing, whose credentials come from config and whose code path cannot reach a clinic's account ([ADR-0003](../70-decisions/0003-non-custodial-payment-architecture.md)).
 2. **Behind a domain interface**, adapter in `Infrastructure` ([Backend](backend-laravel.md)).
 3. **Minimum necessary data crosses.** Each section below states what must not.
 4. **No external call blocks a user-facing transaction.** Notifications and non-critical calls are queued; a gateway timeout must never fail a booking.
@@ -57,7 +57,7 @@ Both hold Bank of Uganda Payment System Operator licences (§I): Flutterwave's P
 
 **Reconciliation:** every `PaymentIntent` has a scheduled status poll as a backstop for a missed webhook (§H5.6). Neither path is trusted alone; both are idempotent.
 
-**What the adapter must never implement:** a platform merchant account, a payout, a settlement instruction, a balance query on a Carevelo account. None of those exist to be queried.
+**What the patient-payment adapter must never implement:** a platform merchant account, a payout, a settlement instruction, a balance query on a Carevelo account. None of those exist to be queried. Subscription billing is a different adapter with a different merchant, and it is not a route into this one — it holds no `AggregatorAccount`, and nothing here can construct its credentials.
 
 Two providers exist in real scope, which is why the `PaymentGateway` interface is justified now rather than speculative — and both are implemented. Because they work in opposite directions, the container binds the port to a **resolver keyed on the account's provider** rather than to one client ([Backend](backend-laravel.md)); a default would send one clinic's collection through the other provider's client.
 

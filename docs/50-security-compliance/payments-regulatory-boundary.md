@@ -53,7 +53,7 @@ The thick arrows are money. The thin arrows are instructions and records. **The 
 Concretely:
 
 1. Each tenant stores its **own** aggregator credentials in `AggregatorAccount` — envelope-encrypted, write-only through the API, never returned in any response, never written to any log including exception traces ([Domain Model](../20-domain/domain-model.md)).
-2. Every collection call uses **that tenant's** credentials. **There is no platform-level merchant account.**
+2. Every collection call **for a patient's payment** uses **that tenant's** credentials. **There is no platform-level merchant account in that path**, and none can be reached from it. Carevelo does hold one Pesapal merchant account, for one purpose: collecting a clinic's **subscription to the software**, which is our own revenue rather than anybody's funds in transit ([ADR-0003 §The one merchant account Carevelo does hold](../70-decisions/0003-non-custodial-payment-architecture.md)). It is a separate table, separate credentials from config, a separate resolver and a separate notification endpoint, and a patient's payment cannot reach it.
 3. Settlement targets the clinic's own account, configured by the clinic at the aggregator. Carevelo has no visibility of, and no claim on, settled funds.
 4. `PaymentIntent` stores the amount, the aggregator's transaction reference and the reported status. Nothing more ([Ubiquitous Language](../20-domain/ubiquitous-language.md)).
 5. Receipts name **the clinic** as payee. Carevelo appears nowhere as a payee.

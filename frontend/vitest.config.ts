@@ -72,6 +72,7 @@ const workspace = (path: string): string =>
 
 const patientPortal = workspace('./apps/patient-portal')
 const clinicConsole = workspace('./apps/clinic-console')
+const platformAdmin = workspace('./apps/platform-admin')
 
 export default {
   test: {
@@ -157,6 +158,53 @@ export default {
           name: 'clinic-console',
           root: clinicConsole,
           environment: 'jsdom',
+          include: ['src/**/*.test.{ts,tsx}'],
+          restoreMocks: true,
+          unstubEnvs: true,
+          unstubGlobals: true,
+          setupFiles: [workspace('./vitest.setup.ts')],
+        },
+      },
+
+      /*
+       * apps/platform-admin — and it is here for one function too.
+       *
+       * `standingOf()` reads a clinic's two nullable dates and returns the word that decides
+       * which clinics an operator rings this week. It is the only judgement anywhere in the
+       * billing surface — everything else on those screens is the contract's own shape
+       * rendered, which the compiler already checks — and every way it can be wrong is
+       * silent: a clinic filed as "in period" because a date failed to parse is a clinic
+       * nobody chases, and a clinic inside its trial filed as having no commercial record is
+       * a whole population that disappears from the register.
+       *
+       * IT ALSO GUARDS A BOUNDARY, which is the less obvious half. Suspension is decided by
+       * `billing:suspend-lapsed` against a grace period in `config/billing.php` that no
+       * endpoint publishes, and the temptation to copy that seven into the browser so the
+       * screen can say "suspended on Tuesday" is real. One assertion in that suite fails if
+       * anybody does.
+       *
+       * THE APP DECLARES vitest AS OF THIS PROJECT, which is the same one-line devDependency
+       * the clinic-console project needed and comes with the same obligation stated above:
+       * the lockfile entry goes with it, or CI's `--frozen-lockfile` fails for everybody.
+       * Both halves are in this change.
+       *
+       * `environment: 'node'` AND NOT jsdom, which is where this project differs from the
+       * two above it. The suite is pure date arithmetic over plain objects; there is no
+       * component under test and nothing that touches `document`. jsdom would be a second of
+       * startup and one more thing that could change what a global means in a file that
+       * never asks — the same reasoning the `ui` project gives for staying on node. The `@`
+       * alias is still declared, because the first test that renders a screen will need it
+       * and a mapping that resolves to nothing does not fail, it silently stops checking.
+       */
+      {
+        plugins: [react()],
+        resolve: {
+          alias: { '@': `${platformAdmin}/src` },
+        },
+        test: {
+          name: 'platform-admin',
+          root: platformAdmin,
+          environment: 'node',
           include: ['src/**/*.test.{ts,tsx}'],
           restoreMocks: true,
           unstubEnvs: true,
