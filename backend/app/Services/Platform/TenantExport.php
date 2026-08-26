@@ -7,6 +7,7 @@ use App\Models\AuditEvent;
 use App\Models\ClinicalNote;
 use App\Models\ConsentRecord;
 use App\Models\Consultation;
+use App\Models\ConsultationMessage;
 use App\Models\Delivery;
 use App\Models\DeliveryEvent;
 use App\Models\DispenseItem;
@@ -52,6 +53,22 @@ class TenantExport
         'consent_records' => ConsentRecord::class,
         'appointments' => Appointment::class,
         'consultations' => Consultation::class,
+
+        /*
+         * Chat inside an encounter, between consultations and clinical_notes
+         * because that is what it is: text authored within the consultation,
+         * ranking with the notes rather than with anything operational.
+         *
+         * Its inclusion is the reason this list is explicit. A clinic leaving
+         * without its transcripts would leave without clinical instructions its
+         * clinicians gave and history its patients gave -- and it would not
+         * notice, because a chat table reads as messaging infrastructure and
+         * messaging infrastructure is exactly the sort of thing an export
+         * reasonably omits. That is the silent gap the docblock above warns
+         * about, arriving on schedule.
+         */
+        'consultation_messages' => ConsultationMessage::class,
+
         'clinical_notes' => ClinicalNote::class,
         'prescriptions' => Prescription::class,
         'prescription_items' => PrescriptionItem::class,

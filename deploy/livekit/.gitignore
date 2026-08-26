@@ -1,0 +1,4 @@
+# The real files carry the API secret and the TURN password. Their templates --
+# livekit.yaml.example and .env.example -- are committed and documented instead.
+.env
+livekit.yaml

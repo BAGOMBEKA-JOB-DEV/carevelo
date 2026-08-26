@@ -8,6 +8,7 @@ use App\Broadcasting\RiderChannel;
 use App\Broadcasting\TenantChannel;
 use App\Broadcasting\TenantPrefixedChannel;
 use App\Broadcasting\UserChannel;
+use App\Events\ConsultationMessageSent;
 use App\Events\DeliveryAssigned;
 use App\Events\DeliveryDelivered;
 use App\Events\DeliveryFailed;
@@ -21,6 +22,7 @@ use App\Events\TenantBroadcast;
 use App\Models\AuditEvent;
 use App\Models\ClinicalRole;
 use App\Models\Consultation;
+use App\Models\ConsultationMessageAuthor;
 use App\Models\Delivery;
 use App\Models\DeliveryStatus;
 use App\Models\DispenseOrder;
@@ -32,6 +34,7 @@ use App\Models\Substitution;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Tenancy\Tenancy;
+use Database\Factories\ConsultationMessageFactory;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Broadcast;
@@ -128,7 +131,32 @@ function broadcastFixture(): array
 
         $intent = PaymentIntent::factory()->create();
 
+        /*
+         * A chat message, seeded with the sharpest content in this fixture.
+         *
+         * Every other event here withholds clinical content a subscriber would
+         * have to fetch anyway. This one withholds the entire SUBSTANCE of the
+         * thing that happened, which makes its payload the most tempting in the
+         * application to "improve": a chat frame carrying the text would let a
+         * client render the conversation with no round trip.
+         *
+         * It matters more than the others for a second reason. The consultation
+         * channel is authorised by ConsultationPolicy::view -- clinic-wide --
+         * while the messages endpoint is authorised by participate(), which
+         * admits only the patient and the conducting clinician. So an
+         * administrator may legitimately subscribe to a conversation they are
+         * forbidden to read, and the payload rule is the only thing that makes
+         * that safe. A channel is not an authorisation boundary.
+         */
+        $message = ConsultationMessageFactory::new()->createOne([
+            'consultation_id' => Consultation::factory()->create(['patient_id' => $patient->id])->id,
+            'author_id' => $clinician->id,
+            'author_role' => ConsultationMessageAuthor::Clinician,
+            'body' => 'Stop the Amoxicillin and start the new capsule three times daily',
+        ]);
+
         return [
+            'consultation_message.sent' => ConsultationMessageSent::from($message),
             'prescription.issued' => PrescriptionIssued::from($prescription, $order),
             'order.dispensed' => OrderDispensed::from($order),
             'substitution.proposed' => SubstitutionProposed::from($substitution, $order, $clinician->id),
@@ -394,13 +422,34 @@ it('puts no clinical content, patient name or contact detail in any payload', fu
     // respect: a role channel fans out to every subscriber at once.
     ['events' => $events, 'forbidden' => $forbidden] = broadcastFixture();
 
-    expect($events)->toHaveCount(9);
+    expect($events)->toHaveCount(10);
 
     foreach ($events as $name => $event) {
         $payload = strtolower((string) json_encode($event->broadcastWith()));
 
         foreach ($forbidden as $term) {
-            expect($payload)->not->toContain($term, "{$name} leaked '{$term}'");
+            /*
+             * str_contains() AND toBeFalse(), NOT `not->toContain($term, $msg)`,
+             * AND THE DIFFERENCE IS THE WHOLE CONTROL.
+             *
+             * Pest's toContain() is VARIADIC -- `toContain(mixed ...$needles)`.
+             * A message passed as a second argument is therefore not a message,
+             * it is a SECOND NEEDLE. And `not` is implemented by running the
+             * positive expectation and catching its failure, so
+             * `not->toContain($term, "… leaked '{$term}'")` passes the moment
+             * ANY needle is absent -- and the message text is never in the
+             * payload, so it was absent every single time.
+             *
+             * This assertion was therefore green and inert: it passed whether or
+             * not the payload contained the medicine name. Verified rather than
+             * reasoned about -- putting the message body into
+             * ConsultationMessageSent::broadcastWith() was NOT detected by the
+             * old form and IS detected by this one.
+             *
+             * toBeFalse() takes a real `string $message`, so nothing is lost.
+             */
+            expect(str_contains($payload, $term))
+                ->toBeFalse("{$name} leaked '{$term}'");
         }
     }
 });
@@ -412,6 +461,13 @@ it('names only identifiers and state in payload keys', function () {
         'prescription_id', 'dispense_order_id', 'order_id', 'delivery_id',
         'substitution_id', 'payment_intent_id',
         'reference', 'order_reference', 'status', 'failure_reason',
+
+        // Consultation chat. `author_role` is WHO SPOKE, never what they said,
+        // and it is a closed two-case list -- the other participant's screen can
+        // show that a reply exists and then fetch it under the policy. There is
+        // deliberately no key here for the message text, and adding one would
+        // have to be argued for in this list first.
+        'consultation_id', 'message_id', 'author_role',
     ];
 
     ['events' => $events] = broadcastFixture();
@@ -487,14 +543,20 @@ it('carries no model into a broadcast', function () {
         $files ?: []
     );
 
-    // The base class plus the nine documented domain events.
-    expect($classes)->toHaveCount(10);
+    // The base class plus the ten documented domain events.
+    expect($classes)->toHaveCount(11);
 
     foreach ($classes as $class) {
         expect(is_a($class, TenantBroadcast::class, true))
             ->toBeTrue("{$class} does not extend TenantBroadcast");
 
-        expect(class_uses_recursive($class))
-            ->not->toContain(SerializesModels::class, "{$class} serialises a model into a frame");
+        // in_array()/toBeFalse() rather than `not->toContain($class, $message)`
+        // for the reason set out on the payload sweep above: toContain() is
+        // variadic, so the message is a second needle, and `not` passes as soon
+        // as ANY needle is missing. That form asserted nothing at all -- and
+        // this is the structural guard behind "identifiers and state only", so
+        // it asserting nothing would have left the whole rule resting on care.
+        expect(in_array(SerializesModels::class, class_uses_recursive($class), true))
+            ->toBeFalse("{$class} serialises a model into a frame");
     }
 });

@@ -1,0 +1,30 @@
+# TLS for the signalling endpoint, and the certificate coturn borrows.
+#
+# Caddy is here for the certificate more than for the proxying. A browser on an
+# https page cannot open a ws:// socket, so consultation signalling has to be
+# wss://, which needs a publicly trusted certificate for exactly the hostname the
+# client dials. Caddy obtains and renews one from Let's Encrypt with no cron job
+# and no certbot invocation, and writes it where coturn can read it.
+
+{
+	# Let's Encrypt sends expiry warnings here. Set it in .env; an unset address
+	# means the first warning that this deployment's certificate is about to
+	# lapse arrives as a failed consultation.
+	email {$ACME_EMAIL}
+}
+
+{$MEDIA_DOMAIN} {
+	# Everything, to the SFU. LiveKit serves the signalling WebSocket at /rtc and
+	# its server API under /twirp on the same port, and Caddy upgrades WebSocket
+	# connections without being told to.
+	#
+	# The server API being reachable is expected rather than an oversight: it is
+	# authenticated by tokens carrying roomAdmin or roomList grants, and
+	# LiveKitAccessToken never mints one -- both are written out as false. The
+	# thing that protects it is the API secret, which is why config/video.php
+	# treats that secret the way it treats a payment credential.
+	reverse_proxy 127.0.0.1:7880
+
+	# 7880 must NOT be reachable from outside this box. See README.md: the
+	# firewall closes it, and this proxy is the only way in.
+}
