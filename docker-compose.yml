@@ -83,6 +83,16 @@ services:
     env_file: [docker/api.env]
     volumes:
       - ./backend:/app
+      # MOUNTED AS .env, NOT JUST PASSED AS ENVIRONMENT, and the difference is
+      # the whole reason the API answered 500 on its first run.
+      #
+      # PHP CLI ships `variables_order = "GPCS"` -- no `E` -- so the process
+      # environment never reaches $_ENV, and Laravel's Dotenv then fills it from
+      # the .env it finds. That file is the DEVELOPER'S, mounted at ./backend,
+      # and it says DB_HOST=127.0.0.1 because on their machine that is true.
+      # Inside a container it is not, so every query went to a database that was
+      # not there. env_file alone cannot win that argument; this can.
+      - ./docker/api.env:/app/.env:ro
     command: >
       sh -c "
         php artisan db:roles --superuser=postgres --superuser-password=postgres &&
@@ -102,6 +112,16 @@ services:
     env_file: [docker/api.env]
     volumes:
       - ./backend:/app
+      # MOUNTED AS .env, NOT JUST PASSED AS ENVIRONMENT, and the difference is
+      # the whole reason the API answered 500 on its first run.
+      #
+      # PHP CLI ships `variables_order = "GPCS"` -- no `E` -- so the process
+      # environment never reaches $_ENV, and Laravel's Dotenv then fills it from
+      # the .env it finds. That file is the DEVELOPER'S, mounted at ./backend,
+      # and it says DB_HOST=127.0.0.1 because on their machine that is true.
+      # Inside a container it is not, so every query went to a database that was
+      # not there. env_file alone cannot win that argument; this can.
+      - ./docker/api.env:/app/.env:ro
     ports:
       - "8000:8000"
 
@@ -116,7 +136,7 @@ services:
       setup: { condition: service_completed_successfully }
       redis: { condition: service_healthy }
     env_file: [docker/api.env]
-    volumes: [./backend:/app]
+    volumes: [./backend:/app, ./docker/api.env:/app/.env:ro]
     command: php artisan queue:work --tries=3 --timeout=90
 
   scheduler:
@@ -125,7 +145,7 @@ services:
     depends_on:
       setup: { condition: service_completed_successfully }
     env_file: [docker/api.env]
-    volumes: [./backend:/app]
+    volumes: [./backend:/app, ./docker/api.env:/app/.env:ro]
     command: php artisan schedule:work
 
   reverb:
@@ -135,7 +155,7 @@ services:
       setup: { condition: service_completed_successfully }
       redis: { condition: service_healthy }
     env_file: [docker/api.env]
-    volumes: [./backend:/app]
+    volumes: [./backend:/app, ./docker/api.env:/app/.env:ro]
     command: php artisan reverb:start --host=0.0.0.0 --port=8080
     ports:
       - "8080:8080"
@@ -143,6 +163,12 @@ services:
   # ---------------------------------------------------------------------------
   # The four surfaces. Same image, different app, ports matching each app's own
   # `dev` script so a container and a local run are reachable at the same URL.
+  #
+  # NOTE THE BARE `--` BEFORE --hostname. Without it pnpm reads the flag as its
+  # OWN and never passes it to `next dev`, so the server binds to localhost
+  # inside the container -- reachable from nothing, which is why all four ports
+  # were dead on the first run while the containers looked perfectly healthy.
+  # The port comes from each app's own `dev` script; only the host needs adding.
   # ---------------------------------------------------------------------------
   patient-portal:
     image: carevelo-web:dev
@@ -157,7 +183,7 @@ services:
       # that could not carry them. The host's install is mounted straight in.
       - ./frontend:/app
     ports: ["3000:3000"]
-    command: pnpm --filter @carevelo/patient-portal dev --hostname 0.0.0.0
+    command: pnpm --filter @carevelo/patient-portal dev -- --hostname 0.0.0.0
 
   clinic-console:
     image: carevelo-web:dev
@@ -167,7 +193,7 @@ services:
       NEXT_PUBLIC_API_ORIGIN: http://localhost:8000
     volumes: [./frontend:/app]
     ports: ["3001:3001"]
-    command: pnpm --filter @carevelo/clinic-console dev --hostname 0.0.0.0
+    command: pnpm --filter @carevelo/clinic-console dev -- --hostname 0.0.0.0
 
   rider-view:
     image: carevelo-web:dev
@@ -177,7 +203,7 @@ services:
       NEXT_PUBLIC_API_ORIGIN: http://localhost:8000
     volumes: [./frontend:/app]
     ports: ["3002:3002"]
-    command: pnpm --filter @carevelo/rider-view dev --hostname 0.0.0.0
+    command: pnpm --filter @carevelo/rider-view dev -- --hostname 0.0.0.0
 
   platform-admin:
     image: carevelo-web:dev
@@ -187,7 +213,7 @@ services:
       NEXT_PUBLIC_API_ORIGIN: http://localhost:8000
     volumes: [./frontend:/app]
     ports: ["3003:3003"]
-    command: pnpm --filter @carevelo/platform-admin dev --hostname 0.0.0.0
+    command: pnpm --filter @carevelo/platform-admin dev -- --hostname 0.0.0.0
 
   # ---------------------------------------------------------------------------
   # The self-hosted media server, for consultations. Zero per-minute cost, which
