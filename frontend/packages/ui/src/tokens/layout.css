@@ -59,7 +59,7 @@
 .nav-group { margin-top: var(--space-4); }
 .nav-group:first-child { margin-top: var(--space-1); }
 .nav-group__label {
-  font-size: 10.5px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase;
+  font-size: var(--text-3xs); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
   color: var(--sidebar-muted); padding: 0 var(--space-3) var(--space-2);
 }
 
@@ -69,7 +69,7 @@
   padding: 0 var(--space-3);
   border-radius: var(--r-md);
   color: var(--sidebar-ink);
-  font-size: 14px; font-weight: 500;
+  font-size: var(--text-sm); font-weight: 500;
   position: relative;
 }
 .nav-item:hover { background: var(--sidebar-hover); text-decoration: none; }
@@ -84,7 +84,7 @@
   width: 3px; border-radius: var(--r-pill);
   background: var(--primary);
 }
-.nav-item .count { margin-left: auto; font-size: 12px; color: var(--sidebar-muted); font-variant-numeric: tabular-nums; }
+.nav-item .count { margin-left: auto; font-size: var(--text-2xs); color: var(--sidebar-muted); font-variant-numeric: tabular-nums; }
 
 /* ---- Topbar over the content column ---- */
 .topbar {
@@ -95,9 +95,9 @@
   color: var(--topbar-ink);
   position: sticky; top: 0; z-index: 20;
 }
-.topbar__title { font-weight: 600; font-size: 15px; }
+.topbar__title { font-weight: 600; font-size: var(--text-md); }
 .topbar__spacer { flex: 1; }
-.topbar__meta { font-size: 12.5px; color: var(--topbar-ink-soft); }
+.topbar__meta { font-size: var(--text-xs); color: var(--topbar-ink-soft); }
 
 /* The clinic's logo sits in the console header: staff know they use Carevelo, and
    the clinic is the customer. Capped so a tall logo cannot push the band open. */
@@ -127,7 +127,7 @@
   gap: 2px;
   min-height: var(--touch-min);
   padding: var(--space-2) 0;
-  font-size: 11px; font-weight: 550;
+  font-size: var(--text-3xs); font-weight: 600;
   color: var(--ink-muted);
 }
 .tabbar a.is-active { color: var(--primary); }
@@ -165,12 +165,12 @@
   color: var(--brand-primary-fg);
 }
 .site__logo { max-height: 40px; width: auto; }
-.site__name { font-family: var(--head); font-size: 18px; font-weight: 700; letter-spacing: -0.01em; }
+.site__name { font-family: var(--head); font-size: var(--text-lg); font-weight: 700; letter-spacing: -0.012em; }
 .site__main { flex: 1; width: 100%; max-width: 720px; margin-inline: auto; padding: var(--space-7) var(--space-5); }
 .site__footer {
   padding: var(--space-6) var(--space-5);
   border-top: 1px solid var(--hairline);
-  color: var(--ink-muted); font-size: 12.5px;
+  color: var(--ink-muted); font-size: var(--text-xs);
   text-align: center;
 }
 
