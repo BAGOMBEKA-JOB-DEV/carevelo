@@ -1,8 +1,16 @@
 /* ============================================================
    Carevelo — spacing, radii, shadows, layout dimensions
 
-   Sharp corners. Small radii and hairline borders read as precise and clinical,
+   Restrained corners. Small radii and hairline borders read as precise and clinical,
    which is the right register for a product that issues prescriptions.
+
+   THE CONSOLE RADIUS IS 8px AND WAS 6px, AND THE ARGUMENT FOR 6 IS WORTH KEEPING IN
+   MIND WHILE DISAGREEING WITH IT. It said a playful corner on a prescribing form is a
+   claim about the seriousness of the thing being signed, and that is true of a playful
+   corner. 8px is not one: it is what the platforms this product is read on have settled
+   on for a control of this size, and at 6px against a 44px target the corner reads less
+   as precision than as a form control drawn in 2016. The register is carried by the
+   hairline, the tight tracking and the near-absent shadow — not by two pixels.
 
    TWO radius scales live here, --r-* and --sr-*, and the reason is written where the
    second one is defined. Nothing in the console reaches for the marketing scale, and
@@ -12,35 +20,57 @@
 
 :root {
   --r-sm: 4px;
-  --r-md: 6px;
-  --r-lg: 11px;
+  --r-md: 8px;
+  /* `.card` and nothing else, which is why it can be generous: a card is a SURFACE,
+     and a surface takes a larger corner than a control sitting on it. */
+  --r-lg: 14px;
   --r-pill: 9999px;
 
-  --shadow-sm: 0 1px 3px rgba(20, 34, 30, 0.1), 0 1px 2px -1px rgba(20, 34, 30, 0.1);
-  --shadow-pop: 0 10px 34px rgba(20, 34, 30, 0.13);
+  /* SEPARATION IS BY HAIRLINE AND TONE. THE SHADOW IS ALMOST NOT THERE, AND IT USED TO
+     BE THE LOUDEST THING ON A CARD.
+
+     --shadow-sm was two stacked layers at 10% opacity with a 3px blur: a hard, close,
+     grey edge under every card, stat and button, which at a 3px blur radius does not
+     read as height at all — it reads as a second border in a colour nobody chose. It is
+     now one soft layer at 5% and one at 4%, spread further and offset less, so a card
+     separates from the page because its background and its 1px hairline differ from
+     the page's, and the shadow only keeps it from floating.
+
+     --shadow-pop keeps real elevation because it is a POPOVER: a menu over content has
+     to be unambiguously in front, and that is the one place on these surfaces where
+     depth is information rather than decoration. Even there the flat 34px fog became a
+     tight near layer plus a wide far one, which is how a shadow reads as a distance
+     rather than as a blur. */
+  --shadow-sm: 0 1px 2px -1px rgba(20, 34, 30, 0.05), 0 2px 6px -2px rgba(20, 34, 30, 0.04);
+  --shadow-pop: 0 2px 6px -2px rgba(20, 34, 30, 0.06), 0 12px 32px -10px rgba(20, 34, 30, 0.14);
   --shadow-product: rgba(20, 34, 30, 0.18) 2px 4px 24px 0;
 
   /* ---- The marketing surface ----
      A second, rounder shape scale, because the two surfaces are addressed to two people
-     in two states of mind. The console is sharp at 6px and stays that way: a clinician
-     is mid-consultation, issuing a prescription, and a playful corner radius on that
-     form is a claim about the seriousness of the thing being signed. A patient reading a
-     clinic's landing page on their phone is being introduced to a service they may not
-     yet trust, and 16px there reads as approachable rather than casual.
+     in two states of mind. The console stays the tighter of the two at 8px: a clinician
+     is mid-consultation, issuing a prescription, and a soft corner radius on that form is
+     a claim about the seriousness of the thing being signed. A patient reading a clinic's
+     landing page on their phone is being introduced to a service they may not yet trust,
+     and 18px there reads as approachable rather than casual. What matters is the RATIO
+     between the two scales, which is unchanged; both ends moved together.
 
      These are deliberately NOT overrides of --r-md and friends. Both scales exist at the
      same time in the same product — a marketing page can contain a real form — so they
      need separate names, not a redefinition that makes the console's radius depend on
      which page it happens to be rendered on. */
-  --sr: 16px;
-  --sr-lg: 24px;
+  --sr: 18px;
+  --sr-lg: 28px;
+  /* The fully-rounded marketing button. Defined for a long time and used by nothing,
+     which is why the landing page's calls to action wore the console's 11px: the token
+     for the shape the page wanted existed and nobody reached for it. */
   --sr-pill: 999px;
 
   /* The lifted shadow the marketing cards sit on. Negative spread and a long, soft
      y-offset, so it reads as height rather than as a border someone blurred. The console
      has --shadow-sm and --shadow-pop and needs nothing between them; a landing page
-     does. */
-  --shadow-md: 0 10px 30px -12px rgba(20, 40, 34, 0.18);
+     does. Two layers now, for the reason written above --shadow-sm, and lighter: 18% of
+     a near-black under a card on a warm parchment page was a grey halo. */
+  --shadow-md: 0 2px 8px -3px rgba(20, 40, 34, 0.06), 0 14px 36px -16px rgba(20, 40, 34, 0.13);
 
   --nav-w: 250px;
   --top-h: 60px;
@@ -61,22 +91,43 @@
      screen in poor light. 44px is the floor, not a target. */
   --touch-min: 44px;
 
+  /* ---- THE LADDER, AND WHY ONLY ITS TOP THREE RUNGS MOVED ----
+
+     Changing a VALUE here propagates everywhere by design; changing which KEY means what
+     is a 649-call-site migration, because `gap="6"` names a step and not a number. So the
+     air went in by value, at the top of the ladder only.
+
+     1 through 5 are untouched, and that is the decision that lets one ladder serve four
+     surfaces. They are the component-internal steps — the gap between a label and its
+     input, an icon and its text, a badge and the word beside it — and 473 of the call
+     sites are on them. Loosening those would loosen a pharmacy queue and a dispatch
+     board, where a member of staff fitting more rows on screen is the entire point and
+     generous whitespace is a cost paid in scrolling.
+
+     6, 7 and 8 are the steps that set the rhythm BETWEEN things — sections, bands, the
+     padding of the auth panels — and they moved: 18 to 20, 24 to 28, 30 to 36. That is
+     where a marketing page and a sign-in screen breathe, and almost none of it lands on
+     a working screen.
+
+     The ladder is deliberately not geometric and cannot be made so by retuning: 18 is
+     only 12.5% above 16, and an 8pt grid would mean re-keying every call site. What it
+     is instead is monotonic and evenly-enough spaced to choose from without measuring. */
   --space-1: 4px;
   --space-2: 6px;
   --space-3: 8px;
   --space-4: 12px;
   --space-5: 16px;
-  --space-6: 18px;
-  --space-7: 24px;
-  --space-8: 30px;
+  --space-6: 20px;
+  --space-7: 28px;
+  --space-8: 36px;
 }
 
 /* Shadows only. Every other metric above is a dimension, and a dimension does not change
    because the lights went out — but a shadow tuned for ink on paper disappears entirely
    against a dark surface, so it is spread further and darkened until it reads again. */
 :root[data-theme='dark'] {
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
-  --shadow-pop: 0 10px 34px rgba(0, 0, 0, 0.5);
+  --shadow-sm: 0 1px 2px -1px rgba(0, 0, 0, 0.5), 0 2px 8px -3px rgba(0, 0, 0, 0.35);
+  --shadow-pop: 0 2px 6px -2px rgba(0, 0, 0, 0.4), 0 14px 36px -10px rgba(0, 0, 0, 0.55);
   --shadow-product: rgba(0, 0, 0, 0.5) 2px 4px 24px 0;
-  --shadow-md: 0 12px 34px -14px rgba(0, 0, 0, 0.6);
+  --shadow-md: 0 2px 8px -3px rgba(0, 0, 0, 0.4), 0 16px 40px -18px rgba(0, 0, 0, 0.6);
 }
