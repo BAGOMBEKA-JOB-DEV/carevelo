@@ -41,8 +41,12 @@
    fingerprints, emits the preload link and sets `display: swap` — so the app owns the
    loading and this layer owns only the names.
 
-   The app must therefore SET `--font` and `--head` on <html> from the generated family
-   names. next/font mints a hashed family name (`__display_a1b2c3`), which is why the
+   ALL FOUR APPS MUST THEREFORE SET `--font` and `--head` on <html> from the generated
+   family names, and for a long time only one of them did. The console, platform admin
+   and rider view each rendered a bare <html>, so both properties fell through to
+   system-ui and every heading they draw at weight 700 was the system font standing in
+   for a display face. Nothing reported it: the CSS was valid, the cascade resolved, and
+   `--head` had a working value. There are now four fonts.ts files, one per app. next/font mints a hashed family name (`__display_a1b2c3`), which is why the
    literals below cannot be the whole story: on their own they match nothing and the
    stack falls back to system-ui, which is a correct, unstyled, entirely usable page.
 
@@ -78,9 +82,14 @@
      '--head': `${display.style.fontFamily}, ${body.style.fontFamily}, system-ui, sans-serif`,
    }
 
-   // apps/<app>/src/app/layout.tsx — merged with the clinic's tokens, which are also
-   // custom properties on the same element.
-   <html lang="en" style={{ ...brandStyle(tenant?.branding), ...fontStyle }}>
+   // apps/<app>/src/app/layout.tsx
+   <html lang="en" suppressHydrationWarning style={fontStyle}>
+
+   FONTS ONLY ON THIS ELEMENT. The clinic's --brand-* tokens used to be merged in here,
+   and are not any more: resolving a tenant meant a fetch in the ROOT LAYOUT, which cost
+   roughly 800MB on the render Next performs when a Server Action redirects. They now sit
+   on `.site-root` and `.auth-page`, which custom-property inheritance makes equivalent.
+   See apps/patient-portal/src/app/layout.tsx for the measurement.
 
    Those two properties are the whole contract. Everything else in the product reads
    `var(--font)` or `var(--head)` and never names a family.
@@ -95,10 +104,52 @@
      not worth a third download to anyone. */
   --mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, Consolas, monospace;
 
-  /* 14.5px, matched to the reference. Half a pixel under the usual 15 because Poppins
-     runs large for its nominal size — the same measured x-height as the system stack
-     needs slightly less of it. */
-  --text-base-size: 14.5px;
+  /* ---- THE SCALE, NAMED ----
+
+     These eleven fixed steps and four fluid ones replaced THIRTY-THREE hand-picked
+     font-size literals, twenty of which sat between 10.5px and 21px — pairs half a
+     pixel apart (14 and 14.5, 15 and 15.5, 17 and 17.5, 12.5 and 13) that no eye can
+     tell apart and no one chose on purpose. They accumulated because there was nothing
+     to reach for: the scale existed as ten classes and no tokens, so a rule that needed
+     a size between two of them had to invent one, and ~95 declarations did.
+
+     Half a pixel is not a decision. A step is. Anything that needs a size now names a
+     step, and the gaps between steps are wide enough to read as intentional — which is
+     what separates a typographic system from a pile of measurements.
+
+     The base is 16.5px, up from 14.5px. The old value was matched to the reference
+     design system and defensible on a dense working screen; it was never defensible on
+     a page selling a consultation, where it is the reason the product read as a form.
+     Poppins does run large for its nominal size, which is why this stops at 16.5 rather
+     than the 17px the comparison would suggest.
+
+     ELEVEN FIXED STEPS, FOUR FLUID ONES, AND THE SPLIT IS DELIBERATE. A clamp() on a
+     stat figure or a card heading makes a working screen's type twitch as a staff member
+     resizes a window, and makes two figures side by side in different containers
+     disagree. Fluid type belongs to display copy, where the range between phone and
+     desktop is the whole point and no two instances sit next to each other. */
+
+  --text-3xs: 11px;
+  --text-2xs: 12px;
+  --text-xs: 13px;
+  --text-sm: 14px;
+  --text-md: 15.5px;
+  --text-base: 16.5px;
+  --text-lg: 19px;
+  --text-xl: 21px;
+  --text-2xl: 24px;
+  --text-3xl: 29px;
+  --text-4xl: 34px;
+
+  --text-lede: clamp(17.5px, 1.7vw, 21px);
+  --display-sm: clamp(24px, 2.9vw, 34px);
+  --display-md: clamp(28px, 3.6vw, 40px);
+  --display-lg: clamp(38px, 5.4vw, 62px);
+
+  /* Body copy, and the one place the base step is consumed as an element default —
+     `body` in reset.css. An alias rather than a second literal, so the scale above
+     stays the only source of the number. */
+  --text-base-size: var(--text-base);
   --text-base-line: 1.5;
   --text-tracking: -0.005em;
 }
@@ -114,19 +165,44 @@
    desktop 62px with everything in between continuous, which is one declaration instead
    of three breakpoints that each need remembering. */
 
-.display   { font-family: var(--head); font-size: clamp(38px, 5.4vw, 62px); font-weight: 700; letter-spacing: -0.03em; line-height: 1.04; }
-.title-lg  { font-family: var(--head); font-size: clamp(27px, 3.4vw, 40px); font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; }
+/* EVERY STEP SETS ITS OWN LINE HEIGHT, AND THREE OF THEM DID NOT.
+
+   `.title`, `.title-sm` and `.subtitle` declared a size and no line-height, so they
+   inherited `--text-base-line` — 1.5, the figure tuned for a paragraph. A 21px heading
+   at 1.5 is 31.5px of line box around 21px of type, which is why a two-line card title
+   on the console read as body copy that happened to be large. Display type wants its
+   leading TIGHTER as it grows, not looser, and every step here now says so: 1.04 at the
+   hero, 1.5 at the smallest.
+
+   WEIGHTS ARE THE ONES THE LOADED FACES ACTUALLY HAVE. Tex Gyre Adventor ships 400 and
+   700 and nothing between, so a heading in `--head` asking for 600 gets 700 anyway —
+   CSS font matching, for a target above 500, takes the next available weight upward.
+   The display steps therefore stay at 700 honestly rather than claiming a semibold that
+   does not exist. Poppins has 400/500/600/700, so the steps set in `--font` can and do
+   use 600: a real semibold, and the reason `.title` reads as a heading without shouting. */
+
+.display   { font-family: var(--head); font-size: var(--display-lg); font-weight: 700; letter-spacing: -0.03em; line-height: 1.04; }
+.title-lg  { font-family: var(--head); font-size: var(--display-md); font-weight: 700; letter-spacing: -0.022em; line-height: 1.08; }
 /* The console's card and panel heading. Between the h2 and h3 steps deliberately: it
    labels a region of a working screen, where the display face at a display size would
    shout over the data it is introducing. */
-.title     { font-size: 21px; font-weight: 600; letter-spacing: -0.015em; }
-.title-sm  { font-family: var(--head); font-size: 17.5px; font-weight: 700; letter-spacing: -0.01em; }
-.subtitle  { font-size: 16px; font-weight: 400; color: var(--ink-muted); }
-/* Tracked wide and set small: an eyebrow is a label for the thing under it, and it has
-   to be legible as a label without competing with the heading it introduces. */
-.eyebrow   { font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-faint); }
-.lede      { font-size: clamp(16px, 1.6vw, 18px); color: var(--ink-muted); }
-.fine      { font-size: 12px; color: var(--ink-faint); }
+.title     { font-size: var(--text-xl); font-weight: 600; letter-spacing: -0.015em; line-height: 1.2; }
+.title-sm  { font-family: var(--head); font-size: var(--text-lg); font-weight: 700; letter-spacing: -0.012em; line-height: 1.25; }
+/* Sits just UNDER the body step, which is the inversion that makes it a subtitle. It was
+   16px against a 14.5px base — larger than the text it was subordinate to. */
+.subtitle  { font-size: var(--text-md); font-weight: 400; line-height: 1.5; color: var(--ink-muted); }
+/* An eyebrow is a label for the thing under it, and it has to be legible as a label
+   without competing with the heading it introduces. IT USED TO COMPETE: 700 at +0.12em
+   is a letterspaced-bold-caps shout, the single most dated rule in this layer, and it
+   arrived at the same +0.12em on a marketing hero and on a 12px form label. 600 at
+   +0.06em still reads unmistakably as a label — `.stat__label` has been proving it at
+   that exact tracking all along — and stops drawing the eye first. */
+.eyebrow   { font-size: var(--text-2xs); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint); }
+/* Intro copy, and the one step that grew rather than being consolidated. It was
+   16px-18px against a 14.5px base — a lede a pixel and a half above body text is not a
+   lede, it is body text with a class on it. */
+.lede      { font-size: var(--text-lede); line-height: 1.5; color: var(--ink-muted); }
+.fine      { font-size: var(--text-2xs); color: var(--ink-faint); }
 .mono      { font-family: var(--mono); }
 .muted     { color: var(--ink-muted); }
 /* The display face without a size, for the places that set their own — a brand
