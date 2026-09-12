@@ -477,7 +477,7 @@
    reason a name in a paragraph is.
    ------------------------------------------------------------ */
 .layout .record-name {
-  font-size: 16px;
+  font-size: var(--text-base);
   font-weight: 600;
   letter-spacing: -0.01em;
 }
@@ -486,7 +486,7 @@
    time is the thing being scanned for and everything else is a qualifier on it. Tabular
    figures come from `.tnum` at the call site, which every use already carries. */
 .layout .slot-time {
-  font-size: 20px;
+  font-size: var(--text-xl);
   font-weight: 700;
 }
 
@@ -502,12 +502,12 @@
    container rather than wrapping. `.tnum` at the call site does the digit alignment.
    ------------------------------------------------------------ */
 .layout .credential {
-  font-size: 17px;
+  font-size: var(--text-lg);
   word-break: break-all;
 }
 
 .layout .identifier {
-  font-size: 12.5px;
+  font-size: var(--text-xs);
   word-break: break-all;
 }
 
@@ -532,7 +532,7 @@
    only make sense together — a call site that kept six of them would be a password that
    wraps, or one in a proportional face, and neither failure is visible in review. */
 .layout .password-once {
-  font-size: 26px;
+  font-size: var(--text-2xl);
   font-weight: 700;
   letter-spacing: 0.04em;
   padding: var(--space-5);
@@ -573,7 +573,7 @@
 .layout .verbatim {
   white-space: pre-wrap;
   font-family: inherit;
-  font-size: 14px;
+  font-size: var(--text-sm);
   margin: 0;
 }
 
@@ -704,14 +704,18 @@
    clinician under a patient's name, the date a consent was last answered, the note under a
    fingerprint. `.muted` at the call site carries the colour; this carries only the step. */
 .layout .qualifier {
-  font-size: 13.5px;
+  font-size: var(--text-xs);
 }
 
-/* The one line a clinician reads back before signing a prescription. A half-step ABOVE body
+/* The one line a clinician reads back before signing a prescription. A full step ABOVE body
    size rather than below it, and the only thing on this surface set that way: everything
-   else on the screen is being scanned and this one line is being checked. */
+   else on the screen is being scanned and this one line is being checked.
+
+   It was a half-step — 15.5px against a 14.5px base — which stopped being above anything
+   the moment the base moved to 16.5px. A distinction measured in half a pixel was not one a
+   clinician could see across a counter; this one is. */
 .layout .read-back {
-  font-size: 15.5px;
+  font-size: var(--text-lg);
 }
 
 /* The consent policy, which is the only block of continuous PROSE in the console. The size
@@ -720,26 +724,26 @@
    height is the part that actually differs — 1.6 against the interface's 1.5, because prose
    read start to finish needs more leading than a label glanced at. */
 .layout .policy-doc {
-  font-size: var(--text-base-size);
+  font-size: var(--text-base);
   line-height: 1.6;
 }
 
-/* A clinical note that is a SUPERSEDED draft, and one that is current. `.verbatim` is 14px
-   flat, and the two states were separated inline by size alone. Kept as size, because the
+/* A clinical note that is a SUPERSEDED draft, and one that is current. `.verbatim` is the
+   --text-sm step, and the two states were separated inline by size alone. Kept as size, because the
    colour is already doing work here (`.muted` on the earlier ones) and a second signal that
    is structural rather than chromatic survives a reader who cannot use the first. */
 .layout .verbatim--sm {
-  font-size: 13px;
+  font-size: var(--text-xs);
 }
 
 .layout .verbatim--lg {
-  font-size: 15px;
+  font-size: var(--text-md);
 }
 
 /* ------------------------------------------------------------
    20. WEIGHT 600, WHICH THE TYPE SCALE HAS NO STEP FOR
 
-   `.title-sm` is 700 in the display face and `.record-name` is 600 at 16px, and between them
+   `.title-sm` is 700 in the display face and `.record-name` is 600 at the base step, and between them
    there is nothing that says "this line is the important one of the two" at body size. Four
    call sites wrote the weight inline. `<strong>` is not the answer for any of them: it is
    700, and it announces an emphasis that nobody put on a clinician's own name or on the

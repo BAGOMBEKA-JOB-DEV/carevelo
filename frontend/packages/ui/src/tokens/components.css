@@ -64,7 +64,7 @@
 .btn-lg { min-height: 52px; padding: 0 var(--space-7); font-size: var(--text-md); }
 .btn-block { width: 100%; }
 
-.lnk { color: var(--primary); font-weight: 550; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
+.lnk { color: var(--primary); font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
 .lnk:hover { text-decoration: underline; }
 
 /* ============================================================
