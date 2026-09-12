@@ -31,11 +31,18 @@
    an opaque near-black floor, two brand-tinted radial washes and a masked 54px grid —
    which is what its inner pages already use.
 
-   THE MARKETING RHYTHM IS ITS OWN SCALE. 88 / 56 / 46 / 34px are not on the console's
-   --space ladder (4/6/8/12/16/18/24/30) and are not meant to be: this page's job is a
-   generous first impression, the console's is density. Marketing buttons likewise keep
-   an 11px radius and a 52px --btn-lg where the console is a sharp 6px — a landing page
-   may be warm, and a prescribing form may not.
+   THE MARKETING RHYTHM IS ITS OWN SCALE. 112 / 72 / 56 / 40px are not on the console's
+   --space ladder (4/6/8/12/16/20/28/36) and are not meant to be: this page's job is a
+   generous first impression, the console's is density. Marketing buttons likewise keep a
+   PILL radius and a 52px --btn-lg where the console is 8px — a landing page may be warm,
+   and a prescribing form may not.
+
+   The band was 88px and is 112px, which is the difference between sections that ABUT and
+   sections that are separately composed. Nothing else on the page says "this argument has
+   finished and another is beginning" — there is no rule, no change of ground on most of
+   them — so the whitespace is carrying the entire structure of the document, and at 88px
+   against a 62px headline it was not carrying it. This is the one measurement on the
+   surface where being generous is not decoration: it is the page's punctuation.
 
    @see docs/10-product/white-labeling-and-branding.md
    ============================================================ */
@@ -149,8 +156,8 @@
    working page in this app wears — and not a layout decision a screen gets to take, which
    is exactly the distinction that makes it a class here rather than a prop on Stack.
 
-   NO MEDIA QUERY, unlike `.site-section` above it. 30px is already the small end of this
-   file's rhythm and a phone needs the content nearer the top, not further from it. The
+   NO MEDIA QUERY, unlike `.site-section` above it. --space-8 is already the small end of
+   this file's rhythm and a phone needs the content nearer the top, not further from it. The
    gutter still tapers to 18px below 480px, from `.site-wrap` itself. */
 .site-wrap--page { padding-block: var(--space-8); }
 
@@ -164,7 +171,8 @@
    screen's decision list all wrote `style={{ maxWidth: 640 }}` — and 640px is the number
    all four picked, because it is about 70 characters of this app's 14.5px body face,
    which is the measure the rest of this file already works to (`.site-lede` caps at 60ch,
-   `.site-doc` at 820px of 15.5px prose).
+   `.site-doc` at 820px of base-step prose). At the 16.5px base it is about 62 characters,
+   which is still inside the band that makes prose readable — the number stays.
 
    A MEASURE AND NOTHING ELSE. It sets no gap and no padding, so it composes with whatever
    `<Stack>` the screen puts inside it rather than competing with one — which is the same
@@ -172,13 +180,15 @@
    margin rather than a layout. */
 .site-form { max-width: 640px; }
 
-.site-section { padding-block: 88px; }
+.site-section { padding-block: 112px; }
 .site-section--tint { background: var(--surface-2); border-block: 1px solid var(--hairline-soft); }
 
-/* The desktop 88px band and 24px gutter are heavy on a phone held one-handed. */
-@media (max-width: 768px) { .site-section { padding-block: 60px; } }
+/* The desktop 112px band and 24px gutter are heavy on a phone held one-handed. Air that
+   reads as composure on a laptop reads as a scroll to nowhere on a handset, so the band
+   loses a third of itself at 768 and nearly half by 480. */
+@media (max-width: 768px) { .site-section { padding-block: 72px; } }
 @media (max-width: 480px) {
-  .site-section { padding-block: 48px; }
+  .site-section { padding-block: 56px; }
   .site-wrap { padding-inline: 18px; }
 }
 
@@ -928,7 +938,7 @@ a.feat-card:hover {
 .ticklist b { font-weight: 600; color: var(--ink); }
 .ticklist span { color: var(--ink-muted); font-size: var(--text-base); }
 
-.site-split { display: grid; grid-template-columns: 1.02fr 0.98fr; gap: 56px; align-items: center; }
+.site-split { display: grid; grid-template-columns: 1.02fr 0.98fr; gap: 64px; align-items: center; }
 .site-split--rev .site-split__media { order: -1; }
 @media (max-width: 920px) {
   .site-split { grid-template-columns: 1fr; gap: 36px; }
@@ -987,7 +997,7 @@ a.feat-card:hover {
 
 .cta-band {
   border-radius: var(--sr-lg);
-  padding: 60px 40px;
+  padding: 72px 40px;
   text-align: center;
   position: relative;
   overflow: hidden;
@@ -998,7 +1008,7 @@ a.feat-card:hover {
   border: 1px solid var(--hairline);
   box-shadow: var(--shadow-sm);
 }
-@media (max-width: 600px) { .cta-band { padding: 44px 22px; } }
+@media (max-width: 600px) { .cta-band { padding: 52px 22px; } }
 .cta-band h2 {
   font-family: var(--head);
   font-size: var(--display-md);
@@ -1016,7 +1026,7 @@ a.feat-card:hover {
    at all — and findable by the browser's own in-page search, which a scripted
    accordion breaks. */
 
-.faq { max-width: 800px; margin: 44px auto 0; display: grid; gap: 12px; }
+.faq { max-width: 800px; margin: 52px auto 0; display: grid; gap: 12px; }
 .faq details {
   background: var(--surface);
   border: 1px solid var(--hairline);
