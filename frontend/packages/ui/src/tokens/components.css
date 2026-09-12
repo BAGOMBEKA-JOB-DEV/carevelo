@@ -27,7 +27,10 @@
   /* Never below the touch floor. A patient tapping "Pay" on a cracked screen in
      poor light is the worst case this product has, and it is a common one. */
   min-height: var(--touch-min);
-  padding: 0 var(--space-5);
+  /* 20px, up from 16px. A label needs more room either side of it than above and below
+     before a button stops looking like a box that text was dropped into — and at 44px tall
+     with 16px of side padding, "Dispense selected" was touching its own edges. */
+  padding: 0 var(--space-6);
   border-radius: var(--r-md);
   border: 1px solid transparent;
   cursor: pointer;
@@ -36,7 +39,8 @@
   white-space: nowrap;
   transition: transform 0.08s, background 0.12s, border-color 0.12s;
 }
-.btn:active { transform: scale(0.97); }
+/* 0.98 rather than 0.97: enough to feel like a press, not enough to see as a jump. */
+.btn:active { transform: scale(0.98); }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .btn .ico { width: 16px; height: 16px; }
 
@@ -51,7 +55,10 @@
 .btn-brand:hover:not(:disabled) { filter: brightness(0.93); }
 
 .btn-quiet { background: var(--surface); color: var(--ink); border-color: var(--hairline); }
-.btn-quiet:hover:not(:disabled) { border-color: var(--ink-faint); }
+/* Ground AND edge, where it used to be edge alone. A border darkening by itself is the
+   weakest hover in the product — it changes two hairlines' worth of pixels — and on the
+   marketing surface `.btn-quiet` is the secondary call to action beside a filled one. */
+.btn-quiet:hover:not(:disabled) { background: var(--surface-2); border-color: var(--ink-faint); }
 
 .btn-ghost { background: transparent; color: var(--primary); border-color: color-mix(in srgb, var(--primary) 45%, transparent); }
 .btn-ghost:hover:not(:disabled) { background: var(--primary-soft); }
