@@ -29,11 +29,21 @@
   .layout { grid-template-columns: 1fr; }
 }
 
+/* THE HAIRLINE IS ON THE NAV, NOT ON THE SIDEBAR, AND THAT IS THE WHOLE POINT OF IT.
+
+   It used to be `border-right` on this element, which runs the full height — including
+   the 64px behind `.sidebar__brand`. The brand block and the topbar beside it are both
+   --topbar-bg, so they are meant to read as ONE dark band across the top of the product;
+   a 1px line of --sidebar-hair drawn down through it cut that band in two, 250px from the
+   left, on every route of two apps. It is the kind of seam nobody reports and everybody
+   sees: the chrome stops looking machined.
+
+   Moved to `.sidebar__nav` below, which is the element the line is actually separating
+   from the content column. */
 .sidebar {
   display: flex;
   flex-direction: column;
   background: var(--sidebar-bg);
-  border-right: 1px solid var(--sidebar-hair);
   min-height: 100vh;
   position: sticky;
   top: 0;
@@ -47,14 +57,27 @@
   align-items: center;
   gap: var(--space-3);
   height: var(--top-h);
-  padding: 0 var(--space-4);
+  /* 16px, AND IT WAS 12px, WHICH PUT THE PRODUCT'S NAME 4px LEFT OF EVERY NAV LABEL
+     UNDER IT. The labels are inset twice — 8px from `.sidebar__nav`'s padding and 8px
+     again from `.nav-item`'s — so they start at 16px, while this element is a direct
+     child of `.sidebar` and started at 12. Four pixels is invisible as a measurement and
+     unmissable as a ragged left edge down the one column of the console that is on screen
+     on every route. */
+  padding: 0 var(--space-5);
   /* The constant dark band. Present in light theme and dark, which is what makes a
      console feel like one product rather than a set of pages. */
   background: var(--topbar-bg);
   color: var(--topbar-ink);
   flex: none;
 }
-.sidebar__nav { flex: 1; overflow-y: auto; padding: var(--space-3) var(--space-3) var(--space-7); }
+.sidebar__nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-3) var(--space-3) var(--space-7);
+  /* See `.sidebar` above: the hairline lives here so the dark band across the top stays
+     continuous. */
+  border-right: 1px solid var(--sidebar-hair);
+}
 
 .nav-group { margin-top: var(--space-4); }
 .nav-group:first-child { margin-top: var(--space-1); }
@@ -127,7 +150,10 @@
   gap: 2px;
   min-height: var(--touch-min);
   padding: var(--space-2) 0;
-  font-size: var(--text-3xs); font-weight: 600;
+  /* A step up from the smallest, because this bar is the rider's ENTIRE navigation and
+     it is read on a phone held at arm's length, outdoors, one-handed, often in sunlight.
+     11px was the same step as a sidebar section label on a 27-inch console monitor. */
+  font-size: var(--text-2xs); font-weight: 600;
   color: var(--ink-muted);
 }
 .tabbar a.is-active { color: var(--primary); }
@@ -150,29 +176,33 @@
   max-width: 560px; margin-inline: auto;
   background: var(--canvas);
 }
-.fieldview__main { flex: 1; padding: var(--space-5) var(--space-4); }
+/* An even gutter, where it was 16px top and 12px each side. This frame is capped at
+   560px and is the only column on the screen, so the narrower side inset bought nothing
+   and left every card on the rider's surface 4px nearer its edge than its neighbours
+   above and below it. */
+.fieldview__main { flex: 1; padding: var(--space-5); }
 
-/* ---- The patient portal frame ----
-   A document, centred, branded. Wider line length than a console because it is read
-   rather than scanned. */
-.site { display: flex; flex-direction: column; min-height: 100vh; }
-.site__header {
-  display: flex; align-items: center; gap: var(--space-4);
-  padding: var(--space-5) var(--space-6);
-  /* The CLINIC's colours. Never Carevelo's -- the patient's relationship is with
-     the clinic, and this header is the whole of that impression. */
-  background: var(--brand-primary);
-  color: var(--brand-primary-fg);
-}
-.site__logo { max-height: 40px; width: auto; }
-.site__name { font-family: var(--head); font-size: var(--text-lg); font-weight: 700; letter-spacing: -0.012em; }
-.site__main { flex: 1; width: 100%; max-width: 720px; margin-inline: auto; padding: var(--space-7) var(--space-5); }
-.site__footer {
-  padding: var(--space-6) var(--space-5);
-  border-top: 1px solid var(--hairline);
-  color: var(--ink-muted); font-size: var(--text-xs);
-  text-align: center;
-}
+/* ---- THE PATIENT PORTAL FRAME USED TO BE HERE, AND IT IS GONE ----
+
+   `.site`, `.site__header`, `.site__logo`, `.site__name`, `.site__main` and
+   `.site__footer` were a complete second portal frame, six selectors and twenty lines,
+   rendered by NOTHING. The portal is framed by SiteShell and SiteHeader wearing
+   `.site-header`, `.site-brand` and friends from site.css — one hyphen away — and has
+   been for a long time.
+
+   It survived because one file still wore it: PortalPreview, the picture of the portal on
+   the console's branding screen, whose own docblock claimed it used "the REAL classes the
+   REAL portal header wears" so that it could not drift. It had drifted. That component now
+   uses `.site-brand`, which left this block with no consumer at all.
+
+   Worth stating rather than deleting quietly, because the cost was not the twenty lines.
+   `.site__header` floods its full width with --brand-primary and the real header never
+   does — so the single screen where a clinic owner picks their colour was showing them a
+   band of it that no patient has ever seen. A dead rule with a live-looking name is how
+   that happens: nobody deletes it, because it looks like the thing it is named after.
+
+   The file header above says the portal "deliberately uses almost none of this". That is
+   now exactly true rather than nearly true. */
 
 /* ---- Skip link ----
    First focusable element on every surface. A front-desk user works entirely from

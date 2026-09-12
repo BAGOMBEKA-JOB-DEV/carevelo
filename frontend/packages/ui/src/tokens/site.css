@@ -357,7 +357,20 @@
 .site-header.is-scrolled .site-brand__mark { width: 30px; height: 30px; }
 /* Two lines: the clinic's name, and what this surface is for. The clinic's name is the
    only name a patient should have to recognise here. */
+/* ONE LINE EACH, TRUNCATED, AND THE REASON IS THE PRODUCT THIS IS. Both children carried
+   `min-width: 0` — which lets the flex item shrink — and nothing that says what to do once
+   it has shrunk, so a clinic whose name does not fit wrapped it instead. "Kira Medical
+   Centre" becomes three lines in a 300px column and pushes the header's own height open;
+   the names this will actually meet are longer than that ("St Francis Nsambya Hospital
+   Outpatient Clinic"). A header is a fixed band and the clinic's name is data of unknown
+   length, so the only stable answer is to clip it — the full name is the <h1> of every page
+   below it and is never lost. */
 .site-brand__text { display: flex; flex-direction: column; line-height: 1.15; min-width: 0; }
+.site-brand__text > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .site-brand__sub {
   font-family: var(--font);
   font-size: var(--text-3xs);

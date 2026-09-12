@@ -73,7 +73,12 @@
   --shadow-md: 0 2px 8px -3px rgba(20, 40, 34, 0.06), 0 14px 36px -16px rgba(20, 40, 34, 0.13);
 
   --nav-w: 250px;
-  --top-h: 60px;
+  /* 64px, up from 60. It is the height of the dark band across the top of every staff
+     screen and the matching block above the sidebar, so it is the first thing a member of
+     staff sees on every route — and at 60px against a 44px touch floor it had four pixels
+     of air above and below its own contents. The portal's header is 68px; a working
+     surface earns slightly less than a marketing one and nothing like eight pixels less. */
+  --top-h: 64px;
   /* The public header, at rest and once scrolling has condensed it. Here rather than in
      the marketing layer because it is a layout dimension like the two above it, and
      because the offset that keeps content clear of a FIXED header is derived from it —

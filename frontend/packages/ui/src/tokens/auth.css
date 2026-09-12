@@ -70,9 +70,9 @@
   font-family: var(--head); font-weight: 700; font-size: var(--text-xl); letter-spacing: -0.015em;
 }
 /* The clinic's uploaded logo, capped so a tall asset cannot set the panel's rhythm. */
-.auth__mark img { max-height: 44px; max-width: 160px; width: auto; border-radius: 11px; }
+.auth__mark img { max-height: 44px; max-width: 160px; width: auto; border-radius: var(--r-lg); }
 .auth__mark-tile {
-  width: 44px; height: 44px; border-radius: 11px; flex: none;
+  width: 44px; height: 44px; border-radius: var(--r-lg); flex: none;
   display: grid; place-items: center;
   /* The clinic's colour, with the foreground the API computed for it. */
   background: var(--brand-primary);
