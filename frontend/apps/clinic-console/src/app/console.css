@@ -831,9 +831,11 @@
    are set on that subtree as a style OBJECT by the component itself, which is what keeps a
    tenant-supplied hex out of markup, and they reach only what is inside it.
 
-   The header and the logo inside the preview wear `.site__header` and `.site__logo` from the
-   shared layout layer — the REAL classes the real portal header wears — so the preview
-   cannot drift away from the thing it is a preview of. Only what has no counterpart there is
+   The brand row inside the preview wears `.site-brand` and friends from site.css — the REAL
+   classes the real portal header wears — so the preview cannot drift away from the thing it
+   is a preview of. It used to name `.site__header`, which is a SECOND portal frame in
+   layout.css that nothing else in the repo renders, so the preview had already drifted while
+   carrying a comment saying it could not. Only what has no counterpart there is
    defined below.
 
    NO FOREGROUND IS COMPUTED ANYWHERE IN HERE. --brand-primary-fg and --brand-secondary-fg
@@ -845,6 +847,28 @@
 .preview {
   padding: 0;
   overflow: hidden;
+}
+
+/* The frame the portal's brand row sits in. The real header is `position: fixed` with a
+   transparent-to-frosted transition driven by scroll, and none of that can be reproduced
+   inside a 300px card — so this supplies only the GROUND and the hairline, in the state the
+   header wears on a scrolled page, and lets the real `.site-brand` rules paint everything a
+   clinic administrator is here to look at.
+
+   NO HOVER. `.site-brand:hover .site-brand__mark` lifts and scales the monogram on the real
+   portal, where it is a link to the home page. Here it is inside `role="img"`, so the hover
+   would promise a control that does not exist — the same reason `.preview__control` exists
+   for the two pretend buttons below. */
+.preview__header {
+  display: flex;
+  align-items: center;
+  padding: var(--space-4) var(--space-6);
+  background: var(--canvas);
+  border-bottom: 1px solid var(--hairline);
+}
+.preview__header .site-brand:hover .site-brand__mark {
+  transform: none;
+  box-shadow: 0 6px 16px -6px var(--brand-primary);
 }
 
 .preview__body {
