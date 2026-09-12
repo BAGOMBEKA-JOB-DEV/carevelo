@@ -67,28 +67,28 @@
 
 .auth__mark {
   display: flex; align-items: center; gap: var(--space-4);
-  font-family: var(--head); font-weight: 700; font-size: 21px; letter-spacing: -0.015em;
+  font-family: var(--head); font-weight: 700; font-size: var(--text-xl); letter-spacing: -0.015em;
 }
 /* The clinic's uploaded logo, capped so a tall asset cannot set the panel's rhythm. */
-.auth__mark img { max-height: 44px; max-width: 160px; width: auto; border-radius: 11px; }
+.auth__mark img { max-height: 44px; max-width: 160px; width: auto; border-radius: var(--r-lg); }
 .auth__mark-tile {
-  width: 44px; height: 44px; border-radius: 11px; flex: none;
+  width: 44px; height: 44px; border-radius: var(--r-lg); flex: none;
   display: grid; place-items: center;
   /* The clinic's colour, with the foreground the API computed for it. */
   background: var(--brand-primary);
   color: var(--brand-primary-fg);
-  font-family: var(--head); font-weight: 700; font-size: 18px;
+  font-family: var(--head); font-weight: 700; font-size: var(--text-lg);
 }
 
 .auth__lead h2 {
   font-family: var(--head);
-  font-size: clamp(24px, 2.9vw, 34px);
-  font-weight: 700; letter-spacing: -0.02em; line-height: 1.1;
+  font-size: var(--display-sm);
+  font-weight: 700; letter-spacing: -0.022em; line-height: 1.08;
   max-width: 18ch;
 }
 .auth__lead p {
   margin-top: var(--space-5);
-  font-size: 15px; line-height: 1.6;
+  font-size: var(--text-base); line-height: 1.6;
   /* Measured in characters, not pixels: it is the line length that makes prose readable,
      and 46ch holds across the clamp above. */
   max-width: 46ch;
@@ -98,12 +98,12 @@
 .auth__stats { display: flex; flex-wrap: wrap; gap: var(--space-8); margin-top: var(--space-8); }
 .auth__stat { display: flex; flex-direction: column; gap: 2px; }
 .auth__stat .v {
-  font-family: var(--head); font-size: 24px; font-weight: 700; letter-spacing: -0.02em;
+  font-family: var(--head); font-size: var(--text-2xl); font-weight: 700; letter-spacing: -0.022em;
   /* Tabular figures so the row does not shift width as the numbers change. */
   font-variant-numeric: tabular-nums;
 }
 .auth__stat .k {
-  font-size: 11.5px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase;
+  font-size: var(--text-2xs); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
   color: color-mix(in srgb, var(--auth-ink-fg) 70%, transparent);
 }
 
@@ -121,8 +121,8 @@
    input, which is where a form stops feeling like a wide table of fields. */
 .auth__card { width: 100%; max-width: 420px; }
 .auth__card .eyebrow { margin-bottom: var(--space-3); }
-.auth__card h1 { font-family: var(--head); font-size: 27px; font-weight: 700; letter-spacing: -0.02em; }
-.auth__card .subtitle { margin-top: var(--space-2); font-size: 14.5px; }
+.auth__card h1 { font-family: var(--head); font-size: var(--text-3xl); font-weight: 700; letter-spacing: -0.022em; line-height: 1.1; }
+.auth__card .subtitle { margin-top: var(--space-2); font-size: var(--text-md); }
 /* Spaced here rather than inline on the element, so the markup stays free of style. */
 .auth__card .notice { margin-top: var(--space-5); }
 
@@ -132,7 +132,7 @@
    full-width button, which is where the eye already is. */
 .auth__aside {
   margin-top: var(--space-5);
-  font-size: 12.5px; line-height: 1.5;
+  font-size: var(--text-xs); line-height: 1.5;
   color: var(--ink-muted);
   text-align: center;
 }

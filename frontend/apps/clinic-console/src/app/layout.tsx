@@ -3,6 +3,7 @@ import { headers } from 'next/headers'
 import type { Metadata } from 'next'
 import '@carevelo/ui/tokens.css'
 import './console.css'
+import { fontStyle } from './fonts'
 
 /**
  * Carevelo-branded, behind authentication. No tenant resolution and no --brand-*
@@ -75,7 +76,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
      * mismatch, discarding and re-rendering the whole tree to resolve it. Nothing inside
      * <html> is exempted, so a genuine mismatch anywhere in the app still reports.
      */
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning style={fontStyle}>
       <body>
         {/*
          * The theme, applied before the first paint. FIRST child of <body> and deliberately

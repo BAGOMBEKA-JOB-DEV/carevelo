@@ -108,7 +108,7 @@
   padding: var(--space-6);
   text-align: center;
   color: var(--ink-muted);
-  font-size: 14px;
+  font-size: var(--text-sm);
 }
 
 /* The role, over the bottom of the tile.
@@ -126,7 +126,7 @@
   background: color-mix(in srgb, var(--surface) 85%, transparent);
   backdrop-filter: blur(6px);
   color: var(--ink);
-  font-size: 12px;
+  font-size: var(--text-2xs);
   font-weight: 600;
   line-height: 1.6;
 }
@@ -141,7 +141,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-3);
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: var(--ink-muted);
 }
 

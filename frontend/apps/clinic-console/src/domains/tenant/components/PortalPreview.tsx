@@ -52,11 +52,29 @@ import { swatch } from '../model/colour'
  * of the portal, and console.css section 15 was written to hold it. Two consequences worth
  * stating, because they are the reason this is better rather than merely tidier:
  *
- *   1. The header and the logo now wear `.site__header` and `.site__logo` — the REAL
- *      classes the REAL portal header wears, from the shared layout layer. A preview built
- *      from its own private copy of those rules drifts away from the thing it is a preview
- *      of the first time the portal header changes, and nobody finds out, because the only
- *      person who would notice is a clinic administrator who has never seen the portal.
+ *   1. The header wears `.site-brand`, `.site-brand__mark`, `.site-brand__text` and
+ *      `.site-brand__sub` — the REAL classes the REAL portal header wears, from site.css.
+ *      A preview built from its own private copy of those rules drifts away from the thing
+ *      it is a preview of the first time the portal header changes, and nobody finds out,
+ *      because the only person who would notice is a clinic administrator who has never
+ *      seen the portal.
+ *
+ *      AND THAT IS EXACTLY WHAT HAD HAPPENED. This claim used to name `.site__header` and
+ *      `.site__logo`, with the same reasoning, and those are not the portal's classes —
+ *      they are a second, older portal frame in layout.css, one hyphen away from the real
+ *      one. The real header is SiteHeader wearing `.site-header` and `.site-brand`.
+ *      Nothing else in the repo renders `.site__header` at all, so this component was the
+ *      sole surviving consumer of a parallel vocabulary and was keeping it alive; and
+ *      `/settings/branding` is not in the visual baselines, so no test had an opinion
+ *      either. The preview had drifted in precisely the way this comment promised it
+ *      could not.
+ *
+ *      IT ALSO PAINTED THE WRONG THING. `.site__header` fills its whole width with
+ *      --brand-primary. The real portal header does not: it is transparent over the hero
+ *      and near-opaque canvas once scrolled, and the clinic's colour appears in the
+ *      monogram tile and on the primary button — nowhere else. An administrator choosing a
+ *      colour was shown a full band of it that no patient ever sees, on the one screen
+ *      whose whole purpose is to show them what patients see.
  *   2. `.btn-brand` already paints `--brand-primary` with `--brand-primary-fg` on it. This
  *      file was restating both inline, which is a second place for that pairing to be got
  *      wrong. There is now one.
@@ -119,19 +137,45 @@ export function PortalPreview({
       // file. Everything the tokens are READ by is a class; the tokens themselves cannot be.
       style={tokens as CSSProperties}
     >
-      <div className="site__header">
-        {logoUrl ? (
-          /*
-           * A plain <img>, deliberately — the same call ConsoleShell makes and for the
-           * same reasons. next/image would route a TENANT-UPLOADED asset through Next's
-           * optimiser: more client JavaScript, and a second cache layer over an image the
-           * backend already validated, re-encoded, stripped of metadata and served from
-           * tenant-partitioned storage. There is nothing left for the optimiser to do.
-           */
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={logoUrl} alt="" className="site__logo" />
-        ) : null}
-        <span className="site__name">{clinicName}</span>
+      {/* The portal's own brand row, in the state it wears on a scrolled page: canvas
+          ground, a hairline under it, and the clinic's colour carried by the monogram —
+          which is where a patient actually meets it. A <span> rather than the <a> the
+          portal uses, because this subtree is `role="img"` and a link inside a picture of
+          a page is a link to nowhere. */}
+      <div className="preview__header">
+        <span className="site-brand">
+          {logoUrl ? (
+            /*
+             * A plain <img>, deliberately — the same call ConsoleShell and the real
+             * SiteHeader both make, and for the same reasons. next/image would route a
+             * TENANT-UPLOADED asset through Next's optimiser: more client JavaScript, and a
+             * second cache layer over an image the backend already validated, re-encoded,
+             * stripped of metadata and served from tenant-partitioned storage. There is
+             * nothing left for the optimiser to do.
+             *
+             * The 34px cap matches SiteHeader's exactly. It is a constraint on an image of
+             * unknown dimensions rather than a layout decision, which is why it is inline
+             * in both places and why both files are allow-listed for it.
+             */
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={logoUrl} alt="" style={{ maxHeight: 34, width: 'auto' }} />
+          ) : (
+            // No logo yet: the clinic's initial on the clinic's colour, with the
+            // foreground the API computed for contrast against it. Same fallback the real
+            // header takes, for the same reason.
+            <span className="site-brand__mark" aria-hidden="true">
+              {clinicName.slice(0, 1).toUpperCase()}
+            </span>
+          )}
+          <span className="site-brand__text">
+            <span>{clinicName}</span>
+            {/* The portal's own tagline, from its en.json. Hard-coded because the console is
+                English by written policy and does not load the portal's catalogue — and a
+                preview showing a DIFFERENT tagline than the portal would be the same class
+                of drift this component has just come out of. */}
+            <span className="site-brand__sub">Book · Consult · Collect</span>
+          </span>
+        </span>
       </div>
 
       <div className="preview__body">

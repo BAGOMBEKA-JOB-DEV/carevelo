@@ -220,14 +220,15 @@
    also, deliberately, the only thing on the whole surface that identifies the contents at
    all, since a reference names a package without describing it.
 
-   So it is set as ink at reading size: --ink on --canvas is 15.78:1, against 3.02:1 before.
+   So it is set as ink at reading size — the base step, which a rider reads at arm's length
+   in daylight: --ink on --canvas is 15.78:1, against 3.02:1 before.
    Tabular figures because it is compared character by character against a printed label,
    and a proportional `1` next to a proportional `l` is how a package goes to the wrong
    address. The residual tracking is there for the same reason — it separates the glyphs
    without making the string read as a heading. */
 .rider-ref {
   color: var(--ink);
-  font-size: 15px;
+  font-size: var(--text-base);
   font-weight: 600;
   letter-spacing: 0.04em;
   font-variant-numeric: tabular-nums;
