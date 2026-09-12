@@ -245,11 +245,18 @@
 
 /* ==================== BUTTONS AND LINKS ====================
    Rounder and larger than the console chrome, and that is a decision rather than an
-   inconsistency: 11px and a 52px tap target on a marketing page, 6px and 44px on a
-   prescribing form. Same colours, different register. */
+   inconsistency: a PILL and a 52px tap target on a marketing page, 8px and 44px on a
+   prescribing form. Same colours, different register.
 
-.site-root .btn { border-radius: 11px; font-weight: 600; }
-.site-root .btn-lg { min-height: 52px; padding: 0 26px; font-size: var(--text-md); }
+   Fully rounded rather than the 11px it was, which is the single clearest signal that
+   this surface is addressed to a patient rather than to a clinician. The shape scale had
+   `--sr-pill` defined for exactly this and nothing used it — the call to action on the
+   landing page was wearing a radius one pixel off the console's `.card`. Padding goes to
+   30px with it, because a pill needs more horizontal room before the text stops looking
+   crowded by its own curve. */
+
+.site-root .btn { border-radius: var(--sr-pill); font-weight: 600; }
+.site-root .btn-lg { min-height: 52px; padding: 0 30px; font-size: var(--text-md); }
 .site-btn-row { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
 
 .site-textlink {
@@ -885,9 +892,22 @@ a.cell:hover { background: var(--surface-2); }
   padding: 26px;
   box-shadow: var(--shadow-sm);
   display: block;
-  transition: transform 0.18s ease, box-shadow 0.18s ease;
+  transition: background-color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
 }
-a.feat-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
+/* NO TRANSFORM. This was `translateY(-3px)` with a heavier shadow, and a card that jumps
+   three pixels toward the cursor is the clearest single tell of the era this design came
+   from. It also moved a link's own hit area out from under the pointer mid-click, which on
+   a trackpad is how a patient lands on the card they did not pick.
+
+   The hover is carried by ground and edge instead: the surface lifts one tone and the
+   hairline takes the clinic's colour, so the card that is about to be clicked is the one
+   that is obviously different rather than the one that is obviously moving. Cheaper, too
+   — neither property forces a composite layer. */
+a.feat-card:hover {
+  background: var(--surface-2);
+  border-color: color-mix(in srgb, var(--brand-primary) 34%, var(--hairline));
+  box-shadow: var(--shadow-md);
+}
 
 /* ==================== LISTS, SPLITS, MOCKUP ==================== */
 
@@ -919,12 +939,19 @@ a.feat-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
 
 /* A browser-chrome frame for a screenshot or a small piece of live-looking UI. Three
    dots and a body, no titles or URLs: this is a suggestion of an app, not a mock of
-   one, and a fake address bar invites the patient to read it. */
+   one, and a fake address bar invites the patient to read it.
+
+   --shadow-lift, WHICH WAS DEFINED IN BOTH THEMES AND USED BY NOTHING. It is the one
+   shadow in the layer with a long offset and a deep negative spread — 18px down, 44px
+   of blur, pulled back 22px — which is the shape a shadow has to be to read as an object
+   held ABOVE a page rather than as fog behind it. This frame is the only thing on any of
+   these surfaces that is meant to look held, and it was borrowing --shadow-pop, the
+   popover shadow, whose job is to say "in front of" and not "above". */
 .mockup {
   background: var(--surface);
   border: 1px solid var(--hairline);
   border-radius: var(--sr-lg);
-  box-shadow: var(--shadow-pop);
+  box-shadow: var(--shadow-lift);
   padding: 8px;
 }
 .mockup__bar { display: flex; gap: 6px; padding: 11px 13px; }
