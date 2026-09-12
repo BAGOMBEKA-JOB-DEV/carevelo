@@ -268,6 +268,16 @@
 .site-root .btn { border-radius: var(--sr-pill); font-weight: 600; }
 .site-root .btn-lg { min-height: 52px; padding: 0 30px; font-size: var(--text-md); }
 .site-btn-row { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
+/* ONCE THEY STACK, THEY MATCH. Above this width the two calls to action sit side by side
+   and each is as wide as its own label, which is right. Below it they wrap onto separate
+   lines — and two stacked pills of different widths, "Book a consultation" over the
+   narrower "See how it works", read as a layout that gave up rather than one that
+   decided. This is the first thing a patient sees on a phone, which is how most of them
+   arrive. Stretching them is also the larger tap target on the smaller screen. */
+@media (max-width: 560px) {
+  .site-btn-row { align-items: stretch; }
+  .site-btn-row > .btn { width: 100%; }
+}
 
 .site-textlink {
   color: var(--brand-primary);
@@ -982,7 +992,9 @@ a.feat-card:hover {
 .mockup__body {
   background: var(--surface-2);
   border: 1px solid var(--hairline-soft);
-  border-radius: 16px;
+  /* Was a literal 16px, which was --sr's value when this was written. --sr is 18px now, so
+     the inner corner had quietly stopped matching the frame it sits inside. */
+  border-radius: var(--sr);
   padding: 20px;
 }
 

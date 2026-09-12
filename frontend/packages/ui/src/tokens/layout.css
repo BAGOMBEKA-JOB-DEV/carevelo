@@ -113,7 +113,11 @@
 .topbar {
   display: flex; align-items: center; gap: var(--space-4);
   height: var(--top-h);
-  padding: 0 var(--space-6);
+  /* THE SAME INSET AS `.content` BELOW, AT BOTH WIDTHS, BECAUSE THE TOPBAR TITLE AND THE
+     PAGE HEADING SIT IN A VERTICAL LINE AND HAVE TO START AT THE SAME x. They matched at
+     desktop and did not on a phone — 20px here against `.content`'s 12px — so the page's
+     own <h1> sat 8px left of the title naming the same screen directly above it. */
+  padding: 0 var(--space-7);
   background: var(--topbar-bg);
   color: var(--topbar-ink);
   position: sticky; top: 0; z-index: 20;
@@ -126,9 +130,15 @@
    the clinic is the customer. Capped so a tall logo cannot push the band open. */
 .topbar__logo { max-height: 30px; width: auto; }
 
-.content { padding: var(--space-7) var(--space-6); max-width: var(--maxw); width: 100%; }
+/* An even inset, where it was 28px top and bottom against 20px each side. A content column
+   with less room at its sides than above it reads cramped at exactly the width it has most
+   room to spare, and 28px is also `.card`'s own padding — so a card's contents and the
+   page's contents now sit on the same two vertical lines. */
+.content { padding: var(--space-7); max-width: var(--maxw); width: 100%; }
 @media (max-width: 700px) {
-  .content { padding: var(--space-5) var(--space-4); }
+  .content { padding: var(--space-5); }
+  /* Kept in step with the topbar above it; see the note there. */
+  .topbar { padding: 0 var(--space-5); }
 }
 
 /* ---- Mobile bottom navigation ---- */
